@@ -106,6 +106,13 @@ public class ConjunctiveQueryDecomposer {
 	}
 
 	public Node addCQToDAG(Node root, NodeHashValues hashes) {
+		
+		if(initialQuery.getJoinNode()!=null){
+			Node tempParent = makeNodeFinal(initialQuery.getJoinNode(), hashes);
+			root.addChild(tempParent);
+			String a=tempParent.dotPrint();
+			return tempParent;
+		}
 
 		// columnsToSubqueries tracks from which temporary table we take each
 		// column of the initial query

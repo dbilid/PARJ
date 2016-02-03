@@ -67,7 +67,7 @@ public class WhereClauseVisitor extends AbstractVisitor {
     }
 
     @Override public boolean skipChildren(Visitable node) {
-        return FromSubquery.class.isInstance(node) || (node instanceof JoinNode && hasVisitedJoin)
+        return FromSubquery.class.isInstance(node) || (node instanceof JoinNode )
             || (node instanceof OrNode);
     }
 

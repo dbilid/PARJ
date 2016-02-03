@@ -13,6 +13,7 @@ import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
 import madgik.exareme.master.queryProcessor.decomposer.query.QueryUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
+import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import org.apache.log4j.Logger;
 
@@ -33,11 +34,11 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
 
         if (node instanceof JoinNode) {
-            if (query.getJoinType() == null) {
-            	//query.setJoinNode(getJoinNode((JoinNode) node));
-                decomposeJoinNode((JoinNode) node);
-                WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
-                node.accept(whereVisitor);
+            if (query.getJoinNode() == null) {
+            	query.setJoinNode(getJoinNode((JoinNode) node));
+                //decomposeJoinNode((JoinNode) node);
+                //WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
+                //node.accept(whereVisitor);
             }
 
         }
@@ -147,7 +148,9 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(left instanceof JoinNode){
-			
+			Node n=getJoinNode((JoinNode)left);
+			j.addChild(n);
+			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
 		else{
 			System.err.println("error in join, unknown child type");
@@ -173,22 +176,43 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(right instanceof JoinNode){
-			
+			Node n=getJoinNode((JoinNode)right);
+			j.addChild(n);
+			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
 		else{
 			System.err.println("error in join, unknown child type");
 		}
 		
-		Operand o=QueryUtils.getOperandFromNode(node.getJoinClause());
-		if(o instanceof NonUnaryWhereCondition){
-			NonUnaryWhereCondition nuwc=(NonUnaryWhereCondition)o;
-			j.setObject(nuwc);
+		//Operand o=QueryUtils.getOperandFromNode(node.getJoinClause());
+		if(node.getJoinClause() instanceof BinaryRelationalOperatorNode) {
+            BinaryRelationalOperatorNode binOp = (BinaryRelationalOperatorNode) node.getJoinClause();
+            // Do nothing in the inner nodes of the tree
+            Operand leftOp = QueryUtils.getOperandFromNode(binOp.getLeftOperand());
+            Operand rightOp = QueryUtils.getOperandFromNode(binOp.getRightOperand());
+            j.setObject(new NonUnaryWhereCondition(leftOp, rightOp, binOp.getOperator())); 
 		}
 		else{
 			System.err.println("other join condition!");
 		}
 		
-		return j;
+		Node parent = new Node(Node.OR);
+
+		Table selt = new Table("table" + Util.createUniqueId(), null);
+		parent.setObject(selt);
+		parent.addChild(j);
+
+		if (!hashes.containsKey(parent.getHashId())) {
+			parent.addAllDescendantBaseTables(j.getDescendantBaseTables());
+			hashes.put(parent.getHashId(), parent);
+			// selection.addChild(table);
+
+		} else {
+			parent = hashes.get(parent.getHashId());
+
+		}
+		
+		return parent;
 	}
 
 	@Override public boolean skipChildren(Visitable node) {

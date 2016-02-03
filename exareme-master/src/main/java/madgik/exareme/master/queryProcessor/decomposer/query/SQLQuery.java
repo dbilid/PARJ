@@ -1917,4 +1917,8 @@ public class SQLQuery {
 		this.joinNode=join;
 		
 	}
+
+	public Node getJoinNode() {
+		return this.joinNode;
+	}
 }
