@@ -11,6 +11,7 @@ import madgik.exareme.master.engine.AdpDBManagerLocator;
 import madgik.exareme.master.gateway.ExaremeGatewayUtils;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
+import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoReaderDB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoWriterDB;
@@ -307,13 +308,17 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 						SQLQuery squery;
 						try {
 							log.debug("Parsing SQL Query ...");
-							squery = SQLQueryParser.parse(query.substring(8, query.length()));
-							QueryDecomposer d = new QueryDecomposer(squery, path, workers, nse);
+							NodeHashValues hashes=new NodeHashValues();
+							hashes.setSelectivityEstimator(nse);
+							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes);
+							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
 							d.setN2a(n2a);
 							log.debug("SQL Query Decomposing ...");
 							log.debug("Number of workers: " + workers);
 							d.setImportExternal(false);
 							subqueries = d.getSubqueries();
+							nse=null;
+							hashes=null;
 							ArrayList<ArrayList<String>> schema = new ArrayList<ArrayList<String>>();
 							// ArrayList<String> typenames=new
 							// ArrayList<String>();
@@ -429,8 +434,10 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 						SQLQuery squery;
 						try {
 							log.debug("Parsing SQL Query ...");
-							squery = SQLQueryParser.parse(query);
-							QueryDecomposer d = new QueryDecomposer(squery, path, workers, nse);
+							NodeHashValues hashes=new NodeHashValues();
+							hashes.setSelectivityEstimator(nse);
+							squery = SQLQueryParser.parse(query, hashes);
+							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
 							n2a=DBInfoReaderDB.readAliases(path);
 							d.setN2a(n2a);
 							log.debug("n2a:"+n2a.toString());
@@ -443,6 +450,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							squery=null;
 							d=null;
 							nse=null;
+							hashes=null;
 							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", false, false, false,
 									-1, 10, null);
 							AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);

@@ -5,7 +5,15 @@ package madgik.exareme.master.queryProcessor.decomposer.query.visitors;
 
 import com.foundationdb.sql.StandardException;
 import com.foundationdb.sql.parser.*;
+
+import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
+import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
+import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
+import madgik.exareme.master.queryProcessor.decomposer.query.QueryUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
+import madgik.exareme.master.queryProcessor.decomposer.query.Table;
+
 import org.apache.log4j.Logger;
 
 /**
@@ -14,9 +22,11 @@ import org.apache.log4j.Logger;
 public class SQLQueryVisitor extends AbstractVisitor {
 
     private boolean stop = false;
+    private NodeHashValues hashes;
 
-    public SQLQueryVisitor(SQLQuery query) {
+    public SQLQueryVisitor(SQLQuery query, NodeHashValues h) {
         super(query);
+        hashes=h;
     }
 
     @Override public Visitable visit(Visitable node) throws StandardException {
@@ -24,6 +34,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
         if (node instanceof JoinNode) {
             if (query.getJoinType() == null) {
+            	//query.setJoinNode(getJoinNode((JoinNode) node));
                 decomposeJoinNode((JoinNode) node);
                 WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
                 node.accept(whereVisitor);
@@ -81,7 +92,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
                         SQLQuery nestedSelectSubquery = new SQLQuery();
                         //query.readDBInfo();
-                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery);
+                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery, hashes);
                         nestedSelectNode.accept(subqueryVisitor);
 
                         this.query.addNestedSelectSubquery(nestedSelectSubquery, alias);
@@ -105,7 +116,82 @@ public class SQLQueryVisitor extends AbstractVisitor {
         return node;
     }
 
-    @Override public boolean skipChildren(Visitable node) {
+    private Node getJoinNode(JoinNode node) {
+		Node j=new Node(Node.AND, Node.JOIN);
+		if(node instanceof HalfOuterJoinNode){
+			HalfOuterJoinNode outer=(HalfOuterJoinNode)node;
+			if(outer.isRightOuterJoin()){
+				j.setOperator(Node.RIGHTJOIN);
+			}
+			else{
+				j.setOperator(Node.LEFTJOIN);
+			}
+		}
+		ResultSetNode left=node.getLogicalLeftResultSet();
+		if(left instanceof FromBaseTable){
+			FromBaseTable bt=(FromBaseTable)left;
+			Table t=new Table(bt.getOrigTableName().getTableName(), bt.getExposedName());
+			Node table = new Node(Node.OR);
+			table.addDescendantBaseTable(t.getAlias());
+
+			table.setObject(t);
+			if (!hashes.containsKey(table.getHashId())) {
+
+				// table.setHashID(Objects.hash(t.getName()));
+				// table.setIsBaseTable(true);
+				hashes.put(table.getHashId(), table);
+			} else {
+				table = hashes.get(table.getHashId());
+			}
+			j.addChild(table);
+			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
+		}
+		else if(left instanceof JoinNode){
+			
+		}
+		else{
+			System.err.println("error in join, unknown child type");
+		}
+		
+		ResultSetNode right=node.getLogicalRightResultSet();
+		if(right instanceof FromBaseTable){
+			FromBaseTable bt=(FromBaseTable)right;
+			Table t=new Table(bt.getOrigTableName().getTableName(), bt.getExposedName());
+			Node table = new Node(Node.OR);
+			table.addDescendantBaseTable(t.getAlias());
+
+			table.setObject(t);
+			if (!hashes.containsKey(table.getHashId())) {
+
+				// table.setHashID(Objects.hash(t.getName()));
+				// table.setIsBaseTable(true);
+				hashes.put(table.getHashId(), table);
+			} else {
+				table = hashes.get(table.getHashId());
+			}
+			j.addChild(table);
+			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
+		}
+		else if(right instanceof JoinNode){
+			
+		}
+		else{
+			System.err.println("error in join, unknown child type");
+		}
+		
+		Operand o=QueryUtils.getOperandFromNode(node.getJoinClause());
+		if(o instanceof NonUnaryWhereCondition){
+			NonUnaryWhereCondition nuwc=(NonUnaryWhereCondition)o;
+			j.setObject(nuwc);
+		}
+		else{
+			System.err.println("other join condition!");
+		}
+		
+		return j;
+	}
+
+	@Override public boolean skipChildren(Visitable node) {
         return FromSubquery.class.isInstance(node) || (node instanceof JoinNode
             && query.getJoinType() != null);
     }
@@ -118,8 +204,8 @@ public class SQLQueryVisitor extends AbstractVisitor {
         SQLQuery leftSubquery = new SQLQuery();
         SQLQuery rightSubquery = new SQLQuery();
         //query.readDBInfo();
-        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery);
-        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery);
+        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery, hashes);
+        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery, hashes);
 
         if (uNode.getResultColumns() != null) {
             //uNode.getResultColumns().accept(leftVisitor);
@@ -130,7 +216,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getLeftResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getLeftResultSet());
             } else if (uNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
                 uNode.getLeftResultSet().accept(v);
                 this.query.getUnionqueries().add(leftSubquery);
             } else {
@@ -143,7 +229,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getRightResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getRightResultSet());
             } else if (uNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
                 uNode.getRightResultSet().accept(v);
                 this.query.getUnionqueries().add(rightSubquery);
             } else {
@@ -171,12 +257,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             // for now we only consider that the join operators are base tables or nested joins
             if (jNode.getLeftResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getLeftResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
                 fs.getSubquery().accept(v);
                 this.query.setLeftJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
                 jNode.getLeftResultSet().accept(v);
                 //leftSubquery.setSelectAll(true);
             } else if (jNode.getLeftResultSet() instanceof FromBaseTable) {
@@ -221,12 +307,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             //for now we only consider that the join operators are base tables or nested joins
             if (jNode.getRightResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getRightResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
                 fs.getSubquery().accept(v);
                 this.query.setRightJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
                 jNode.getRightResultSet().accept(v);
                 //rightSubquery.setSelectAll(true);
             } else if (jNode.getRightResultSet() instanceof FromBaseTable) {

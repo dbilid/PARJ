@@ -51,7 +51,7 @@ public class QueryDecomposer {
     private String db;
     private Memo memo;
     private Map<String, Set<String>> refCols;
-    private NodeSelectivityEstimator nse;
+    //private NodeSelectivityEstimator nse;
     private Map<Node, Double> limits;
     private boolean addAliases;
     private boolean importExternal;
@@ -64,7 +64,7 @@ public class QueryDecomposer {
     }
 
     public QueryDecomposer(SQLQuery initial, String database, int noOfPartitions,
-        NodeSelectivityEstimator nse) {
+        NodeHashValues h) {
         result = new ArrayList<SQLQuery>();
         this.initialQuery = initial;
         this.noOfparts = noOfPartitions;
@@ -95,9 +95,9 @@ public class QueryDecomposer {
         root = new Node(Node.OR);
         root.setObject(new Table("table" + Util.createUniqueId(), null));
         root.addChild(union);
-        this.nse = nse;
-        hashes = new NodeHashValues();
-        hashes.setSelectivityEstimator(nse);
+        //this.nse = nse;
+        hashes = h;
+        //hashes.setSelectivityEstimator(nse);
         this.projectRefCols = DecomposerUtils.PROJECT_REF_COLS;
         multiOpt = DecomposerUtils.MULTI;
         centralizedExecution = DecomposerUtils.CENTRALIZED;
@@ -129,7 +129,7 @@ public class QueryDecomposer {
 				List<SQLQuery>res=new ArrayList<SQLQuery>();
 				SQLQuery finalUnion=new SQLQuery();
 				for(SQLQuery u:initialQuery.getUnionqueries()){
-					QueryDecomposer d = new QueryDecomposer(u, this.db, this.noOfparts, this.nse);
+					QueryDecomposer d = new QueryDecomposer(u, this.db, this.noOfparts, hashes);
 					for(SQLQuery q2:d.getSubqueries()){
 						res.add(q2);
 						if(!q2.isTemporary()){
@@ -230,9 +230,9 @@ public class QueryDecomposer {
 		if (projectRefCols) {
 			createProjections(root);
 		}
-		//String a = root.dotPrint();
+		String a = root.dotPrint();
 		expandDAG(root);
-		//String a2 = root.dotPrint();
+		String a2 = root.dotPrint();
 		//int no=root.count(0);
 		if(this.initialQuery.getLimit()>-1){
 			Node limit = new Node(Node.AND, Node.LIMIT);

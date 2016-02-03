@@ -41,6 +41,8 @@ public class Node {
 	public static final int UNIONALL = 14;
 	public static final int NESTED = 15;
 	public static final int BASEPROJECT = 16;
+	public static final int LEFTJOIN = 17;
+	public static final int RIGHTJOIN = 18;
 	// private boolean isBaseTable;
 	private int type;
 	private int prunningCounter;

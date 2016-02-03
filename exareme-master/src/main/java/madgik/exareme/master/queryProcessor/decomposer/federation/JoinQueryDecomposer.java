@@ -113,7 +113,7 @@ class JoinQueryDecomposer {
             return q;
         } else {
             if (q.getLeftJoinTable() == null) {
-                QueryDecomposer d = new QueryDecomposer(q, this.database, this.partNo, nse);
+                QueryDecomposer d = new QueryDecomposer(q, this.database, this.partNo, null);
                 List<SQLQuery> subqueries=null;
 				try {
 					subqueries = d.getSubqueries();

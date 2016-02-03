@@ -79,7 +79,7 @@ public class Util {
 		for (String q : queries) {
 			SQLQuery query = new SQLQuery();
 			try {
-				query = SQLQueryParser.parse(q);
+				query = SQLQueryParser.parse(q, null);
 			} catch (Exception e) {
 				log.error("Could not generate analyze commands."
 						+ e.getMessage());

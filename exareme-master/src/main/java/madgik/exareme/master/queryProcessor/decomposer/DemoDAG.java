@@ -1,5 +1,13 @@
 package madgik.exareme.master.queryProcessor.decomposer;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStream;
+
+import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoReaderDB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
 import madgik.exareme.master.queryProcessor.decomposer.federation.QueryDecomposer;
@@ -64,9 +72,13 @@ public class DemoDAG {
 			"((QVIEW6.\"wlbTotalCoreLength\" > 50) AND (QVIEW2.\"wlbCompletionYear\" >= 2008))) SUB";
 	
 	public static void main(String[] args) throws Exception {
+		String leftjoinsimple="select a.id from A a left join B b on a.id=b.id and b.id>2";
 		
-		SQLQuery query = SQLQueryParser.parse(queryExample);
-		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 1, null);
+		String file = readFile("/home/dimitris/example.sql");
+		NodeHashValues hashes=new NodeHashValues();
+		hashes.setSelectivityEstimator(null);
+		SQLQuery query = SQLQueryParser.parse(leftjoinsimple, hashes);
+		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 1, hashes);
 		
 		d.setN2a(new NamesToAliases());
 		
@@ -75,6 +87,20 @@ public class DemoDAG {
 		}
 		
 
+	}
+	
+	private static String readFile(String file) throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(file));
+		String line = null;
+		StringBuilder stringBuilder = new StringBuilder();
+		String ls = System.getProperty("line.separator");
+
+		while ((line = reader.readLine()) != null) {
+			stringBuilder.append(line);
+			stringBuilder.append(ls);
+		}
+		reader.close();
+		return stringBuilder.toString();
 	}
 
 }

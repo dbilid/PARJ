@@ -64,6 +64,8 @@ public class SQLQuery {
 
 	private boolean existsInCache;
 
+	private Node joinNode;
+
 	public SQLQuery() {
 		super();
 		temporaryTableName = "table" + Util.createUniqueId();
@@ -86,6 +88,7 @@ public class SQLQuery {
 		partitionColumn = null;
 		isNested = false;
 		existsInCache = false;
+		joinNode=null;
 	}
 
 	public String toDistSQL() {
@@ -1908,5 +1911,10 @@ public class SQLQuery {
 		}
 		log.debug("sending oracle corresponding columns:" + result);
 		return result;
+	}
+
+	public void setJoinNode(Node join) {
+		this.joinNode=join;
+		
 	}
 }
