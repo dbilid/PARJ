@@ -110,7 +110,7 @@ public class ConjunctiveQueryDecomposer {
 		if(initialQuery.getJoinNode()!=null){
 			Node tempParent = makeNodeFinal(initialQuery.getJoinNode(), hashes);
 			root.addChild(tempParent);
-			String a=tempParent.dotPrint();
+			//String a=tempParent.dotPrint();
 			return tempParent;
 		}
 

@@ -15,6 +15,9 @@ import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.log4j.Logger;
 
 /**
@@ -183,18 +186,9 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		else{
 			System.err.println("error in join, unknown child type");
 		}
+		//List<Operand> joinConditions=new ArrayList<Operand>();
+		j.setObject(QueryUtils.getOperandFromNode(node.getJoinClause()));
 		
-		//Operand o=QueryUtils.getOperandFromNode(node.getJoinClause());
-		if(node.getJoinClause() instanceof BinaryRelationalOperatorNode) {
-            BinaryRelationalOperatorNode binOp = (BinaryRelationalOperatorNode) node.getJoinClause();
-            // Do nothing in the inner nodes of the tree
-            Operand leftOp = QueryUtils.getOperandFromNode(binOp.getLeftOperand());
-            Operand rightOp = QueryUtils.getOperandFromNode(binOp.getRightOperand());
-            j.setObject(new NonUnaryWhereCondition(leftOp, rightOp, binOp.getOperator())); 
-		}
-		else{
-			System.err.println("other join condition!");
-		}
 		
 		Node parent = new Node(Node.OR);
 

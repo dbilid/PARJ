@@ -1965,7 +1965,15 @@ public class QueryDecomposer {
 					return null;
 				}
 			}
-		} else {
+		}
+		else if(o.getOpCode() == Node.LEFTJOIN){
+			if (o.getChildren().size() == 1) {
+				// filter join
+				return null;
+			}
+			return QueryUtils.getJoinColumnFromOperand((Operand)o.getObject(), i);
+		}
+		else {
 			return null;
 		}
 	}

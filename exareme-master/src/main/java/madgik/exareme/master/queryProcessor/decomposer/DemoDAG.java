@@ -72,13 +72,13 @@ public class DemoDAG {
 			"((QVIEW6.\"wlbTotalCoreLength\" > 50) AND (QVIEW2.\"wlbCompletionYear\" >= 2008))) SUB";
 	
 	public static void main(String[] args) throws Exception {
-		String leftjoinsimple="select a.id from A a left join ( B b left join C c on b.id=c.id)  on a.id=b.id";
+		String leftjoinsimple="select a.id from A a left join ( B b left join C c on b.id=c.id and b.n is not null)  on a.id=b.id";
 		
 		String file = readFile("/home/dimitris/example.sql");
 		NodeHashValues hashes=new NodeHashValues();
 		hashes.setSelectivityEstimator(null);
 		SQLQuery query = SQLQueryParser.parse(leftjoinsimple, hashes);
-		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 1, hashes);
+		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 2, hashes);
 		
 		d.setN2a(new NamesToAliases());
 		

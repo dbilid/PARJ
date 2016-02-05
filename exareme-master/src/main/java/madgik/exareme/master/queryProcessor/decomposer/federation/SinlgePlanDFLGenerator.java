@@ -24,14 +24,11 @@ public class SinlgePlanDFLGenerator {
 	private Memo memo;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private NamesToAliases n2a;
-	private final boolean useCache = AdpDBProperties.getAdpDBProps()
-			.getBoolean("db.cache");
+	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 
-	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger
-			.getLogger(SinlgePlanDFLGenerator.class);
+	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
-	SinlgePlanDFLGenerator(Node n, int partNo, Memo m,
-			Map<HashCode, madgik.exareme.common.schema.Table> r) {
+	SinlgePlanDFLGenerator(Node n, int partNo, Memo m, Map<HashCode, madgik.exareme.common.schema.Table> r) {
 		this.root = n;
 		this.partitionNo = partNo;
 		this.memo = m;
@@ -45,15 +42,11 @@ public class SinlgePlanDFLGenerator {
 		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
 		if (partitionNo == 1) {
-			combineOperatorsAndOutputQueriesCentralized(rootkey, qs,
-					new HashMap<MemoKey, SQLQuery>());
-		} else if(DecomposerUtils.PUSH_PROCESSING){
-			combineOperatorsAndOutputQueriesPush(rootkey, qs,
-					new HashMap<MemoKey, SQLQuery>(), false);
-		}
-		else{
-			combineOperatorsAndOutputQueries(rootkey, qs,
-					new HashMap<MemoKey, SQLQuery>());
+			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+		} else if (DecomposerUtils.PUSH_PROCESSING) {
+			combineOperatorsAndOutputQueriesPush(rootkey, qs, new HashMap<MemoKey, SQLQuery>(), false);
+		} else {
+			combineOperatorsAndOutputQueries(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
 		}
 
 		// for (SQLQuery q : qs) {
@@ -62,8 +55,7 @@ public class SinlgePlanDFLGenerator {
 
 		if (qs.isEmpty()) {
 			if (useCache && registry.containsKey(rootkey.getNode().getHashId())) {
-				String tableInCache = registry.get(
-						rootkey.getNode().getHashId()).getName();
+				String tableInCache = registry.get(rootkey.getNode().getHashId()).getName();
 				SQLQuery res = new SQLQuery();
 				res.addInputTable(new Table(tableInCache, tableInCache));
 				res.setExistsInCache(true);
@@ -72,11 +64,11 @@ public class SinlgePlanDFLGenerator {
 				log.error("Decomposer produced empty result");
 			}
 		} /*
-		 * else {
-		 * 
-		 * for (int i = 0; i < qs.size(); i++) { if (qs.get(i).existsInCache())
-		 * { qs.remove(i); i--; } } }
-		 */
+			 * else {
+			 * 
+			 * for (int i = 0; i < qs.size(); i++) { if
+			 * (qs.get(i).existsInCache()) { qs.remove(i); i--; } } }
+			 */
 
 		/*
 		 * for (int i = 0; i < qs.size(); i++) { SQLQuery q = qs.get(i); if
@@ -99,28 +91,26 @@ public class SinlgePlanDFLGenerator {
 		 * !output.toUpperCase().equals("NULL") &&
 		 * !output.toUpperCase().equals("NUMERIC") &&
 		 * !output.toUpperCase().equals("TEXT")) { q.addOutput(t.getAlias(),
-		 * output); } } found = true; break; } } } if(!found){
-		 * log.error("Input table not found:"+t.getName()); }
+		 * output); } } found = true; break; } } } if(!found){ log.error(
+		 * "Input table not found:"+t.getName()); }
 		 * 
 		 * } } }
 		 */
 
 		// remove not needed columns from nested subqueries
-		
+
 		if (DecomposerUtils.REMOVE_OUTPUTS) {
-			for (int i = 0; i < qs.size()-1; i++) {
+			for (int i = 0; i < qs.size() - 1; i++) {
 				SQLQuery q = qs.get(i);
 				if (q.isNested() && qs.size() > 1) {
 					List<Column> outputs = new ArrayList<Column>();
 					for (Output o : q.getOutputs()) {
-						outputs.add(new Column(q.getTemporaryTableName(), o
-								.getOutputName()));
+						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
 					}
 					for (int j = i + 1; j < qs.size(); j++) {
 						List<Column> cols = qs.get(j).getAllColumns();
 						for (Column c2 : cols) {
-							outputs.remove(new Column(c2.getAlias(), c2
-									.getBaseTable() + "_" + c2.getName()));
+							outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
 						}
 						if (outputs.isEmpty()) {
 							break;
@@ -147,8 +137,7 @@ public class SinlgePlanDFLGenerator {
 		if (this.memo.containsMemoKey(key)) {
 			System.out.println("memo key: " + key);
 
-			System.out.println("mater::"
-					+ memo.getMemoValue(key).isMaterialised());
+			System.out.println("mater::" + memo.getMemoValue(key).isMaterialised());
 			// System.out.println("plan: " +
 			// memo.getMemoValue(key).getPlan().getPath().toString());
 			System.out.println("reps: ");
@@ -162,9 +151,7 @@ public class SinlgePlanDFLGenerator {
 			// }
 			System.out.println("repBef:" + r);
 			for (int i = 0; i < 2; i++) {
-				System.out.println("repAfter:"
-						+ memo.getMemoValue(key).getPlan()
-								.getRepartitionAfterOp(i));
+				System.out.println("repAfter:" + memo.getMemoValue(key).getPlan().getRepartitionAfterOp(i));
 			}
 			for (int i = 0; i < 99999999; i++) {
 				MemoKey p2;
@@ -182,16 +169,15 @@ public class SinlgePlanDFLGenerator {
 
 	}
 
-	private void combineOperatorsAndOutputQueries(MemoKey k,
-			ResultList tempResult, HashMap<MemoKey, SQLQuery> visited) {
+	private void combineOperatorsAndOutputQueries(MemoKey k, ResultList tempResult,
+			HashMap<MemoKey, SQLQuery> visited) {
 
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
 
-		if (useCache && registry.containsKey(e.getHashId())
-				&& e.getHashId() != null) {
+		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			String tableInRegistry = registry.get(e.getHashId()).getName();
 			Table t = new Table(tableInRegistry, tableInRegistry);
 			tempResult.setLastTable(t);
@@ -215,8 +201,7 @@ public class SinlgePlanDFLGenerator {
 
 			tempResult.remove(current);
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			return;
 		}
@@ -225,7 +210,7 @@ public class SinlgePlanDFLGenerator {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
 			visited.put(k, current);
-			
+
 			if (memo.getMemoValue(k).isMaterialised()) {
 				current.setMaterialised(true);
 				current.setHashId(e.getHashId());
@@ -233,8 +218,8 @@ public class SinlgePlanDFLGenerator {
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
 		}
-		Column repBefore=null;
-		if(p.getRepartitionBeforeOp()!=null){
+		Column repBefore = null;
+		if (p.getRepartitionBeforeOp() != null) {
 			repBefore = new Column(null, p.getRepartitionBeforeOp().getName(), p.getRepartitionBeforeOp().getAlias());
 		}
 		Node op = e.getChildAt(p.getChoice());
@@ -254,8 +239,7 @@ public class SinlgePlanDFLGenerator {
 			current.setPartition(repBefore);
 		}
 
-		if (op.getOpCode() == Node.PROJECT
-				|| op.getOpCode() == Node.BASEPROJECT) {
+		if (op.getOpCode() == Node.PROJECT || op.getOpCode() == Node.BASEPROJECT) {
 			String inputName;
 
 			Projection prj = (Projection) op.getObject();
@@ -272,8 +256,7 @@ public class SinlgePlanDFLGenerator {
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
 
-			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult,
-					visited);
+			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			// visited.put(p.getInputPlan(j), q2);
 
 			if (op.getOpCode() == Node.PROJECT) {
@@ -296,19 +279,14 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 								}
 							}
 						}
@@ -319,35 +297,25 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.JOIN) {
-			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op
-					.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-					nuwc.getLeftOp(), nuwc.getRightOp(), nuwc.getOperator());
+			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
+			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
+					nuwc.getOperator());
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
-				combineOperatorsAndOutputQueries(p.getInputPlan(j), tempResult,
-						visited);
+				combineOperatorsAndOutputQueries(p.getInputPlan(j), tempResult, visited);
 				inputNames.add(tempResult.getLastTable().getAlias());
-				if (tempResult.getLastTable().getAlias() != current
-						.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
-								if (op.getChildAt(j).isDescendantOfBaseTable(
-										c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+								if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 								}
 							}
 						}
@@ -356,8 +324,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			for (NonUnaryWhereCondition bwc : current
-					.getBinaryWhereConditions()) {
+			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
 					for (Operand o : bwc.getOperands()) {
@@ -366,14 +333,9 @@ public class SinlgePlanDFLGenerator {
 						if (!cs.isEmpty()) {
 							// not constant
 							Column c = cs.get(0);
-							if (op.getChildAt(j).isDescendantOfBaseTable(
-									c.getAlias())) {
-								bwc.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
 							}
 						}
 
@@ -391,8 +353,7 @@ public class SinlgePlanDFLGenerator {
 			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
 			 */
 			// tempResult.add(current);
-		} else if (op.getOpCode() == Node.UNION
-				|| op.getOpCode() == Node.UNIONALL) {
+		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
 				current.setHashId(e.getHashId());
@@ -404,8 +365,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
-				combineOperatorsAndOutputQueries(p.getInputPlan(l), tempResult,
-						visited);
+				combineOperatorsAndOutputQueries(p.getInputPlan(l), tempResult, visited);
 				// visited.put(p.getInputPlan(l), u);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
@@ -457,9 +417,8 @@ public class SinlgePlanDFLGenerator {
 					// make all unions have the same number of partitions
 					for (SQLQuery u : unions) {
 						if (u.getPartition() == null) {
-							Column pt = new Column(u.getOutputs().get(0)
-									.getOutputName(), u.getOutputs().get(0)
-									.getOutputName());
+							Column pt = new Column(u.getOutputs().get(0).getOutputName(),
+									u.getOutputs().get(0).getOutputName());
 							u.setRepartition(pt, partitionNo);
 							u.setPartition(pt);
 						}
@@ -468,15 +427,13 @@ public class SinlgePlanDFLGenerator {
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0)
-						.setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
 			}
 		} else if (op.getOpCode() == Node.SELECT) {
-			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult,
-					visited);
+			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			String inputName = tempResult.getLastTable().getAlias();
 			Selection s = (Selection) op.getObject();
 			Iterator<Operand> it = s.getOperands().iterator();
@@ -484,7 +441,7 @@ public class SinlgePlanDFLGenerator {
 				Operand o = it.next();
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
-					UnaryWhereCondition uwcCloned=null;
+					UnaryWhereCondition uwcCloned = null;
 					try {
 						uwcCloned = uwc.clone();
 					} catch (CloneNotSupportedException e1) {
@@ -492,28 +449,18 @@ public class SinlgePlanDFLGenerator {
 					}
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
-						uwcCloned
-								.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+						uwcCloned.changeColumn(c,
+								new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 					}
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-							nuwc.getLeftOp(), nuwc.getRightOp(),
+					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
 							nuwc.getOperator());
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
-							nuwcCloned.changeColumn(
-									c,
-									new Column(
-											tempResult.getQueryForBaseTable(c
-													.getAlias()), c.getName(),
-											c.getAlias()));
+							nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+									c.getName(), c.getAlias()));
 						}
 					}
 					current.addBinaryWhereCondition(nuwcCloned);
@@ -524,23 +471,17 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-								o.getObject().changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
+								}
 							}
-						}
 						}
 
 					}
@@ -551,8 +492,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().getHashId());
-			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult,
-					visited);
+			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
 				current.addInputTable(tempResult.getLastTable());
@@ -564,10 +504,56 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
 			current.setNested(true);
-			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult,
-					visited);
+			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 
-		} else {
+		} 
+		else if (op.getOpCode() == Node.LEFTJOIN) {
+			Operand leftJoinOp = (Operand) op.getObject();
+			current.addJoinOperand(leftJoinOp);
+			current.setJoinType("left outer join");
+			List<String> inputNames = new ArrayList<String>();
+			for (int j = 0; j < op.getChildren().size(); j++) {
+
+				combineOperatorsAndOutputQueries(p.getInputPlan(j), tempResult, visited);
+				inputNames.add(tempResult.getLastTable().getAlias());
+				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
+					current.addInputTable(tempResult.getLastTable());
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
+					for (Output o : current.getOutputs()) {
+						for (Column c : o.getObject().getAllColumnRefs()) {
+							{
+								if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
+								}
+							}
+						}
+
+					}
+				}
+			}
+
+			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
+
+				for (int j = 0; j < op.getChildren().size(); j++) {
+					for (Operand o : bwc.getOperands()) {
+
+						List<Column> cs = o.getAllColumnRefs();
+						if (!cs.isEmpty()) {
+							// not constant
+							Column c = cs.get(0);
+							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
+							}
+						}
+
+					}
+				}
+			}
+		}
+		else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
@@ -576,8 +562,7 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(current);
 			current.setHashId(e.getHashId());
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			tempResult.setCurrent(old);
 		}
@@ -587,8 +572,8 @@ public class SinlgePlanDFLGenerator {
 
 	}
 
-	private void combineOperatorsAndOutputQueriesCentralized(MemoKey k,
-			ResultList tempResult, HashMap<MemoKey, SQLQuery> visited) {
+	private void combineOperatorsAndOutputQueriesCentralized(MemoKey k, ResultList tempResult,
+			HashMap<MemoKey, SQLQuery> visited) {
 
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
@@ -596,8 +581,7 @@ public class SinlgePlanDFLGenerator {
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
 
-		if (useCache && registry.containsKey(e.getHashId())
-				&& e.getHashId() != null) {
+		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			String tableInRegistry = registry.get(e.getHashId()).getName();
 			Table t = new Table(tableInRegistry, tableInRegistry);
 			tempResult.setLastTable(t);
@@ -632,8 +616,7 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(visited.get(k));
 			tempResult.remove(current);
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			return;
 		}
@@ -667,8 +650,7 @@ public class SinlgePlanDFLGenerator {
 			visited.put(k, current);
 		}
 
-		if (op.getOpCode() == Node.PROJECT
-				|| op.getOpCode() == Node.BASEPROJECT) {
+		if (op.getOpCode() == Node.PROJECT || op.getOpCode() == Node.BASEPROJECT) {
 			String inputName;
 
 			Projection prj = (Projection) op.getObject();
@@ -686,8 +668,7 @@ public class SinlgePlanDFLGenerator {
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
 
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0),
-					tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
 			if (op.getOpCode() == Node.PROJECT) {
 				// if we have a final result, remove previous projections
@@ -713,20 +694,15 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
 
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 								}
 							}
 						}
@@ -737,35 +713,25 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.JOIN) {
-			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op
-					.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-					nuwc.getLeftOp(), nuwc.getRightOp(), nuwc.getOperator());
+			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
+			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
+					nuwc.getOperator());
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j),
-						tempResult, visited);
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
 				inputNames.add(tempResult.getLastTable().getAlias());
-				if (tempResult.getLastTable().getAlias() != current
-						.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
-								if (op.getChildAt(j).isDescendantOfBaseTable(
-										c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+								if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 									// addOutputIfNotExists(c, tempResult);
 								}
 							}
@@ -775,8 +741,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			for (NonUnaryWhereCondition bwc : current
-					.getBinaryWhereConditions()) {
+			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
 					for (Operand o : bwc.getOperands()) {
@@ -786,14 +751,9 @@ public class SinlgePlanDFLGenerator {
 							// not constant
 							Column c = cs.get(0);
 
-							if (op.getChildAt(j).isDescendantOfBaseTable(
-									c.getAlias())) {
-								bwc.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
 								// addOutputIfNotExists(c, tempResult);
 							}
 						}
@@ -812,8 +772,7 @@ public class SinlgePlanDFLGenerator {
 			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
 			 */
 			// tempResult.add(current);
-		} else if (op.getOpCode() == Node.UNION
-				|| op.getOpCode() == Node.UNIONALL) {
+		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
 				current.setHashId(e.getHashId());
@@ -823,8 +782,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l),
-						tempResult, visited);
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
 					if (u == null && useCache) {
@@ -868,16 +826,14 @@ public class SinlgePlanDFLGenerator {
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0)
-						.setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
 			}
 
 		} else if (op.getOpCode() == Node.SELECT) {
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0),
-					tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			String inputName = tempResult.getLastTable().getAlias();
 			Selection s = (Selection) op.getObject();
 			Iterator<Operand> it = s.getOperands().iterator();
@@ -885,40 +841,31 @@ public class SinlgePlanDFLGenerator {
 				Operand o = it.next();
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
-					UnaryWhereCondition uwcCloned=null;
+					UnaryWhereCondition uwcCloned = null;
 					try {
 						uwcCloned = uwc.clone();
 					} catch (CloneNotSupportedException e1) {
 						e1.printStackTrace();
 					}
-					
+
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
 						if (op.isDescendantOfBaseTable(c.getAlias())) {
-							uwcCloned.changeColumn(
-									c,
-									new Column(
-											tempResult.getQueryForBaseTable(c
-													.getAlias()), c.getName(),
-											c.getAlias()));
+							uwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+									c.getName(), c.getAlias()));
 							// addOutputIfNotExists(c, tempResult);
 						}
 					}
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-							nuwc.getLeftOp(), nuwc.getRightOp(),
+					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
 							nuwc.getOperator());
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
 							if (op.isDescendantOfBaseTable(c.getAlias())) {
-								nuwcCloned.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+								nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
 								// addOutputIfNotExists(c, tempResult);
 							}
 						}
@@ -931,21 +878,15 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 									// addOutputIfNotExists(c, tempResult);
 								}
 							}
@@ -959,8 +900,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().getHashId());
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0),
-					tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
 				current.addInputTable(tempResult.getLastTable());
@@ -972,9 +912,69 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
 			current.setNested(true);
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0),
-					tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
+		}
+
+		else if (op.getOpCode() == Node.LEFTJOIN) {
+			Operand leftJoinOp = (Operand) op.getObject();
+			current.addJoinOperand(leftJoinOp);
+			current.setJoinType("left outer join");
+			List<String> inputNames = new ArrayList<String>();
+			for (int j = 0; j < op.getChildren().size(); j++) {
+
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
+				inputNames.add(tempResult.getLastTable().getAlias());
+				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
+					current.addInputTable(tempResult.getLastTable());
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
+					for (Output o : current.getOutputs()) {
+						for (Column c : o.getObject().getAllColumnRefs()) {
+							{
+								if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
+									// addOutputIfNotExists(c, tempResult);
+								}
+							}
+						}
+
+					}
+				}
+			}
+
+			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
+
+				for (int j = 0; j < op.getChildren().size(); j++) {
+					for (Operand o : bwc.getOperands()) {
+
+						List<Column> cs = o.getAllColumnRefs();
+						if (!cs.isEmpty()) {
+							// not constant
+							Column c = cs.get(0);
+
+							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
+								// addOutputIfNotExists(c, tempResult);
+							}
+						}
+
+					}
+				}
+			}
+			// }
+
+			/*
+			 * for (Output o : current.getOutputs()) { for (Column c :
+			 * o.getObject().getAllColumnRefs()) { { for (int j = 0; j <
+			 * op.getChildren().size(); j++) { Node child = op.getChildAt(j); if
+			 * (child.isDescendantOfBaseTable(c.getAlias())) {
+			 * o.getObject().changeColumn(c, new Column(inputNames.get(j),
+			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
+			 */
+			// tempResult.add(current);
 		} else {
 			log.error("Unknown Operator in DAG");
 		}
@@ -986,8 +986,7 @@ public class SinlgePlanDFLGenerator {
 			// }
 			current.setHashId(e.getHashId());
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			tempResult.setCurrent(old);
 		}
@@ -1020,14 +1019,10 @@ public class SinlgePlanDFLGenerator {
 					String[] outputs = schema.split(" ");
 					for (int m = 0; m < outputs.length; m++) {
 						String output = outputs[m];
-						if (!output.equals(" ") && !output.isEmpty()
-								&& !output.toUpperCase().equals("INTEGER")
-								&& !output.toUpperCase().equals("INT")
-								&& !output.toUpperCase().equals("NUM")
-								&& !output.toUpperCase().equals("REAL")
-								&& !output.toUpperCase().equals("BLOB")
-								&& !output.toUpperCase().equals("NULL")
-								&& !output.toUpperCase().equals("NUMERIC")
+						if (!output.equals(" ") && !output.isEmpty() && !output.toUpperCase().equals("INTEGER")
+								&& !output.toUpperCase().equals("INT") && !output.toUpperCase().equals("NUM")
+								&& !output.toUpperCase().equals("REAL") && !output.toUpperCase().equals("BLOB")
+								&& !output.toUpperCase().equals("NULL") && !output.toUpperCase().equals("NUMERIC")
 								&& !output.toUpperCase().equals("TEXT")) {
 							if (!current.getOutputAliases().contains(output)) {
 								current.addOutput(inputName, output);
@@ -1039,11 +1034,10 @@ public class SinlgePlanDFLGenerator {
 			}
 		}
 	}
-	
-	
-	private void combineOperatorsAndOutputQueriesPush(MemoKey k,
-			ResultList tempResult, HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) {
-		
+
+	private void combineOperatorsAndOutputQueriesPush(MemoKey k, ResultList tempResult,
+			HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) {
+
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
 		SinglePlan p = v.getPlan();
@@ -1054,27 +1048,25 @@ public class SinlgePlanDFLGenerator {
 
 			tempResult.remove(current);
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			return;
 		}
-		boolean toPushChildrenToEndpoint=pushToEndpoint;
-		if(!pushToEndpoint && canPushToEndpoint(v, e, visited)){
-			toPushChildrenToEndpoint=true;
-			if(!(e.getFirstParent()!=null&&e.getFirstParent().getOpCode()==Node.NESTED)){
-			v.setMaterialized(true);
-			SQLQuery q2 = new SQLQuery();
-			q2.setHashId(e.getHashId());
-			tempResult.setCurrent(q2);
-			current = q2;
-			current.setMaterialised(true);
+		boolean toPushChildrenToEndpoint = pushToEndpoint;
+		if (!pushToEndpoint && canPushToEndpoint(v, e, visited)) {
+			toPushChildrenToEndpoint = true;
+			if (!(e.getFirstParent() != null && e.getFirstParent().getOpCode() == Node.NESTED)) {
+				v.setMaterialized(true);
+				SQLQuery q2 = new SQLQuery();
+				q2.setHashId(e.getHashId());
+				tempResult.setCurrent(q2);
+				current = q2;
+				current.setMaterialised(true);
 			}
-			//visited.put(k, current);
+			// visited.put(k, current);
 		}
-		
-		if (useCache && registry.containsKey(e.getHashId())
-				&& e.getHashId() != null) {
+
+		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			String tableInRegistry = registry.get(e.getHashId()).getName();
 			Table t = new Table(tableInRegistry, tableInRegistry);
 			tempResult.setLastTable(t);
@@ -1093,13 +1085,11 @@ public class SinlgePlanDFLGenerator {
 			return;
 		}
 
-		
-
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
 			visited.put(k, current);
-			
+
 			if (memo.getMemoValue(k).isMaterialised()) {
 				current.setMaterialised(true);
 				current.setHashId(e.getHashId());
@@ -1107,32 +1097,31 @@ public class SinlgePlanDFLGenerator {
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
 		}
-		Column repBefore=null;
-		if(p.getRepartitionBeforeOp()!=null){
+		Column repBefore = null;
+		if (p.getRepartitionBeforeOp() != null) {
 			repBefore = new Column(null, p.getRepartitionBeforeOp().getName(), p.getRepartitionBeforeOp().getAlias());
 		}
 		Node op = e.getChildAt(p.getChoice());
-		
-		if (memo.getMemoValue(k).isMaterialised() ) {
-			if(!toPushChildrenToEndpoint){
-			SQLQuery q2 = new SQLQuery();
-			q2.setHashId(e.getHashId());
-			tempResult.setCurrent(q2);
-			current = q2;
-			current.setMaterialised(true);
+
+		if (memo.getMemoValue(k).isMaterialised()) {
+			if (!toPushChildrenToEndpoint) {
+				SQLQuery q2 = new SQLQuery();
+				q2.setHashId(e.getHashId());
+				tempResult.setCurrent(q2);
+				current = q2;
+				current.setMaterialised(true);
 			}
 			visited.put(k, current);
 		}
 
 		if (repBefore != null) {
-			if(!(pushToEndpoint&&current.getRepartition()!=null)){
-			current.setRepartition(repBefore, partitionNo);
-			current.setPartition(repBefore);
+			if (!(pushToEndpoint && current.getRepartition() != null)) {
+				current.setRepartition(repBefore, partitionNo);
+				current.setPartition(repBefore);
 			}
 		}
 
-		if (op.getOpCode() == Node.PROJECT
-				|| op.getOpCode() == Node.BASEPROJECT) {
+		if (op.getOpCode() == Node.PROJECT || op.getOpCode() == Node.BASEPROJECT) {
 			String inputName;
 
 			Projection prj = (Projection) op.getObject();
@@ -1149,8 +1138,7 @@ public class SinlgePlanDFLGenerator {
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
 
-			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult,
-					visited, toPushChildrenToEndpoint);
+			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 			// visited.put(p.getInputPlan(j), q2);
 
 			if (op.getOpCode() == Node.PROJECT) {
@@ -1173,19 +1161,14 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 								}
 							}
 						}
@@ -1196,35 +1179,25 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.JOIN) {
-			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op
-					.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-					nuwc.getLeftOp(), nuwc.getRightOp(), nuwc.getOperator());
+			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
+			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
+					nuwc.getOperator());
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
-				combineOperatorsAndOutputQueriesPush(p.getInputPlan(j), tempResult,
-						visited, toPushChildrenToEndpoint);
+				combineOperatorsAndOutputQueriesPush(p.getInputPlan(j), tempResult, visited, toPushChildrenToEndpoint);
 				inputNames.add(tempResult.getLastTable().getAlias());
-				if (tempResult.getLastTable().getAlias() != current
-						.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
-								if (op.getChildAt(j).isDescendantOfBaseTable(
-										c.getAlias())) {
-									o.getObject().changeColumn(
-											c,
-											new Column(tempResult
-													.getQueryForBaseTable(c
-															.getAlias()), c
-													.getName(), c.getAlias()));
+								if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 								}
 							}
 						}
@@ -1233,8 +1206,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			for (NonUnaryWhereCondition bwc : current
-					.getBinaryWhereConditions()) {
+			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
 					for (Operand o : bwc.getOperands()) {
@@ -1243,14 +1215,9 @@ public class SinlgePlanDFLGenerator {
 						if (!cs.isEmpty()) {
 							// not constant
 							Column c = cs.get(0);
-							if (op.getChildAt(j).isDescendantOfBaseTable(
-									c.getAlias())) {
-								bwc.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+										c.getName(), c.getAlias()));
 							}
 						}
 
@@ -1268,8 +1235,7 @@ public class SinlgePlanDFLGenerator {
 			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
 			 */
 			// tempResult.add(current);
-		} else if (op.getOpCode() == Node.UNION
-				|| op.getOpCode() == Node.UNIONALL) {
+		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
 				current.setHashId(e.getHashId());
@@ -1281,8 +1247,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
-				combineOperatorsAndOutputQueriesPush(p.getInputPlan(l), tempResult,
-						visited, false);
+				combineOperatorsAndOutputQueriesPush(p.getInputPlan(l), tempResult, visited, false);
 				// visited.put(p.getInputPlan(l), u);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
@@ -1335,9 +1300,8 @@ public class SinlgePlanDFLGenerator {
 					// make all unions have the same number of partitions
 					for (SQLQuery u : unions) {
 						if (u.getPartition() == null) {
-							Column pt = new Column(u.getOutputs().get(0)
-									.getOutputName(), u.getOutputs().get(0)
-									.getOutputName());
+							Column pt = new Column(u.getOutputs().get(0).getOutputName(),
+									u.getOutputs().get(0).getOutputName());
 							u.setRepartition(pt, partitionNo);
 							u.setPartition(pt);
 						}
@@ -1346,15 +1310,13 @@ public class SinlgePlanDFLGenerator {
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0)
-						.setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
 			}
 		} else if (op.getOpCode() == Node.SELECT) {
-			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult,
-					visited, toPushChildrenToEndpoint);
+			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 			String inputName = tempResult.getLastTable().getAlias();
 			Selection s = (Selection) op.getObject();
 			Iterator<Operand> it = s.getOperands().iterator();
@@ -1362,7 +1324,7 @@ public class SinlgePlanDFLGenerator {
 				Operand o = it.next();
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
-					UnaryWhereCondition uwcCloned=null;
+					UnaryWhereCondition uwcCloned = null;
 					try {
 						uwcCloned = uwc.clone();
 					} catch (CloneNotSupportedException e1) {
@@ -1370,28 +1332,18 @@ public class SinlgePlanDFLGenerator {
 					}
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
-						uwcCloned
-								.changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+						uwcCloned.changeColumn(c,
+								new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 					}
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(
-							nuwc.getLeftOp(), nuwc.getRightOp(),
+					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
 							nuwc.getOperator());
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
-							nuwcCloned.changeColumn(
-									c,
-									new Column(
-											tempResult.getQueryForBaseTable(c
-													.getAlias()), c.getName(),
-											c.getAlias()));
+							nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
+									c.getName(), c.getAlias()));
 						}
 					}
 					current.addBinaryWhereCondition(nuwcCloned);
@@ -1402,23 +1354,17 @@ public class SinlgePlanDFLGenerator {
 			if (tempResult.getLastTable() != null) {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(
-								tempResult.getLastTable())) {
+						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(),
-							tempResult);
+					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
 								if (op.isDescendantOfBaseTable(c.getAlias())) {
-								o.getObject().changeColumn(
-										c,
-										new Column(tempResult
-												.getQueryForBaseTable(c
-														.getAlias()), c
-												.getName(), c.getAlias()));
+									o.getObject().changeColumn(c, new Column(
+											tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
+								}
 							}
-						}
 						}
 
 					}
@@ -1429,8 +1375,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().getHashId());
-			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult,
-					visited, toPushChildrenToEndpoint);
+			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
 				current.addInputTable(tempResult.getLastTable());
@@ -1442,20 +1387,18 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
 			current.setNested(true);
-			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult,
-					visited, toPushChildrenToEndpoint);
+			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 
 		} else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
-		if (memo.getMemoValue(k).isMaterialised()&&!pushToEndpoint) {
+		if (memo.getMemoValue(k).isMaterialised() && !pushToEndpoint) {
 			tempResult.add(current);
 			tempResult.setLastTable(current);
 			current.setHashId(e.getHashId());
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tempResult
-						.getLastTable().getAlias());
+				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
 			tempResult.setCurrent(old);
 		}
@@ -1466,38 +1409,37 @@ public class SinlgePlanDFLGenerator {
 	}
 
 	private boolean canPushToEndpoint(MemoValue v, Node e, HashMap<MemoKey, SQLQuery> visited) {
-		if(e.getDescendantBaseTables().isEmpty()){
+		if (e.getDescendantBaseTables().isEmpty()) {
 			return false;
 		}
-		String dbID=null;
-		for(String s:e.getDescendantBaseTables()){
-			Table tab=new Table(n2a.getOriginalName(s),s);
-			String tableEndpoint=tab.getDBName();
-			if(tableEndpoint==null){
+		String dbID = null;
+		for (String s : e.getDescendantBaseTables()) {
+			Table tab = new Table(n2a.getOriginalName(s), s);
+			String tableEndpoint = tab.getDBName();
+			if (tableEndpoint == null) {
 				return false;
 			}
-			if(dbID==null){
-				dbID=tableEndpoint;
-			}
-			else{
-				if(!dbID.equals(tableEndpoint)){
+			if (dbID == null) {
+				dbID = tableEndpoint;
+			} else {
+				if (!dbID.equals(tableEndpoint)) {
 					return false;
 				}
 			}
 		}
-		if(e.getDescendantBaseTables().size()==1){
+		if (e.getDescendantBaseTables().size() == 1) {
 			return true;
 		}
-		return doesNotContainMultiUsedInput((PartitionedMemoValue)v, visited);
+		return doesNotContainMultiUsedInput((PartitionedMemoValue) v, visited);
 	}
 
 	private boolean doesNotContainMultiUsedInput(PartitionedMemoValue v, HashMap<MemoKey, SQLQuery> visited) {
-		for(int i=0;i<v.getPlan().noOfInputPlans();i++){
-			PartitionedMemoValue inputV=(PartitionedMemoValue) memo.getMemoValue(v.getPlan().getInputPlan(i));
-			if(inputV.isMultiUsed() || visited.containsKey(v.getPlan().getInputPlan(i))){
+		for (int i = 0; i < v.getPlan().noOfInputPlans(); i++) {
+			PartitionedMemoValue inputV = (PartitionedMemoValue) memo.getMemoValue(v.getPlan().getInputPlan(i));
+			if (inputV.isMultiUsed() || visited.containsKey(v.getPlan().getInputPlan(i))) {
 				return false;
 			}
-			if(!doesNotContainMultiUsedInput(inputV, visited)){
+			if (!doesNotContainMultiUsedInput(inputV, visited)) {
 				return false;
 			}
 		}
@@ -1507,8 +1449,5 @@ public class SinlgePlanDFLGenerator {
 	public void setN2a(NamesToAliases n2a) {
 		this.n2a = n2a;
 	}
-	
-	
-	
-	
+
 }

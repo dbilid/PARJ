@@ -66,6 +66,8 @@ public class SQLQuery {
 
 	private Node joinNode;
 
+	private List<Operand> joinOperands;
+
 	public SQLQuery() {
 		super();
 		temporaryTableName = "table" + Util.createUniqueId();
@@ -89,6 +91,7 @@ public class SQLQuery {
 		isNested = false;
 		existsInCache = false;
 		joinNode=null;
+		joinOperands=new ArrayList<Operand>();
 	}
 
 	public String toDistSQL() {
@@ -177,19 +180,39 @@ public class SQLQuery {
 		output.append(" from \n");
 		// }
 		if (this.getJoinType() != null) {
-			output.append(this.getLeftJoinTable().getResultTableName());
+			
+			for(int tableNo=0;tableNo<this.inputTables.size()-1;tableNo++){
+				output.append("(");
+				output.append(inputTables.get(tableNo));
+				output.append(" ");
+				output.append(getJoinType());
+				output.append(" ");
+			}
+			output.append(this.inputTables.get(this.inputTables.size()-1));
+			
+			for(int joinOp=joinOperands.size()-1;joinOp>-1;joinOp--){
+				output.append(" on ");
+				output.append(joinOperands.get(joinOp).toString());
+				output.append(")");
+				
+			}
+			/*output.append(this.getLeftJoinTable().getResultTableName());
 			if (this.getLeftJoinTableAlias() != null) {
 				output.append(" as ");
 				output.append(getLeftJoinTableAlias());
 			}
+			output.append(inputTables.get(0));
 			output.append(" ");
 			output.append(getJoinType());
 			output.append(" ");
+			output.append(inputTables.get(1));
 			output.append(this.getRightJoinTable().getResultTableName());
 			if (this.getRightJoinTableAlias() != null) {
 				output.append(" as ");
 				output.append(getRightJoinTableAlias());
 			}
+			output.append(" on ");
+			output.append(joinOperand.toString());*/
 
 		} else if (!this.unionqueries.isEmpty()) {
 			// UNIONS
@@ -1920,5 +1943,10 @@ public class SQLQuery {
 
 	public Node getJoinNode() {
 		return this.joinNode;
+	}
+
+	public void addJoinOperand(Operand joinOp) {
+		this.joinOperands.add(joinOp);
+		
 	}
 }
