@@ -975,7 +975,12 @@ public class SinlgePlanDFLGenerator {
 			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
 			 */
 			// tempResult.add(current);
-		} else {
+		} else if(op.getOpCode() == Node.ORDERBY){
+			List<ColumnOrderBy> orderCols=(ArrayList<ColumnOrderBy>)op.getObject();
+				current.setOrderBy(orderCols);		
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+		}
+		else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);

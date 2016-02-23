@@ -387,8 +387,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									attrs.add(t[i]);
 								}
 
-								OptiqueAnalyzer fa = new OptiqueAnalyzer(db.getMadisString(), db.getDriver(), dbname,
-										db.getSchema());
+								OptiqueAnalyzer fa = new OptiqueAnalyzer(dbname, db);
 								Schema sch = fa.analyzeAttrs(localTblName, attrs);
 								// change table name back to adding DB id
 								sch.getTableIndex().put(tablename, sch.getTableIndex().get(localTblName));

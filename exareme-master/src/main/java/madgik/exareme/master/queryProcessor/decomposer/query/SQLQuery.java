@@ -699,6 +699,11 @@ public class SQLQuery {
 					c.setName("\"" + c.getName() + "\"");
 				}
 			}
+			for(Table t:this.inputTables){
+				if (!t.getName().startsWith("\"")) {
+					t.setName("\"" + t.getName() + "\"");
+				}
+			}
 		}
 
 	}

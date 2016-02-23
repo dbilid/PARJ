@@ -64,10 +64,11 @@ public class PrimitiveHistogram implements HistogramBuilder {
 
                 bucketIndex
                     .put(Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMinValue()), b);
+               
                 bucketIndex.put(Math.nextAfter(
                     Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMaxValue()),
                     Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
-
+             
                 Histogram h = new Histogram(bucketIndex);
 
                 AttrInfo a = new AttrInfo(dbStats.get(t).getColumnMap().get(c).getColumnName(), h,

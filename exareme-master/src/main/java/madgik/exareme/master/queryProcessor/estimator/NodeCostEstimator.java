@@ -158,29 +158,30 @@ public class NodeCostEstimator {
 
     private static double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
         double rightRelTuples, double rightRelSize) {
-        double cpuLocalCost, diskLocalCost,
-            smallRelTuples = leftRelTuples, bigRelTuples = rightRelTuples,
-            smallRelSize = leftRelSize, bigRelSize = rightRelSize;
+        double cpuLocalCost, diskLocalCost;
+            //smallRelTuples = leftRelTuples, bigRelTuples = rightRelTuples,
+            //smallRelSize = leftRelSize, bigRelSize = rightRelSize;
 
-        if (rightRelTuples < leftRelTuples) {
+     /*   if (rightRelTuples < leftRelTuples) {
             smallRelTuples = rightRelTuples;
             smallRelSize = rightRelSize;
-            bigRelSize = rightRelSize;
+            bigRelSize = leftRelSize;
             bigRelTuples = leftRelTuples;
-        }
+        }*/
 
         //disk cost
         //->index construcrion, scanning the smallest tule table
         double diskSmallRelIndexConstruction =
-            (smallRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
-        double diskBigRelScan = (bigRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
-        diskLocalCost = diskSmallRelIndexConstruction + diskBigRelScan;
+            (leftRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+        double diskBigRelScan = (rightRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+        double noOfPages=leftRelSize/Metadata.PAGE_SIZE;
+        diskLocalCost = diskSmallRelIndexConstruction + noOfPages*diskBigRelScan;
 
         //cpu cost
-        double smallRelTuples_log10 = Math.log10(smallRelTuples);
+        double smallRelTuples_log10 = Math.log10(leftRelTuples);
         double localIndexConstruction =
-            smallRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
-        double localComparisons = bigRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
+            leftRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
+        double localComparisons = rightRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
         cpuLocalCost = localIndexConstruction + localComparisons;
 
         return diskLocalCost + cpuLocalCost;

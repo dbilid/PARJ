@@ -17,7 +17,7 @@ public class DB {
     private String schema;
     private String madisFunctionString;
 
-    DB(String db) {
+    public DB(String db) {
         this.id = db;
     }
 
@@ -45,7 +45,7 @@ public class DB {
         return this.madisFunctionString;
     }
 
-    void setSchema(String s) {
+    public void setSchema(String s) {
         schema = s;
     }
 

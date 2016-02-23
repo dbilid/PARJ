@@ -95,8 +95,16 @@ public class Column {
     public String getMaxValue() {
         if (StatUtils.isTextType(this.columnType))
             return Double.toString(StatUtils.hashString(maxValue));
-        else
-            return maxValue;
+        else{
+        	try{
+        		Double.parseDouble(maxValue);
+        	}
+        	catch(java.lang.NumberFormatException ex){
+        		return Double.toString(StatUtils.hashString(maxValue));
+        	}
+        	return maxValue;
+        }
+            
     }
 
     public Map<String, Integer> getDiffValFreqMap() {

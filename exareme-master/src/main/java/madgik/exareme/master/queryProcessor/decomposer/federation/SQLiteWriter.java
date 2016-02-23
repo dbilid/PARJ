@@ -106,6 +106,7 @@ public class SQLiteWriter extends Writer {
 	}
 
 	public void write(String record) throws IOException {
+		record=record.substring(0,record.length()-1);//remove \n
 		try {
 		//CSVParser parser = CSVParser.parse(record, CSVFormat.DEFAULT);
 		//for (CSVRecord csvRecord : parser) {

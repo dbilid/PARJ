@@ -17,10 +17,10 @@ public class JdbcDatatypesToSQLite {
     public static final int BLOB = java.sql.Types.BLOB;
 
     public static final Set<Integer> realList = new HashSet<Integer>(
-        Arrays.asList(java.sql.Types.REAL, java.sql.Types.DOUBLE, java.sql.Types.FLOAT));
+        Arrays.asList(java.sql.Types.NUMERIC, java.sql.Types.REAL, java.sql.Types.DOUBLE, java.sql.Types.FLOAT));
 
     public static final Set<Integer> numericList = new HashSet<Integer>(Arrays
-        .asList(java.sql.Types.NUMERIC, java.sql.Types.BOOLEAN, java.sql.Types.DECIMAL,
+        .asList( java.sql.Types.BOOLEAN, java.sql.Types.DECIMAL,
             java.sql.Types.TIME));
 
 }
