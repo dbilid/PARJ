@@ -976,9 +976,11 @@ public class SinlgePlanDFLGenerator {
 			 */
 			// tempResult.add(current);
 		} else if(op.getOpCode() == Node.ORDERBY){
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			SQLQuery q=tempResult.get(tempResult.getLastTable().getName());
 			List<ColumnOrderBy> orderCols=(ArrayList<ColumnOrderBy>)op.getObject();
-				current.setOrderBy(orderCols);		
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+				q.setOrderBy(orderCols);		
+				
 		}
 		else {
 			log.error("Unknown Operator in DAG");

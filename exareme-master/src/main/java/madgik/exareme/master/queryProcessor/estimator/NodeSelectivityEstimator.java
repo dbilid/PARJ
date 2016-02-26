@@ -38,7 +38,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		// try {
 		// keys =
 		// di.madgik.decomposer.util.Util.getMysqlIndices("jdbc:mysql://10.240.0.10:3306/npd?"
-		// + "user=benchmark&password=gray769watt724!@#");
+		// + "user=benchmark&password=pass");
 		// } catch (SQLException ex) {
 		// Logger.getLogger(NodeSelectivityEstimator.class.getName()).log(Level.SEVERE,
 		// null, ex);
@@ -91,7 +91,10 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		NodeInfo childInfo = child.getNodeInfo();
 		Set<Operand> filters = s.getOperands();
 
-		RelInfo initRel = childInfo.getResultRel();
+		//RelInfo initRel = childInfo.getResultRel();
+		ni.setNumberOfTuples(childInfo.getNumberOfTuples());
+		ni.setTupleLength(childInfo.getTupleLength());
+		ni.setResultRel(new RelInfo(childInfo.getResultRel()));
 
 		// one select node can contain more than one filter!
 		for (Operand nextFilter : filters) {
@@ -104,9 +107,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// not base table
 
 				// TODO: fix nodeInfo
-				ni.setNumberOfTuples(childInfo.getNumberOfTuples());
-				ni.setTupleLength(childInfo.getTupleLength());
-				ni.setResultRel(new RelInfo(childInfo.getResultRel()));
+				//do nothing! 
 
 				// this.planInfo.get(n.getHashId()).setNumberOfTuples(child.getNumberOfTuples());
 				// this.planInfo.get(n.getHashId()).setTupleLength(child.getTupleLength());
@@ -130,11 +131,11 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 				// RelInfo lRel =
 				// this.schema.getTableIndex().get(col.tableAlias);
-				RelInfo lRel = childInfo.getResultRel();
+				//RelInfo lRel = childInfo.getResultRel();
 				// RelInfo resultRel = new RelInfo(lRel);
-				RelInfo resultRel = initRel;
+				//RelInfo resultRel = initRel;
 
-				Histogram resultHistogram = resultRel.getAttrIndex().get(col.getName()).getHistogram();
+				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.getName()).getHistogram();
 
 				double filterValue = 0;
 				if (!con.isArithmetic()) {
@@ -157,12 +158,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// FilterOperand.NotEqual, Double.parseDouble(con.toString()));
 
 				// adjust RelInfo's histograms based on the resulting histogram
-				resultRel.adjustRelation(col.getName(), resultHistogram);
+				ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
 
 				// TODO: fix NOdeInfo!!
-				ni.setNumberOfTuples(resultRel.getNumberOfTuples());
-				ni.setTupleLength(resultRel.getTupleLength());
-				ni.setResultRel(resultRel);
+				ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+				//ni.setTupleLength(ni.getResultRel().getTupleLength());
+				//ni.setResultRel(resultRel);
 			}
 		}
 	}

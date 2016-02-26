@@ -140,7 +140,6 @@ public class DemoDAG {
 	public static void main(String[] args) throws Exception {
 		
 		String leftjoinsimple="select a.id from A a left join ( B b left join C c on b.id=c.id and b.n is not null)  on a.id=b.id";
-		
 		String file = readFile("/home/dimitris/example.sql");
 		getDFLsFromDir("/home/dimitris/npdsql/");
 		
@@ -191,7 +190,7 @@ public class DemoDAG {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith(".sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("08.q.sql")) {
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }

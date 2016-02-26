@@ -93,6 +93,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>madgik</groupId>
+            <artifactId>exareme-jdbc</artifactId>
+            <version>0.1-SNAPSHOT</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
             <groupId>com.foundationdb</groupId>
             <artifactId>fdb-sql-parser</artifactId>
             <version>1.6.1</version>

@@ -1043,7 +1043,7 @@ public class ConjunctiveQueryDecomposer {
 				}
 				tempParent = table;
 			} else {
-				log.error("ORDER BY not supported!");
+				//log.error("ORDER BY not supported!");
 			}
 		}
 		if (!this.initialQuery.isSelectAll()) {

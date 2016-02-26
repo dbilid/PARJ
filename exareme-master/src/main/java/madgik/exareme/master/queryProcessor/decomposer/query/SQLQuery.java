@@ -183,12 +183,22 @@ public class SQLQuery {
 			
 			for(int tableNo=0;tableNo<this.inputTables.size()-1;tableNo++){
 				output.append("(");
+				if(this.isFederated){
 				output.append(inputTables.get(tableNo));
+				}
+				else{
+					output.append(inputTables.get(tableNo).toString().toLowerCase());
+				}
 				output.append(" ");
 				output.append(getJoinType());
 				output.append(" ");
 			}
-			output.append(this.inputTables.get(this.inputTables.size()-1));
+			if(this.isFederated){
+				output.append(inputTables.get(this.inputTables.size()-1));
+				}
+				else{
+					output.append(inputTables.get(this.inputTables.size()-1).toString().toLowerCase());
+				}
 			
 			for(int joinOp=joinOperands.size()-1;joinOp>-1;joinOp--){
 				output.append(" on ");
@@ -272,7 +282,12 @@ public class SQLQuery {
 			} else {
 				for (Table t : getInputTables()) {
 					output.append(separator);
-					output.append(t.toString());
+					if(this.isFederated){
+						output.append(t.toString());
+					}
+					else{
+						output.append(t.toString().toLowerCase());
+					}
 					separator = ", \n";
 				}
 			}

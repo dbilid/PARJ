@@ -328,6 +328,7 @@ public class Node {
 		String object = o.toString();
 		String fillcolor="";
 		if (o instanceof Table) {
+			
 			Table t = (Table) o;
 			if (t.getAlias() == null) {
 				//object = "Intermediate Result";
@@ -348,6 +349,8 @@ public class Node {
 					 fillcolor=" fillcolor=\"green\" style=\"filled\"";
 				}
 			}
+			if(this.nodeInfo!=null)
+				object +="card:"+this.getNodeInfo().getNumberOfTuples();
 		}
 		if (this.opCode == LEFTBROADCASTJOIN) {
 			object += "L:";

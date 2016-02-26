@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class OptiqueAnalyzer {
     public static final String GATHER_JSON = "";
-    public static final String TMP_SAMPLE_DIR = "dbstats/";
+    public static final String TMP_SAMPLE_DIR = "";
     public static final String BUILD_JSON = "";
     public static final String PYTHON_PATH = "python";
         //AdpProperties.getSystemProperties().getString("EXAREME_PYTHON");
@@ -67,7 +67,7 @@ public class OptiqueAnalyzer {
     public Schema analyzeAttrs(String tableName, Set<String> attrs) throws Exception {
         this.statCols = new HashMap<String, Set<String>>();
         this.statCols.put(tableName, attrs);
-        createSample();
+        //createSample();
         // countRows();
 
         Map<String, Table> sch = gatherStats();
@@ -229,7 +229,7 @@ public class OptiqueAnalyzer {
     private Map<String, Table> gatherStats() throws Exception {
         // for (String s : this.statCols.keySet()) {
         String s = this.statCols.keySet().iterator().next();
-        Gatherer g = new Gatherer(dbPath + TMP_SAMPLE_DIR + s + ".db", s);
+        Gatherer g = new Gatherer(dbPath + TMP_SAMPLE_DIR + s + ".0.db", s);
         if (this.vendor == Vendor.Oracle) {
             g.setSch(this.schema);
         }

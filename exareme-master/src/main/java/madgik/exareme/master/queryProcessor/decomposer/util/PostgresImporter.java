@@ -33,12 +33,12 @@ public class PostgresImporter {
 		dbinfo.setDriver("org.postgresql.Driver");
 		dbinfo.setPass("pass");
 		dbinfo.setUser("postgres");
-		dbinfo.setMadisString("postgres h:localhost port:5432 u:postgres p:pass db:npd_vig_scale100");
+		dbinfo.setMadisString("postgres h:localhost port:5432 u:postgres p:gray769watt724!@# db:npd_vig_scale100");
 		dbinfo.setURL("jdbc:postgresql://localhost/npd_vig_scale100");
 		String url = "jdbc:postgresql://localhost/npd_vig_scale100";
 		Properties props = new Properties();
 		props.setProperty("user","postgres");
-		props.setProperty("password","pass");
+		props.setProperty("password","gray769watt724!@#");
 		props.setProperty("ssl","true");
 		Connection conn = DriverManager.getConnection(url, props);
 		DatabaseMetaData md = conn.getMetaData();
@@ -82,6 +82,7 @@ public class PostgresImporter {
 
 					OptiqueAnalyzer fa = new OptiqueAnalyzer(path, dbinfo);
 					fa.setUseDataImporter(true);
+					System.out.println("analyzing: "+tablename);
 					Schema sch = fa.analyzeAttrs(tablename, attrs);
 					// change table name back to adding DB id
 					
