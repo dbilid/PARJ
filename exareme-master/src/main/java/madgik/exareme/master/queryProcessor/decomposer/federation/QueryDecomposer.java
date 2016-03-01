@@ -251,9 +251,9 @@ public class QueryDecomposer {
 		if (projectRefCols) {
 			createProjections(root);
 		}
-		String a = root.dotPrint();
+		//String a = root.dotPrint();
 		expandDAG(root);
-		// String a2 = root.dotPrint();
+		 String a2 = root.dotPrint();
 		// System.out.println(a2);
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
@@ -285,7 +285,7 @@ public class QueryDecomposer {
 		long t1 = System.currentTimeMillis();
 		SinglePlan best;
 		if (noOfparts == 1) {
-			best = getBestPlanCentralized(root, Double.MAX_VALUE);
+			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0);
 		} else {
 			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
 					new ArrayList<MemoKey>());
@@ -1453,7 +1453,6 @@ public class QueryDecomposer {
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
-						// c2RepCost, cel, partitionRecord, toMatAlg));
 						SinglePlan t = getBestPlan(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg);
 						algPlan.addInputPlan(e2, c2);
 						algPlan.increaseCost(t.getCost());
@@ -1816,7 +1815,7 @@ public class QueryDecomposer {
 
 	}
 
-	private SinglePlan getBestPlanCentralized(Node e, double limit) {
+	private SinglePlan getBestPlanCentralized(Node e, double limit, int unionNo) {
 		MemoKey ec = new MemoKey(e, null);
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
@@ -1824,15 +1823,26 @@ public class QueryDecomposer {
 			resultPlan = new SinglePlan(0.0, null);
 		} else if (memo.containsMemoKey(ec)) {
 			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
-			if (cmv.isUsed()) {
+			int used=cmv.getUsed();
+			//if(cmv.isInvalidated()){
+			resultPlan = searchForBestPlanCentralized(e, limit, unionNo);
+			cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
+			cmv.addUsed(used);
+			//}
+			
+			if (NodeCostEstimator.isProfitableToMat(e, cmv.getUsed()+1, resultPlan.getCost())) {
 				// used for second time, consider materialised
+				
+				
+				memo.removeUsageFromChildren(ec, cmv.getUsed(), unionNo);
 				cmv.setMaterialized(true);
+				cmv.setMatUnion(unionNo);
+				
 				resultPlan = new SinglePlan(0.0, null);
-			} else {
-				resultPlan = memo.getMemoValue(ec).getPlan();
+				//cmv.setPlan(resultPlan);
 			}
 		} else {
-			resultPlan = searchForBestPlanCentralized(e, limit);
+			resultPlan = searchForBestPlanCentralized(e, limit, unionNo);
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;
@@ -1841,7 +1851,7 @@ public class QueryDecomposer {
 		}
 	}
 
-	private SinglePlan searchForBestPlanCentralized(Node e, double limit) {
+	private SinglePlan searchForBestPlanCentralized(Node e, double limit, int unionNo) {
 
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			SinglePlan r = new SinglePlan(0);
@@ -1860,11 +1870,11 @@ public class QueryDecomposer {
 			return r;
 		}
 
-		SinglePlan resultPlan = new SinglePlan(Integer.MAX_VALUE);
+		SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);
 
 		for (int k = 0; k < e.getChildren().size(); k++) {
 			Node o = e.getChildAt(k);
-			SinglePlan e2Plan = new SinglePlan(Integer.MAX_VALUE);
+			SinglePlan e2Plan = new SinglePlan(Double.MAX_VALUE);
 			Double opCost = NodeCostEstimator.getCostForOperator(o, e);
 			boolean fed = false;
 			boolean mat = false;
@@ -1886,7 +1896,7 @@ public class QueryDecomposer {
 
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
 				// cel, partitionRecord, toMatAlg));
-				SinglePlan t = getBestPlanCentralized(e2, algLimit);
+				SinglePlan t = getBestPlanCentralized(e2, algLimit, unionNo);
 				algPlan.addInputPlan(e2, null);
 				algPlan.increaseCost(t.getCost());
 
@@ -1936,6 +1946,7 @@ public class QueryDecomposer {
 				|| e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
 			// String g = e.dotPrint();
 			memo.setPlanUsed(new MemoKey(e, null));
+			unionNo++;
 			// e.setPlanMaterialized(resultPlan.getPath().getPlanIterator());
 		}
 		return resultPlan;
@@ -2042,6 +2053,8 @@ public class QueryDecomposer {
 							if (!prj.getAllColumnRefs().contains(toAdd))
 								prj.addOperand(new Output(alias + "_" + c, toAdd));
 						}
+						this.hashes.put(project.getHashId(), project);
+						this.hashes.put(orNode.getHashId(), orNode);
 
 					} else {
 						orNode = new Node(Node.OR);
@@ -2065,6 +2078,8 @@ public class QueryDecomposer {
 							// this.hashes.put(p.getHashId(), p);
 						}
 						project.addChild(tableInHashes);
+						this.hashes.put(project.getHashId(), project);
+						this.hashes.put(orNode.getHashId(), orNode);
 						for (Node r : toRecompute) {
 							this.hashes.put(r.getHashId(), r);
 							// recompute parents?
@@ -2072,8 +2087,7 @@ public class QueryDecomposer {
 							setParentsNeedRecompute(r);
 						}
 					}
-					this.hashes.put(project.getHashId(), project);
-					this.hashes.put(orNode.getHashId(), orNode);
+					
 					project.addDescendantBaseTable(alias);
 					orNode.addDescendantBaseTable(alias);
 

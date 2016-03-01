@@ -39,7 +39,7 @@ public class SinlgePlanDFLGenerator {
 		ResultList qs = new ResultList();
 		MemoKey rootkey = new MemoKey(root, null);
 
-		// printPlan(rootkey);
+		printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
 		if (partitionNo == 1) {
 			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());

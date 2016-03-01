@@ -16,9 +16,9 @@ public interface MemoValue {
 
     public boolean isMaterialised();
 
-	public void setUsed(boolean b);
+	public void addUsed(int b);
 
-	public boolean isUsed();
+	public int getUsed();
 	
 	public boolean isFederated();
 

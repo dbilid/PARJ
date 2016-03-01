@@ -49,15 +49,15 @@ public class Memo {
 
     public void setPlanUsed(MemoKey e) {
         MemoValue v =  getMemoValue(e);
-      //  if(v.isMaterialised()){
+        if(v.isMaterialised()){
        // 	v.setUsed(true);
-     //   	//return;
-      //  }
-       // else 
-        if(v.isUsed()){
-        	v.setMaterialized(true);
+        	return;
         }
-        v.setUsed(true);
+       // else 
+    //    if(v.getUsed()){
+        	//v.setMaterialized(true);
+       // }
+        v.addUsed(1);
         
         SinglePlan p = v.getPlan();
         for (int i = 0; i < p.noOfInputPlans(); i++) {
@@ -89,6 +89,33 @@ public class Memo {
         memo.put(k, v);
 
     }
+
+	public void removeUsageFromChildren(MemoKey ec, int times, int unionNo) {
+		CentralizedMemoValue v = (CentralizedMemoValue) getMemoValue(ec);
+	        if(v.isMaterialised()&& v.getMatUnion()!=unionNo&&v.getUsed()-times>1){
+
+	       // 	v.setUsed(true);
+	        	return;
+	        }
+	       // else 
+	    //    if(v.getUsed()){
+	        	//v.setMaterialized(true);
+	       // }
+	        v.addUsed(-times);
+	        v.setMaterialized(false);
+	        
+	        SinglePlan p = v.getPlan();
+	        for (int i = 0; i < p.noOfInputPlans(); i++) {
+	            MemoKey sp = p.getInputPlan(i);
+	            
+	            if(sp.getNode().getDescendantBaseTables().size()==1 && !this.getMemoValue(sp).isFederated()){
+	            	continue;            	
+	            }
+	            removeUsageFromChildren(sp, times, unionNo);
+
+	        }
+		
+	}
 
 
 

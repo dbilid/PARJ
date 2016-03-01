@@ -15,6 +15,7 @@ import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases
 import madgik.exareme.master.queryProcessor.decomposer.federation.QueryDecomposer;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQueryParser;
+import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
 
 public class DemoDAG {
 
@@ -141,7 +142,36 @@ public class DemoDAG {
 		
 		String leftjoinsimple="select a.id from A a left join ( B b left join C c on b.id=c.id and b.n is not null)  on a.id=b.id";
 		String file = readFile("/home/dimitris/example.sql");
-		getDFLsFromDir("/home/dimitris/npdsql/");
+		String simple="select A.id from A A, B B where A.id=B.id "
+				+ "union "
+				+ "select A.id from C C, A A, B B where B.name=C.name  and A.id=B.id  ";
+		
+		String testPlan="select m1.wellbore_mud_id from "
+				+ "wellbore_mud m1, wellbore_mud m2, apaAreaGross g "
+				+ "where "
+				+ "m1.wellbore_mud_id=m2.wellbore_mud_id and "
+				+ "m2.wellbore_mud_id=g.apaAreaGross_id";
+				
+		
+		getDFLsFromDir("/home/dimitris/npdsql/existential/");
+		/*NodeHashValues hashes=new NodeHashValues();
+		NodeSelectivityEstimator nse = null;
+		try {
+			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100/" + "histograms.json");
+		} catch (Exception e) {
+			
+		}
+		hashes.setSelectivityEstimator(nse);
+		SQLQuery query = SQLQueryParser.parse(testPlan, hashes);
+		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 1, hashes);
+		
+		d.setN2a(new NamesToAliases());
+		StringBuffer sb=new StringBuffer();
+		for (SQLQuery s : d.getSubqueries()) {
+			sb.append("\n");
+			sb.append(s.toDistSQL());
+		}
+		System.out.println(sb.toString());*/
 		
 
 	}
@@ -158,7 +188,14 @@ public class DemoDAG {
 			return;
 		}
 		NodeHashValues hashes=new NodeHashValues();
-		hashes.setSelectivityEstimator(null);
+		
+		NodeSelectivityEstimator nse = null;
+		try {
+			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100/" + "histograms.json");
+		} catch (Exception e) {
+			
+		}
+		hashes.setSelectivityEstimator(nse);
 		SQLQuery query = SQLQueryParser.parse(q, hashes);
 		QueryDecomposer d = new QueryDecomposer(query, "/tmp/", 1, hashes);
 		
@@ -190,7 +227,7 @@ public class DemoDAG {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("08.q.sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("06.q.sql")) {
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }

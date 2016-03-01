@@ -2,23 +2,29 @@ package madgik.exareme.master.queryProcessor.decomposer.federation;
 
 
 public class CentralizedMemoValue implements MemoValue {
-    private boolean used;
+    private int used;
     private SinglePlan p;
     private boolean materialized;
     private boolean federated;
+    private int matUnion;
 
     public CentralizedMemoValue(SinglePlan p) {
         this.p = p;
         materialized = false;
-        used = false;
+        used = 0;
         federated = false;
+        matUnion=-1;
     }
 
     public SinglePlan getPlan() {
         return p;
     }
 
-    public void setMaterialized(boolean b) {
+    public void setPlan(SinglePlan p) {
+		this.p = p;
+	}
+
+	public void setMaterialized(boolean b) {
         this.materialized = b;
     }
 
@@ -26,11 +32,11 @@ public class CentralizedMemoValue implements MemoValue {
         return this.materialized;
     }
 
-    public void setUsed(boolean b) {
-        used = b;
+    public void addUsed(int b) {
+        used+=b;
     }
 
-    public boolean isUsed() {
+    public int getUsed() {
         return used;
     }
 
@@ -41,5 +47,14 @@ public class CentralizedMemoValue implements MemoValue {
     public boolean isFederated() {
         return this.federated;
     }
+
+	public int getMatUnion() {
+		return matUnion;
+	}
+
+	public void setMatUnion(int matUnion) {
+		this.matUnion = matUnion;
+	}
+    
 
 }

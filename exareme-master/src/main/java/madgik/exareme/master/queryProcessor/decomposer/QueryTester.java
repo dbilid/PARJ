@@ -20,7 +20,7 @@ import madgik.exareme.jdbc.federated.AdpDriver;
 public class QueryTester {
 
 	public static void main(String[] args) throws SQLException, ClassNotFoundException, IOException {
-		String dir="/home/dimitris/npdsql";
+		String dir="/home/dimitris/npdsql/existential/";
 		//String dir="/home/dimitris/sqlitenpd";
 		Map<String, String> queries=new HashMap<String, String>();
 		for(String file:readFilesFromDir(dir)){
@@ -127,7 +127,7 @@ public class QueryTester {
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
     	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith(".sql")) {
-    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("test.sql"))
+    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("06.q.sql"))
     	    		  continue;
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }

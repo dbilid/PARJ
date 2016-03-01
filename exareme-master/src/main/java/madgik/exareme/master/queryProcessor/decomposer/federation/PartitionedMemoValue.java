@@ -12,7 +12,7 @@ public class PartitionedMemoValue implements MemoValue {
     private double repCost;
     private boolean materialized;
     private PartitionCols dlvdPart;
-    private boolean used;
+    private int used;
     private boolean multiUsed;
     private List<MemoKey> toMat;
 
@@ -47,15 +47,15 @@ public class PartitionedMemoValue implements MemoValue {
     }
 
 	@Override
-	public void setUsed(boolean b) {
-		if(used && b){
+	public void addUsed(int b) {
+		if(used==1 && b==1){
 			this.multiUsed=true;
 		}
 		this.used=b;
 	}
 
 	@Override
-	public boolean isUsed() {
+	public int getUsed() {
 		return used;
 	}
 

@@ -25,7 +25,7 @@ public class CentralizedMemo {
 
     public void setPlanUsed(MemoKey e) {
         CentralizedMemoValue v = getMemoValue(e);
-        v.setUsed(true);
+        v.addUsed(1);
         SinglePlan p = v.getPlan();
         for (int i = 0; i < p.noOfInputPlans(); i++) {
             MemoKey sp = p.getInputPlan(i);
