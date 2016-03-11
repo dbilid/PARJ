@@ -754,10 +754,10 @@ public class RmiAdpDBSelectOptimizer {
         input.script.addTable(postOutputTable);
         state.tableProducers.put(query.getOutputTable().getName(), postOutputs);
         if (query.getOutputTable().getTable().isTemp() == false) {
-            if (state.resultTableName != null) {
-                throw new SemanticException("Not supported > 1 results.");
-            }
-            state.resultTableName = query.getOutputTable().getName();
+            //if (state.resultTableName != null) {
+            //    throw new SemanticException("Not supported > 1 results.");
+            //}
+            state.resultTableName.add(query.getOutputTable().getName());
             //            query.getOutputTable().getTable().getSqlDefinition();
         }
     }
@@ -765,10 +765,11 @@ public class RmiAdpDBSelectOptimizer {
     private void bindLocationOFResultTables(InputData input, StateData state) {
         // Bind the output table producers to the location of the result. For now, use round robin!
         if (state.resultTableName != null) {
-            log.debug("Bind output table '" + state.resultTableName + "' to location ... ");
-            state.results.add(input.script.getTable(state.resultTableName));
-            PhysicalTable resultTable = input.script.getTable(state.resultTableName);
-            ConcreteOperator[] resultTableOps = state.tableProducers.get(state.resultTableName);
+        	for(String s:state.resultTableName){
+            log.debug("Bind output table '" + s + "' to location ... ");
+            state.results.add(input.script.getTable(s));
+            PhysicalTable resultTable = input.script.getTable(s);
+            ConcreteOperator[] resultTableOps = state.tableProducers.get(s);
             // TODO(herald): add here the partition placement algorithm.
             int container = 0;
             for (int p = 0; p < resultTableOps.length; ++p) {
@@ -778,6 +779,7 @@ public class RmiAdpDBSelectOptimizer {
                     .addLocation(state.proxies[container].getEntityName().getIP());
                 container = (container + 1) % state.proxies.length;
             }
+        	}
         }
     }
 

@@ -162,7 +162,7 @@ public class AdpDBParser {
         for (String def : registry.getTableDefinitions()) {
             log.trace("Table def : " + def);
             if (def != null)
-                imdb.execute(def);
+                imdb.executeUpdate(def);
             else
                 log.trace("No registry def");
         }

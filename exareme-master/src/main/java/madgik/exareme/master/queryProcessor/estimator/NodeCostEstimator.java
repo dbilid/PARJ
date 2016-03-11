@@ -24,6 +24,9 @@ public class NodeCostEstimator {
 
     public static Double getCostForOperator(Node o, Node e) {
         if (o.getOpCode() == Node.JOIN) {
+        	if(o.getChildren().size()==1){
+        		return 0.0;
+        	}
             try {
                 NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o.getObject();
                 return estimateJoin(e, nuwc, o.getChildAt(0), o.getChildAt(1));
@@ -168,15 +171,15 @@ public class NodeCostEstimator {
             bigRelSize = leftRelSize;
             bigRelTuples = leftRelTuples;
         }*/
-
+       
         //disk cost
         //->index construcrion, scanning the smallest tule table
         double diskSmallRelIndexConstruction =
             (leftRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
         double diskBigRelScan = (rightRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
         double noOfPages=leftRelSize/Metadata.PAGE_SIZE;
-        diskLocalCost = diskSmallRelIndexConstruction + noOfPages*diskBigRelScan;
-
+        //diskLocalCost = diskSmallRelIndexConstruction + noOfPages*diskBigRelScan;
+        diskLocalCost = diskSmallRelIndexConstruction + diskBigRelScan;
         //cpu cost
         double smallRelTuples_log10 = Math.log10(leftRelTuples);
         double localIndexConstruction =
@@ -186,4 +189,28 @@ public class NodeCostEstimator {
 
         return diskLocalCost + cpuLocalCost;
     }
+
+	public static boolean isProfitableToMat(Node e, int used, double cost) {
+		if(used>1){
+			
+			double size=e.getNodeInfo().outputRelSize();
+			double writeRel = (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+			if((2*writeRel)<(cost*used)){
+				//System.out.println("true");
+				return true;
+			}
+	        
+		}
+		return false;
+	}
+
+	public static double getWriteCost(Node e) {
+		double size=e.getNodeInfo().outputRelSize();
+		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+	}
+
+	public static double getReadCost(Node e) {
+		double size=e.getNodeInfo().outputRelSize();
+		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+	}
 }

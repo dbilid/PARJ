@@ -130,6 +130,12 @@ public class SQLQuery {
 			output.append("as direct ");
 		}
 		output.append("\n");
+		output.append(toSQL());
+		return output.toString();
+	}
+	
+	public String toSQL(){
+		StringBuilder output = new StringBuilder();
 		String separator = "";
 		if (this.isFederated()) {
 			output.append("select ");
@@ -1726,6 +1732,19 @@ public class SQLQuery {
 		}
 		for (SQLQuery n : this.nestedSelectSubqueries.keySet()) {
 			result.addAll(n.getAllReferencedTables());
+		}
+		return result;
+	}
+	
+	public Set<Table> getAllAttachedTables() {
+		Set<Table> result = new HashSet<Table>();
+		result.addAll(this.getInputTables());
+
+		for (SQLQuery u : this.unionqueries) {
+			result.add(new Table(u.getTemporaryTableName(), u.getTemporaryTableName()));
+		}
+		for (SQLQuery n : this.nestedSelectSubqueries.keySet()) {
+			result.addAll(n.getAllAttachedTables());
 		}
 		return result;
 	}

@@ -44,7 +44,7 @@ public class SQLDatabaseTest extends TestCase {
         String script = FileUtil.consume(this.getClass().getResourceAsStream("schema.sql"));
 
         for (SQLDatabase db : sqlDatabaseImpls) {
-            db.execute(script);
+            db.executeUpdate(script);
         }
     }
 

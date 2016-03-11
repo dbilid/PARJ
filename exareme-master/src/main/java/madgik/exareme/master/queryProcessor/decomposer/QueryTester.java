@@ -74,6 +74,11 @@ public class QueryTester {
 			connection.close();
 		}
 		if(sqlite){
+			dir="/home/dimitris/sqlitenpd";
+			queries.clear();
+			for(String file:readFilesFromDir(dir)){
+				queries.put(file, readFile(file));
+			}
 			Class.forName("org.sqlite.JDBC");
 			Connection connection=DriverManager.getConnection("jdbc:sqlite:test.db");
 			Statement s=connection.createStatement();
@@ -84,6 +89,9 @@ public class QueryTester {
 			s.execute("attach database '/media/dimitris/T/exaremenpd100/wellbore_exploration_all.0.db' as wellbore_exploration_all");
 			s.execute("attach database '/media/dimitris/T/exaremenpd100/wellbore_npdid_overview.0.db' as wellbore_npdid_overview");
 			s.execute("attach database '/media/dimitris/T/exaremenpd100/wellbore_shallow_all.0.db' as wellbore_shallow_all");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100/discovery.0.db' as discovery");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100/field.0.db' as field");
+			
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
 				try{
@@ -91,7 +99,7 @@ public class QueryTester {
 				ResultSet rs=s.executeQuery(query);
 				int results=0;
 				while(rs.next()){
-					System.out.println(rs.getObject(4));
+					//System.out.println(rs.getObject(4));
 					results++;
 				}
 				rs.close();
@@ -127,7 +135,7 @@ public class QueryTester {
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
     	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith(".sql")) {
-    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("06.q.sql"))
+    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("test2.sql"))
     	    		  continue;
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }

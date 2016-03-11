@@ -39,8 +39,9 @@ public class SinlgePlanDFLGenerator {
 		ResultList qs = new ResultList();
 		MemoKey rootkey = new MemoKey(root, null);
 
-		printPlan(rootkey);
+		//printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
+		
 		if (partitionNo == 1) {
 			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
 		} else if (DecomposerUtils.PUSH_PROCESSING) {
@@ -48,7 +49,6 @@ public class SinlgePlanDFLGenerator {
 		} else {
 			combineOperatorsAndOutputQueries(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
 		}
-
 		// for (SQLQuery q : qs) {
 		// System.out.println(q.toDistSQL() + "\n");
 		// }

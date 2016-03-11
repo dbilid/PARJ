@@ -148,7 +148,9 @@ public class RelInfo {
             if (!attr.getAttrName().equals(attrName)) {
                 recTableDiff = numOfTuples - attr.getHistogram().numberOfTuples();
                 percentage = recTableDiff / attr.getHistogram().numberOfTuples();
-
+                if(Double.isInfinite(percentage)){
+                	percentage=Double.MAX_VALUE;
+                }
                 if (h.getBucketIndex().isEmpty()) {
                     for (AttrInfo attr2 : this.attrIndex.values()) {
                         attr2.getHistogram().getBucketIndex()

@@ -27,9 +27,9 @@ public class EmbeddedDB implements SQLDatabase {
   }
 
   @Override
-  public void execute(String createScript) throws SQLException {
-    log.trace("Executing script ... ");
-    stmt.executeUpdate(createScript);
+  public boolean execute(String sql) throws SQLException {
+	  return stmt.execute(sql);
+    
   }
 
   @Override
@@ -259,4 +259,12 @@ public class EmbeddedDB implements SQLDatabase {
   public ResultSet executeAndGetResults(String query) throws SQLException {
     return stmt.executeQuery(query);
   }
+
+@Override
+public int executeUpdate(String createScript) throws SQLException {
+	log.trace("Executing script ... ");
+    return stmt.executeUpdate(createScript);
+}
+  
+  
 }

@@ -118,7 +118,6 @@ public class DBInfoWriterDB {
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
 
-
             DatabaseMetaData dbm = connection.getMetaData();
             // check if "employee" table is there
             ResultSet tables = dbm.getTables(null, null, "aliases", null);
@@ -127,9 +126,9 @@ public class DBInfoWriterDB {
                     "create table aliases (tablename string, aliases string)");
             }
 
-
            
             for(String tablename:n2a.getTables()){
+            	System.out.println(tablename);
             	statement.executeUpdate("DELETE FROM aliases WHERE tablename = '" +tablename + "';");
             	String aliasesForTable="";
             	String del="";
@@ -142,9 +141,7 @@ public class DBInfoWriterDB {
                         "INSERT INTO aliases VALUES ('" + tablename + "','"  + aliasesForTable + "');");
                     
             }
-                
                 statement.close();
-
         } catch (SQLException e) {
             // if the error message is "out of memory", 
             // it probably means no database file is found

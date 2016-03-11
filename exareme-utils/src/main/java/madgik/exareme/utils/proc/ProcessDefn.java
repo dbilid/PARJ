@@ -15,7 +15,7 @@ public class ProcessDefn implements Serializable {
 
     private final List<String> args = new LinkedList<String>();
     private String process = null;
-    private String directory = "/tmp/";
+    private String directory = "/media/dimitris/T/tmp/";
     private String stdin = "";
 
     public ProcessDefn() {

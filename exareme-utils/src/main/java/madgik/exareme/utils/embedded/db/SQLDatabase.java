@@ -17,7 +17,9 @@ public interface SQLDatabase {
    * @param sqlScript the script to be executed.
    * @throws SQLException
    */
-  void execute(String sqlScript) throws SQLException;
+  boolean execute(String sqlScript) throws SQLException;
+  
+  int executeUpdate(String sqlScript) throws SQLException;
 
   ResultSet executeAndGetResults(String query) throws SQLException;
 

@@ -34,8 +34,8 @@ public abstract class RmiObjectProxy<T> implements ObjectProxy<T> {
         int tries = 0;
         while (true) {
             try {
-                log.trace("Connecting to (" + tries + ") " +
-                    regEntityName.getIP() + ":" + regEntityName.getPort() + " ...");
+                //log.trace("Connecting to (" + tries + ") " +
+               //     regEntityName.getIP() + ":" + regEntityName.getPort() + " ...");
                 tries++;
                 Registry registry = RmiRegistryCache.getRegistry(regEntityName);
                 remoteObject = (T) registry.lookup(regEntryName);

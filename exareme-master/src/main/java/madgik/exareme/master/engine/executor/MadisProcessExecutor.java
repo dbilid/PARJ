@@ -66,6 +66,7 @@ public class MadisProcessExecutor {
             script.append("PRAGMA cache_size = " + pages + "; \n");
             script.append("PRAGMA page_size = " + page_size_B + "; \n");
             script.append("PRAGMA page_size; \n");
+            script.append("PRAGMA cache_size; \n");
             script.append("\n");
             script.append("-- Additional Commands \n");
             if (additionalCommands != null) {

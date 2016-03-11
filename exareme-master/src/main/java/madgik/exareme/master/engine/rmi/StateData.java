@@ -22,8 +22,10 @@ import madgik.exareme.worker.art.container.ContainerProxy;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author heraldkllapi
@@ -39,7 +41,7 @@ public class StateData implements Serializable {
     public HashMap<String, Integer> inputTableCount = null;
     public ConcreteQueryGraph graph = null;
     public HashMap<String, ConcreteOperator[]> tableProducers = null;
-    public String resultTableName = null;
+    public Set<String> resultTableName = null;
     public AdpDBQueryScriptStatistics statistics = null;
     public ContainerProxy[] proxies;
     public transient ContainerFilter contFilter;
@@ -64,6 +66,7 @@ public class StateData implements Serializable {
         tableProducers = new HashMap<String, ConcreteOperator[]>();
         statistics = new AdpDBQueryScriptStatistics();
         containers = new ArrayList<ContainerResources>();
+        resultTableName = new HashSet<String>();
     }
 
     public final void shallowCopyFrom(StateData other) {

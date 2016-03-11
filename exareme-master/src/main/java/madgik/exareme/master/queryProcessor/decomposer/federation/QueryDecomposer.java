@@ -48,7 +48,7 @@ public class QueryDecomposer {
 	private boolean addNotNulls;
 	private boolean projectRefCols;
 	private String db;
-	private Memo memo;
+	//private Memo memo;
 	private Map<String, Set<String>> refCols;
 	// private NodeSelectivityEstimator nse;
 	private Map<Node, Double> limits;
@@ -57,6 +57,7 @@ public class QueryDecomposer {
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
+	private final boolean useGreedy = true;
 
 	public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
 		this(initial, ".", 1, null);
@@ -96,19 +97,19 @@ public class QueryDecomposer {
 		root.setObject(new Table("table" + Util.createUniqueId(), null));
 		root.addChild(union);
 		if (initialQuery.getOrderBy().size() > 0) {
-			Node orderBy=new Node(Node.AND, Node.ORDERBY);
+			Node orderBy = new Node(Node.AND, Node.ORDERBY);
 			orderBy.addChild(root);
-			List<Column> orderCols=new ArrayList<Column>();
+			List<Column> orderCols = new ArrayList<Column>();
 			orderBy.setObject(orderCols);
 			for (ColumnOrderBy ob : initialQuery.getOrderBy()) {
 				orderCols.add(new ColumnOrderBy(null, ob.getName(), ob.isAsc));
 			}
-			Node orderByParent=new Node(Node.OR);
+			Node orderByParent = new Node(Node.OR);
 			orderByParent.addChild(orderBy);
 			orderByParent.setObject(new Table("table" + Util.createUniqueId(), null));
-			root=orderByParent;
+			root = orderByParent;
 		}
-		
+
 		// this.nse = nse;
 		hashes = h;
 		// hashes.setSelectivityEstimator(nse);
@@ -118,7 +119,7 @@ public class QueryDecomposer {
 		this.addAliases = DecomposerUtils.ADD_ALIASES;
 		// this.n2a = new NamesToAliases();
 		this.addNotNulls = DecomposerUtils.ADD_NOT_NULLS;
-		this.memo = new Memo();
+		//this.memo = new Memo();
 		this.limits = new HashMap<Node, Double>();
 		this.importExternal = DecomposerUtils.IMPORT_EXTERNAL;
 		if (projectRefCols) {
@@ -218,9 +219,8 @@ public class QueryDecomposer {
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 					StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
-						log.error("Could not import Data. DB not found:"
-								+ s.getMadisFunctionString());
-						//return;
+						log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
+						// return;
 					}
 					DataImporter di = new DataImporter(s, this.db, dbinfo);
 					di.setAddToRegisrty(addToregistry);
@@ -247,14 +247,15 @@ public class QueryDecomposer {
 
 	public List<SQLQuery> getPlan() {
 		// String dot0 = root.dotPrint();
+		
 		projectRefCols = true;
 		if (projectRefCols) {
 			createProjections(root);
 		}
-		//String a = root.dotPrint();
+		// String a = root.dotPrint();
 		expandDAG(root);
-		 String a2 = root.dotPrint();
-		// System.out.println(a2);
+		//String a2 = root.dotPrint();
+		//System.out.println(a2);
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
 			Node limit = new Node(Node.AND, Node.LIMIT);
@@ -281,14 +282,40 @@ public class QueryDecomposer {
 			root = limitTable;
 		}
 		// String a = root.dotPrint();
-
 		long t1 = System.currentTimeMillis();
+		Set<Node> shareable=new HashSet<Node>();
+		Map<Node, Double> greedyToMat=new HashMap<Node, Double>();
+		if(useGreedy){
+			root.addShareable(shareable);
+			System.out.println(shareable.size());
+		
+		Node mostProminent=null;
+		int score=0;
+		for(Node n:shareable){
+			int nScore=(n.getUnions().size()*10)+n.getDescendantBaseTables().size();
+			if(nScore>score){
+				score=nScore;
+				mostProminent=n;
+			}
+		}
+		greedyToMat.put(mostProminent, 0.0);
+		}
+		
+		System.out.println(System.currentTimeMillis() - t1);
+		Memo memo=new Memo();
 		SinglePlan best;
 		if (noOfparts == 1) {
-			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0);
+			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
+			if(useGreedy){
+				double matCost=0.0;
+				for(Double d:greedyToMat.values()){
+					matCost+=d;
+				}
+				best.setCost(best.getCost()+matCost);
+			}
 		} else {
 			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
-					new ArrayList<MemoKey>());
+					new ArrayList<MemoKey>(), memo);
 		}
 
 		// Plan best = addRepartitionAndComputeBestPlan(root, cost, memo, cel,
@@ -508,6 +535,12 @@ public class QueryDecomposer {
 
 							hashes.put(eq.getHashId(), eq);
 							commutativity.addAllDescendantBaseTables(op.getDescendantBaseTables());
+							if (useGreedy) {
+									for (Integer u : op.getUnions()) {
+										commutativity.getUnions().add(u);
+									}
+							}
+
 							for (Node p : eq.getParents()) {
 								hashes.put(p.computeHashID(), p);
 							}
@@ -565,6 +598,12 @@ public class QueryDecomposer {
 											Node assocInHashes = hashes.get(associativity.getHashId());
 											table = assocInHashes.getFirstParent();
 
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													assocInHashes.getUnions().add(u);
+													table.getUnions().add(u);
+												}
+											}
 											associativity.removeAllChildren();
 											// associativity = assocInHashes;
 
@@ -577,6 +616,13 @@ public class QueryDecomposer {
 											hashes.put(table.getHashId(), table);
 											associativity.addAllDescendantBaseTables(
 													op.getChildAt(0).getDescendantBaseTables());
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													associativity.getUnions().add(u);
+													table.getUnions().add(u);
+												}
+											}
+											
 											if (comesFromLeftOp) {
 												associativity.addAllDescendantBaseTables(
 														c3.getChildAt(0).getDescendantBaseTables());
@@ -588,6 +634,7 @@ public class QueryDecomposer {
 											}
 											table.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
 										}
+										
 										// table.setPartitionedOn(new
 										// PartitionCols(newBwc.getAllColumnRefs()));
 
@@ -625,6 +672,11 @@ public class QueryDecomposer {
 											}
 											eq.addChild(associativityTop);
 											associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													associativityTop.getUnions().add(u);
+												}
+											}
 											// noOfChildren++;
 											// eq.setPartitionedOn(new
 											// PartitionCols(newBwc.getAllColumnRefs()));
@@ -1128,6 +1180,8 @@ public class QueryDecomposer {
 
 		hashes.remove(q2.getHashId());
 		hashes.remove(q.getHashId());
+		q.getUnions().addAll(q2.getUnions());
+		
 
 		for (Node c : q2.getChildren()) {
 			q.addChild(c);
@@ -1350,7 +1404,7 @@ public class QueryDecomposer {
 	int pruned = 0;
 
 	private SinglePlan getBestPlan(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize) {
+			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
 		MemoKey ec = new MemoKey(e, c);
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
@@ -1363,7 +1417,7 @@ public class QueryDecomposer {
 			PartitionedMemoValue pmv = (PartitionedMemoValue) memo.getMemoValue(ec);
 			partitionRecord.setLastPartitioned(pmv.getDlvdPart());
 		} else {
-			resultPlan = searchForBestPlan(e, c, limit, repCost, partitionRecord, toMaterialize);
+			resultPlan = searchForBestPlan(e, c, limit, repCost, partitionRecord, toMaterialize, memo);
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;
@@ -1373,7 +1427,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan searchForBestPlan(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize) {
+			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
@@ -1453,7 +1507,7 @@ public class QueryDecomposer {
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
-						SinglePlan t = getBestPlan(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlan(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						algPlan.addInputPlan(e2, c2);
 						algPlan.increaseCost(t.getCost());
 					} else if (guaranteesResultNotPtnedOn(a, o, c)) {
@@ -1469,13 +1523,13 @@ public class QueryDecomposer {
 						}
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlan(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlan(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						algPlan.addInputPlan(e2, c2);
 						algPlan.increaseCost(t.getCost());
 					} else {
 						// algPlan.append(getBestPlan(e2, c, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlan(e2, c, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlan(e2, c, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						algPlan.addInputPlan(e2, c);
 						algPlan.increaseCost(t.getCost());
 						if (oRecord.getLast() == null
@@ -1544,7 +1598,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan getBestPlanPruned(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize) {
+			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
 		if (limits.containsKey(e)) {
 			if (limits.get(e) > limit - repCost) {
 				return null;
@@ -1566,7 +1620,7 @@ public class QueryDecomposer {
 			// pmv.setMaterialized(true);
 			// }
 		} else {
-			resultPlan = searchForBestPlanPruned(e, c, limit, repCost, partitionRecord, toMaterialize);
+			resultPlan = searchForBestPlanPruned(e, c, limit, repCost, partitionRecord, toMaterialize, memo);
 		}
 		// if (resultPlan != null && resultPlan.getCost() < limit) {
 		return resultPlan;
@@ -1576,7 +1630,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize) {
+			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
@@ -1664,7 +1718,7 @@ public class QueryDecomposer {
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPruned(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlanPruned(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						if (t == null) {
 							continue;
 						}
@@ -1695,7 +1749,7 @@ public class QueryDecomposer {
 						}
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPruned(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlanPruned(e2, c2, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						if (t == null) {
 							continue;
 						}
@@ -1705,7 +1759,7 @@ public class QueryDecomposer {
 					} else {
 						// algPlan.append(getBestPlan(e2, c, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPruned(e2, c, algLimit, c2RepCost, oRecord, toMatAlg);
+						SinglePlan t = getBestPlanPruned(e2, c, algLimit, c2RepCost, oRecord, toMatAlg, memo);
 						if (t == null) {
 							continue;
 						}
@@ -1815,34 +1869,41 @@ public class QueryDecomposer {
 
 	}
 
-	private SinglePlan getBestPlanCentralized(Node e, double limit, int unionNo) {
+	private SinglePlan getBestPlanCentralized(Node e, double limit, int unionNo, Memo memo, Map<Node, Double> greedyToMat) {
 		MemoKey ec = new MemoKey(e, null);
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
 			// check on c!
-			resultPlan = new SinglePlan(0.0, null);
+			resultPlan = new SinglePlan(NodeCostEstimator.getReadCost(e), null);
 		} else if (memo.containsMemoKey(ec)) {
 			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
-			int used=cmv.getUsed();
-			//if(cmv.isInvalidated()){
-			resultPlan = searchForBestPlanCentralized(e, limit, unionNo);
-			cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
-			cmv.addUsed(used);
-			//}
-			
-			if (NodeCostEstimator.isProfitableToMat(e, cmv.getUsed()+1, resultPlan.getCost())) {
-				// used for second time, consider materialised
-				
-				
-				memo.removeUsageFromChildren(ec, cmv.getUsed(), unionNo);
-				cmv.setMaterialized(true);
-				cmv.setMatUnion(unionNo);
-				
-				resultPlan = new SinglePlan(0.0, null);
-				//cmv.setPlan(resultPlan);
+			if (!useGreedy) {
+				int used = cmv.getUsed();
+				// if(cmv.isInvalidated()){
+				resultPlan = searchForBestPlanCentralized(e, limit, unionNo, memo, greedyToMat);
+				cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
+				cmv.addUsed(used);
+				// }
+
+				if (NodeCostEstimator.isProfitableToMat(e, cmv.getUsed() + 1, resultPlan.getCost())) {
+					memo.removeUsageFromChildren(ec, cmv.getUsed(), unionNo);
+					cmv.setMaterialized(true);
+					cmv.setMatUnion(unionNo);
+
+					resultPlan = new SinglePlan(0.0, null);
+					// cmv.setPlan(resultPlan);
+				}
+			} else {
+				resultPlan = memo.getMemoValue(ec).getPlan();
+				if(greedyToMat.containsKey(e)){
+					cmv.setMaterialized(true);
+					e.setMaterialised(true);
+					greedyToMat.put(e, resultPlan.getCost()+NodeCostEstimator.getWriteCost(e));
+					resultPlan.setCost(NodeCostEstimator.getReadCost(e));
+				}
 			}
 		} else {
-			resultPlan = searchForBestPlanCentralized(e, limit, unionNo);
+			resultPlan = searchForBestPlanCentralized(e, limit, unionNo, memo, greedyToMat);
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;
@@ -1851,7 +1912,7 @@ public class QueryDecomposer {
 		}
 	}
 
-	private SinglePlan searchForBestPlanCentralized(Node e, double limit, int unionNo) {
+	private SinglePlan searchForBestPlanCentralized(Node e, double limit, int unionNo, Memo memo, Map<Node, Double> greedyToMat) {
 
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			SinglePlan r = new SinglePlan(0);
@@ -1896,7 +1957,7 @@ public class QueryDecomposer {
 
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
 				// cel, partitionRecord, toMatAlg));
-				SinglePlan t = getBestPlanCentralized(e2, algLimit, unionNo);
+				SinglePlan t = getBestPlanCentralized(e2, algLimit, unionNo, memo, greedyToMat);
 				algPlan.addInputPlan(e2, null);
 				algPlan.increaseCost(t.getCost());
 
@@ -2087,7 +2148,7 @@ public class QueryDecomposer {
 							setParentsNeedRecompute(r);
 						}
 					}
-					
+
 					project.addDescendantBaseTable(alias);
 					orNode.addDescendantBaseTable(alias);
 
@@ -2107,7 +2168,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan getBestPlanPrunedNoMat(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord) {
+			EquivalentColumnClasses partitionRecord, Memo memo) {
 		if (limits.containsKey(e)) {
 			if (limits.get(e) > limit - repCost) {
 				return null;
@@ -2118,14 +2179,14 @@ public class QueryDecomposer {
 		if (memo.containsMemoKey(ec)) {
 			PartitionedMemoValue pmv = (PartitionedMemoValue) memo.getMemoValue(ec);
 			if (pmv.getRepCost() > repCost) {
-				resultPlan = searchForBestPlanPrunedNoMat(e, c, limit, repCost, partitionRecord);
+				resultPlan = searchForBestPlanPrunedNoMat(e, c, limit, repCost, partitionRecord, memo);
 			} else {
 				resultPlan = memo.getMemoValue(ec).getPlan();
 				partitionRecord.setLastPartitioned(pmv.getDlvdPart());
 			}
 
 		} else {
-			resultPlan = searchForBestPlanPrunedNoMat(e, c, limit, repCost, partitionRecord);
+			resultPlan = searchForBestPlanPrunedNoMat(e, c, limit, repCost, partitionRecord, memo);
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;
@@ -2135,7 +2196,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan searchForBestPlanPrunedNoMat(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord) {
+			EquivalentColumnClasses partitionRecord, Memo memo) {
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
@@ -2214,7 +2275,7 @@ public class QueryDecomposer {
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPrunedNoMat(e2, c2, algLimit, c2RepCost, oRecord);
+						SinglePlan t = getBestPlanPrunedNoMat(e2, c2, algLimit, c2RepCost, oRecord, memo);
 						if (t == null) {
 							continue;
 						}
@@ -2244,7 +2305,7 @@ public class QueryDecomposer {
 						}
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPrunedNoMat(e2, c2, algLimit, c2RepCost, oRecord);
+						SinglePlan t = getBestPlanPrunedNoMat(e2, c2, algLimit, c2RepCost, oRecord, memo);
 						if (t == null) {
 							continue;
 						}
@@ -2254,7 +2315,7 @@ public class QueryDecomposer {
 					} else {
 						// algPlan.append(getBestPlan(e2, c, memo, algLimit,
 						// c2RepCost, cel, partitionRecord, toMatAlg));
-						SinglePlan t = getBestPlanPrunedNoMat(e2, c, algLimit, c2RepCost, oRecord);
+						SinglePlan t = getBestPlanPrunedNoMat(e2, c, algLimit, c2RepCost, oRecord, memo);
 						if (t == null) {
 							continue;
 						}

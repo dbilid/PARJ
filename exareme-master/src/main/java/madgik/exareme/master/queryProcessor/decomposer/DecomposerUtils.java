@@ -37,6 +37,7 @@ public class DecomposerUtils {
 	public static final boolean USE_ORDER_BY;
 	public static final boolean REMOVE_OUTPUTS;
 	public static final boolean PUSH_PROCESSING;
+	public static final boolean WRITE_ALIASES;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -69,6 +70,7 @@ public class DecomposerUtils {
         
         REMOVE_OUTPUTS=properties.getBoolean("remove.outputs");
         PUSH_PROCESSING=properties.getBoolean("push.processing");
+        WRITE_ALIASES=properties.getBoolean("write.aliases");
         
         log.trace("Decomposer Properties Loaded.");
     }

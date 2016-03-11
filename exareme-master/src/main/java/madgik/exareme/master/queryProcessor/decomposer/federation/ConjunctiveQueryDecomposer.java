@@ -39,6 +39,8 @@ public class ConjunctiveQueryDecomposer {
 	private ArrayList<SQLQuery> nestedSubqueries;
 	HashSet<Join> lj;
 	private boolean centralizedExecution;
+	private static final boolean useGreedy=true;
+	private static int counter=0;
 	// private boolean mergeSelections;
 	// private static int counter=0;
 	private static final Logger log = Logger
@@ -102,7 +104,7 @@ public class ConjunctiveQueryDecomposer {
 				}
 			}
 		}
-
+		counter++;
 	}
 
 	public Node addCQToDAG(Node root, NodeHashValues hashes) {
@@ -110,6 +112,9 @@ public class ConjunctiveQueryDecomposer {
 		if(initialQuery.getJoinNode()!=null){
 			Node tempParent = makeNodeFinal(initialQuery.getJoinNode(), hashes);
 			root.addChild(tempParent);
+			if(useGreedy){
+				tempParent.addUnionToDesc(counter);
+			}
 			//String a=tempParent.dotPrint();
 			return tempParent;
 		}
@@ -292,6 +297,9 @@ public class ConjunctiveQueryDecomposer {
 				}
 				Node tempParent = makeNodeFinal(last, hashes);
 				root.addChild(tempParent);
+				if(useGreedy){
+					tempParent.addUnionToDesc(counter);
+				}
 				return tempParent;
 			}
 
@@ -368,6 +376,9 @@ public class ConjunctiveQueryDecomposer {
 				} else {
 					Node tempParent = makeNodeFinal(table, hashes);
 					root.addChild(tempParent);
+					if(useGreedy){
+						tempParent.addUnionToDesc(counter);
+					}
 					return tempParent;
 				}
 

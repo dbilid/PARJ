@@ -69,7 +69,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				} else {
 					estimateJoin(n, bwc, o.getChildAt(0), o.getChildAt(1));
 				}
-			} else if (o.getOpCode() == Node.PROJECT) {
+			} else if (o.getOpCode() == Node.PROJECT||o.getOpCode() == Node.BASEPROJECT) {
 				estimateProject(n);
 			} else if (o.getOpCode() == Node.SELECT) {
 				Selection s = (Selection) o.getObject();
