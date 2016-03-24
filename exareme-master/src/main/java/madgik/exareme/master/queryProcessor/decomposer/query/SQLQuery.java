@@ -70,6 +70,8 @@ public class SQLQuery {
 	private List<Operand> joinOperands;
 	
 	private SipInfo si;
+	private String sql;
+	private boolean isStringSQL;
 
 	public SQLQuery() {
 		super();
@@ -80,6 +82,7 @@ public class SQLQuery {
 		noOfPartitions = 1;
 		isUnionAll = false;
 		hasUnionRootNode = false;
+		isStringSQL=false;
 		isBaseTable = false;
 		unaryWhereConditions = new ArrayList<UnaryWhereCondition>();
 		outputs = new ArrayList<Output>();
@@ -99,6 +102,7 @@ public class SQLQuery {
 	}
 
 	public String toDistSQL() {
+		
 		if (this.isFederated()) {
 			modifyRDBMSSyntax();
 		} else {
@@ -113,7 +117,14 @@ public class SQLQuery {
 		output.append(" table ");
 		output.append("\n");
 		output.append(this.getTemporaryTableName());
-
+		
+		if(this.isStringSQL){
+			output.append(" as direct ");
+			output.append(sql);
+			output.append(";");
+			return output.toString();
+		}
+		
 		if (getPartitionColumn() != null) {
 			output.append(" to ");
 			output.append(String.valueOf(this.getNoOfPartitions()));
@@ -2002,47 +2013,9 @@ public class SQLQuery {
 		return si;
 	}
 
-	public String getSipSQL(boolean b) {
-		if (this.isFederated()) {
-			modifyRDBMSSyntax();
-		} else {
-			this.convertUDFs();
-		}
-		StringBuilder output = new StringBuilder();
-		// Print project columns
-		output.append("distributed create");
-		if (this.isTemporary()) {
-			output.append(" temporary");
-		}
-		output.append(" table ");
-		output.append("\n");
-		output.append(this.getTemporaryTableName());
+	
 
-		if (getPartitionColumn() != null) {
-			output.append(" to ");
-			output.append(String.valueOf(this.getNoOfPartitions()));
-			output.append(" on ");
-			String base = "";
-			if (repartitionColumn.getBaseTable() != null) {
-				base = repartitionColumn.getBaseTable() + "_";
-			}
-			output.append(base);
-			output.append(repartitionColumn.getName());
-		}
-		output.append(" \n");
-		if (this.isFederated()) {
-			output.append("as ");
-			output.append(DecomposerUtils.EXTERNAL_KEY);
-			output.append(" ");
-		} else {
-			output.append("as direct ");
-		}
-		output.append("\n");
-		output.append(toSidSQL(b));
-		return output.toString();
-	}
-
-	private String toSidSQL(boolean b) {
+	public String toSipSQL(boolean b) {
 		StringBuilder output = new StringBuilder();
 		String separator = "";
 		if (this.isFederated()) {
@@ -2194,16 +2167,60 @@ public class SQLQuery {
 					separator = ", \n";
 				}
 			} else {
-				for (Table t : getInputTables()) {
-					output.append(separator);
-					if(this.isFederated){
-						output.append(t.toString());
+				if(!b){
+					for (Table t : getInputTables()) {
+						if(t.getName().startsWith("sip")){
+							separator=" CROSS JOIN ";
+						}
+						output.append(separator);
+						if(this.isFederated){
+							output.append(t.toString());
+						}
+						else{
+							output.append(t.toString().toLowerCase());
+						}
+						separator = ", \n";
 					}
-					else{
-						output.append(t.toString().toLowerCase());
-					}
-					separator = ", \n";
 				}
+				else{
+					String otherTable="";
+					String sipTable="";
+					for(NonUnaryWhereCondition nuwc:this.binaryWhereConditions){
+						if(!(nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column)){
+							continue;
+						}
+						if(nuwc.getRightOp().getAllColumnRefs().get(0).getAlias().startsWith("sip")){
+							otherTable=nuwc.getLeftOp().getAllColumnRefs().get(0).getAlias();
+							sipTable=nuwc.getRightOp().getAllColumnRefs().get(0).getAlias();
+							break;
+						}
+					}
+					for (Table t : getInputTables()) {
+						if(t.getAlias().equals(otherTable)){
+							output.append(t.toString());
+							output.append(" CROSS JOIN ");
+							break;
+						}
+					}
+					output.append(sipTable);
+					output.append(" JOIN (");
+					separator="";
+					for (Table t : getInputTables()) {
+						if(t.getAlias().equals(otherTable)){
+							continue;
+					}
+						if(t.getName().equals(sipTable)){
+							continue;
+						}
+						output.append(separator);
+						output.append(t.toString());
+						separator=" JOIN ";
+						
+						
+					}
+					output.append(")");
+				}
+				
 			}
 		}
 		separator = "";
@@ -2259,7 +2276,19 @@ public class SQLQuery {
 		if (this.isFederated()) {
 			output.append(")");
 		}
-		output.append(";");
+		//output.append(";");
 		return output.toString();
 	}
+
+	public void setSQL(String string) {
+		this.sql=string;
+		
+	}
+
+	public void setStringSQL() {
+		this.isStringSQL=true;
+		
+	}
+	
+	
 }

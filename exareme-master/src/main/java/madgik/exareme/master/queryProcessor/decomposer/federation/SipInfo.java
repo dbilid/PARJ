@@ -19,12 +19,12 @@ public class SipInfo {
 		this.joinCol = c;
 		this.joinNode=node;
 		this.counter=0;
-		this.name="sip"+ Util.createUniqueId();
+		this.name="siptable";
 	}
 
 	@Override
 	public String toString() {
-		return "SipInfo [projection=" + projection + ", joinCol=" + joinCol + ", joinNode=" + joinNode + "]";
+		return "SipInfo [projection=" + projection + ", joinCol=" + joinCol + ", joinNode=" + joinNode + " name=" + name+"]";
 	}
 
 	@Override
