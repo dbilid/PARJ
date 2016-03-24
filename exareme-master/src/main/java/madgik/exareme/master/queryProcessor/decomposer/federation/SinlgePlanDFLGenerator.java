@@ -24,6 +24,8 @@ public class SinlgePlanDFLGenerator {
 	private Memo memo;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private NamesToAliases n2a;
+	private boolean useSIP;
+	private SipStructure sipStruct;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
@@ -39,9 +41,9 @@ public class SinlgePlanDFLGenerator {
 		ResultList qs = new ResultList();
 		MemoKey rootkey = new MemoKey(root, null);
 
-		//printPlan(rootkey);
+		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
-		
+
 		if (partitionNo == 1) {
 			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
 		} else if (DecomposerUtils.PUSH_PROCESSING) {
@@ -97,6 +99,57 @@ public class SinlgePlanDFLGenerator {
 		 * } } }
 		 */
 
+		
+		if(useSIP){
+			Map<SipInfo, Set<SQLQuery>> queriesToSip=new HashMap<SipInfo, Set<SQLQuery>>();
+			for (int i = 0; i < qs.size() - 1; i++) {
+				SQLQuery q = qs.get(i);
+				SipInfo si=q.getSipInfo();
+				if(si!=null){
+					if(queriesToSip.containsKey(si)){
+						queriesToSip.get(si).add(q);
+					}
+					else{
+						Set<SQLQuery> s=new HashSet<SQLQuery>();
+						s.add(q);
+						queriesToSip.put(si, s);
+					}
+				}
+			}
+			
+			for(SipInfo si:queriesToSip.keySet()){
+				SQLQuery mostTables=null;
+				int noTables=0;
+				int lastQ=0;
+				for(SQLQuery s:queriesToSip.get(si)){
+					if(s.getInputTables().size()>noTables){
+						mostTables=s;
+						for(int k=0;k<qs.size();k++){
+							if(qs.get(k)==s){
+								if(lastQ<k){
+									lastQ=k;
+								}
+								break;
+							}
+						}
+						qs.remove(s);
+					}
+				}
+				SQLQuery toReplace=new SQLQuery();
+				StringBuffer toRepl=new StringBuffer();
+				toRepl.append("select * from (");
+				for(SQLQuery s:queriesToSip.get(si)){
+					if(s!=mostTables){
+					toRepl.append(s.getSipSQL(false));
+					}
+				}
+				toRepl.append(mostTables.getSipSQL(true));
+				toRepl.append(")");
+			}
+			
+		}
+		
+		
 		// remove not needed columns from nested subqueries
 
 		if (DecomposerUtils.REMOVE_OUTPUTS) {
@@ -506,8 +559,7 @@ public class SinlgePlanDFLGenerator {
 			current.setNested(true);
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 
-		} 
-		else if (op.getOpCode() == Node.LEFTJOIN) {
+		} else if (op.getOpCode() == Node.LEFTJOIN) {
 			Operand leftJoinOp = (Operand) op.getObject();
 			current.addJoinOperand(leftJoinOp);
 			current.setJoinType("left outer join");
@@ -552,8 +604,7 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 			}
-		}
-		else {
+		} else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
@@ -686,6 +737,30 @@ public class SinlgePlanDFLGenerator {
 						l--;
 					}
 				}
+
+				if (useSIP) {
+					Node join = op.getChildAt(0).getChildAt(memo.getMemoValue(p.getInputPlan(0)).getPlan().getChoice());
+					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
+					if (nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column) {
+						if (join.getOpCode() == Node.JOIN && join.getChildren().size() == 2) {
+							SipInfo si = sipStruct.getSipInfo(join, (Projection) op.getObject());
+							if (si != null && si.getCounter() > 1) {
+								current.setSipInfo(si);
+								tempResult.getCurrent().addInputTableIfNotExists(new Table(si.getName(), si.getName()));
+								Column sipCol=new Column(si.getName(), "x");
+								if(si.getJoinCol().equals(nuwc.getLeftOp())){
+									NonUnaryWhereCondition sipjoin=new NonUnaryWhereCondition(nuwc.getRightOp(), sipCol, "=");
+									current.addBinaryWhereCondition(sipjoin);
+								}
+								if(si.getJoinCol().equals(nuwc.getRightOp())){
+									NonUnaryWhereCondition sipjoin=new NonUnaryWhereCondition(nuwc.getLeftOp(), sipCol, "=");
+									current.addBinaryWhereCondition(sipjoin);
+								}
+							}
+						}
+					}
+				}
+
 			}
 			// if (!current.getOutputs().isEmpty()) {
 			// else do not add base table projections, c
@@ -761,6 +836,7 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 			}
+
 			// }
 
 			/*
@@ -975,14 +1051,13 @@ public class SinlgePlanDFLGenerator {
 			 * c.getName())); } } } // o.getObject().changeColumn(c, c); } }
 			 */
 			// tempResult.add(current);
-		} else if(op.getOpCode() == Node.ORDERBY){
+		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
-			SQLQuery q=tempResult.get(tempResult.getLastTable().getName());
-			List<ColumnOrderBy> orderCols=(ArrayList<ColumnOrderBy>)op.getObject();
-				q.setOrderBy(orderCols);		
-				
-		}
-		else {
+			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
+			q.setOrderBy(orderCols);
+
+		} else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
@@ -1455,6 +1530,14 @@ public class SinlgePlanDFLGenerator {
 
 	public void setN2a(NamesToAliases n2a) {
 		this.n2a = n2a;
+	}
+
+	public void setUseSIP(boolean useSIP) {
+		this.useSIP = useSIP;
+	}
+
+	public void setSipStruct(SipStructure sipStruct) {
+		this.sipStruct = sipStruct;
 	}
 
 }

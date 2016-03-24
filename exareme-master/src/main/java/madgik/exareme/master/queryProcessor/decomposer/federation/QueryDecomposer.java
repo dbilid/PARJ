@@ -48,12 +48,13 @@ public class QueryDecomposer {
 	private boolean addNotNulls;
 	private boolean projectRefCols;
 	private String db;
-	//private Memo memo;
+	private SipStructure sipInfo;
 	private Map<String, Set<String>> refCols;
 	// private NodeSelectivityEstimator nse;
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
+	private boolean useSIP=true;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
@@ -134,6 +135,9 @@ public class QueryDecomposer {
 			 * (t.getAlias().equals(c.tableAlias)) { colsForT.add(c.columnName);
 			 * } } refCols.put(t.getName(), colsForT); }
 			 */
+		}
+		if(useSIP){
+			sipInfo=new SipStructure();
 		}
 	}
 
@@ -254,6 +258,7 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		expandDAG(root);
+		sipInfo.removeNotNeededSIPs();
 		//String a2 = root.dotPrint();
 		//System.out.println(a2);
 		// int no=root.count(0);
@@ -283,12 +288,13 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		long t1 = System.currentTimeMillis();
-		Set<Node> shareable=new HashSet<Node>();
+		List<Node> shareable=new ArrayList<Node>();
 		Map<Node, Double> greedyToMat=new HashMap<Node, Double>();
 		if(useGreedy){
 			root.addShareable(shareable);
 			System.out.println(shareable.size());
-		
+			boolean onlyOne=false;
+		if(onlyOne){
 		Node mostProminent=null;
 		int score=0;
 		for(Node n:shareable){
@@ -300,11 +306,59 @@ public class QueryDecomposer {
 		}
 		greedyToMat.put(mostProminent, 0.0);
 		}
+		else{
+			Collections.sort(shareable);
+			
+			Memo finalMemo=new Memo();
+
+			SinglePlan best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, finalMemo, greedyToMat);
+			double finalCost=best.getCost();
+			System.out.println("no mat:"+finalCost);
+			boolean existsBetterPlan=true;
+			int indexOfBest=-1;
+			while(existsBetterPlan){
+				if(indexOfBest>-1){
+				greedyToMat.put(shareable.get(indexOfBest), 0.0);
+				}
+				existsBetterPlan=false;
+			
+			for(int i=0;i<10&&i<shareable.size();i++){
+				if(greedyToMat.containsKey(shareable.get(shareable.size()-(i+1)))){
+					continue;
+				}
+				greedyToMat.put(shareable.get(shareable.size()-(i+1)), 0.0);
+				Memo memo=new Memo();
+				
+				if (noOfparts == 1) {
+					this.sipInfo.resetCounters();
+					best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
+						double matCost=0.0;
+						for(Double d:greedyToMat.values()){
+							matCost+=d;
+						}
+						best.setCost(best.getCost()+matCost);
+						System.out.println(shareable.get(shareable.size()-(i+1)).getObject().toString());
+						System.out.println(best.getCost());
+						greedyToMat.remove(shareable.get(shareable.size()-(i+1)));
+					if(best.getCost()<finalCost){
+						indexOfBest=shareable.size()-(i+1);
+						finalCost=best.getCost();
+						finalMemo=memo;
+						existsBetterPlan=true;
+					}
+				}
+			}
+			}
+			
+		}
+		}
 		
 		System.out.println(System.currentTimeMillis() - t1);
 		Memo memo=new Memo();
+		
 		SinglePlan best;
 		if (noOfparts == 1) {
+			this.sipInfo.resetCounters();
 			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
 			if(useGreedy){
 				double matCost=0.0;
@@ -330,6 +384,8 @@ public class QueryDecomposer {
 		// System.out.println(best.getPath().toString());
 		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, memo, registry);
 		dsql.setN2a(n2a);
+		dsql.setSipStruct(this.sipInfo);
+		dsql.setUseSIP(useSIP);
 		return (List<SQLQuery>) dsql.generate();
 		// return null;
 	}
@@ -956,9 +1012,19 @@ public class QueryDecomposer {
 					op.computeHashID();
 				}
 				op.setExpanded(true);
+				
 			}
 		}
 		eq.computeHashID();
+		if(useSIP&&!eq.getParents().isEmpty()&&eq.getParents().get(0).getOpCode()==Node.PROJECT){
+			Projection p=(Projection)eq.getParents().get(0).getObject();
+			for(int chNo=0;chNo<eq.getChildren().size();chNo++){
+			Node join=eq.getChildAt(chNo);
+			if(join.getChildren().size()==2 ){
+				sipInfo.addToSipInfo(p, join);
+			}
+			}
+		}
 	}
 
 	private void addRepartitionToPhysicalDAG(Node eq, HashMap<Pair<Node, Column>, Node> memo) {
@@ -1995,6 +2061,7 @@ public class QueryDecomposer {
 			if (algPlan.getCost() < e2Plan.getCost()) {
 				e2Plan = algPlan;
 			}
+			
 
 			// }
 			if (e2Plan.getCost() < resultPlan.getCost()) {
@@ -2002,12 +2069,24 @@ public class QueryDecomposer {
 				memo.put(e, resultPlan, mat, false, fed);
 
 			}
+			
+			if(useSIP&&!e.getParents().isEmpty()&&e.getParents().get(0).getOpCode()==Node.PROJECT){
+				Projection p=(Projection)e.getParents().get(0).getObject();
+				CentralizedMemoValue cmv=(CentralizedMemoValue)memo.getMemoValue(new MemoKey(e, null));
+				Node join=e.getChildAt(cmv.getPlan().getChoice());
+				if(join.getChildren().size()==2 ){
+					sipInfo.markSipUsed(p, join);
+				}
+			}
 		}
+		
+		
 		if (!e.getParents().isEmpty() && (e.getParents().get(0).getOpCode() == Node.UNION
 				|| e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
 			// String g = e.dotPrint();
 			memo.setPlanUsed(new MemoKey(e, null));
 			unionNo++;
+			
 			// e.setPlanMaterialized(resultPlan.getPath().getPlanIterator());
 		}
 		return resultPlan;

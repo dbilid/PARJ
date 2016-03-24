@@ -20,7 +20,7 @@ import com.google.common.hash.Hashing;
 /**
  * @author dimitris
  */
-public class Node {
+public class Node implements Comparator<Node>, Comparable<Node>{
 
 	public static final int OR = 0;
 	public static final int AND = 1;
@@ -358,7 +358,7 @@ public class Node {
 		if (this.opCode == PROJECT) {
 			object = "Project";
 		}
-		object+=" "+unions.toString();
+		object += " " + unions.toString();
 		return String.valueOf(this.hashCode()) + "[label= \"" + object + "\"" + fillcolor + "]" + " [shape=" + shape
 				+ "]";
 		// return String.valueOf(this.hashCode()) + "[label= \"" + object + "::"
@@ -775,16 +775,41 @@ public class Node {
 		}
 	}
 
-	public void addShareable(Set<Node> shareable) {
-		if(this.unions.size()>1&&this.type==Node.OR){
-			if(shareable.add(this)){
+	public void addShareable(List<Node> shareable) {
+		if (this.unions.size() > 1 && this.type == Node.OR && !shareable.contains(this) && this.getDescendantBaseTables().size()>1) {
+			if (shareable.add(this)) {
 				return;
 			}
 		}
-		for(Node c:this.children){
+		for (Node c : this.children) {
 			c.addShareable(shareable);
 		}
-		
+
 	}
+
+	public int compareTo(Node other) {
+		int thisScore = (getUnions().size() * 10) + getDescendantBaseTables().size();
+		int otherScore = (other.getUnions().size() * 10) + other.getDescendantBaseTables().size();
+		if (thisScore > otherScore) {
+			return 1;
+		} else if (otherScore > thisScore) {
+			return -1;
+		} else {
+			return 0;
+		}
+	}
+
+	public int compare(Node d, Node d1) {
+		int thisScore = (d.getUnions().size() * 10) + d.getDescendantBaseTables().size();
+		int otherScore = (d1.getUnions().size() * 10) + d1.getDescendantBaseTables().size();
+		return thisScore - otherScore;
+	}
+
+	@Override
+	public String toString() {
+		return "Node [opCode=" + opCode + ", o=" + o + "]";
+	}
+	
+	
 
 }
