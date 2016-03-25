@@ -100,6 +100,7 @@ public class SinlgePlanDFLGenerator {
 		 */
 
 		if (useSIP) {
+			System.out.println("initial size:" + qs.size());
 			Map<SipInfo, Set<SQLQuery>> queriesToSip = new HashMap<SipInfo, Set<SQLQuery>>();
 			for (int i = 0; i < qs.size() - 1; i++) {
 				SQLQuery q = qs.get(i);
@@ -114,17 +115,20 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 			}
-			SQLQuery union=qs.get(qs.size()-1);
+			SQLQuery union = qs.get(qs.size() - 1);
+
 			for (SipInfo si : queriesToSip.keySet()) {
-				if(queriesToSip.get(si).size()==1){
-					SQLQuery s=queriesToSip.get(si).iterator().next();
-					s.getInputTables().remove(s.getInputTables().size()-1);
-					for(NonUnaryWhereCondition nuwc:s.getBinaryWhereConditions()){
-						if(nuwc.getAllColumnRefs().contains(new Column(si.getName(), "x"))){
+				System.out.println("no of sip:" + queriesToSip.get(si).size());
+				if (queriesToSip.get(si).size() == 1) {
+					System.out.println("si with one query!" + queriesToSip.get(si));
+					SQLQuery s = queriesToSip.get(si).iterator().next();
+					s.getInputTables().remove(s.getInputTables().size() - 1);
+					for (NonUnaryWhereCondition nuwc : s.getBinaryWhereConditions()) {
+						if (nuwc.getAllColumnRefs().contains(new Column(si.getName(), "x"))) {
 							s.getBinaryWhereConditions().remove(nuwc);
 							break;
 						}
-						//qs.add(qs.size()-1, s);
+						// qs.add(qs.size()-1, s);
 					}
 					continue;
 				}
@@ -142,7 +146,7 @@ public class SinlgePlanDFLGenerator {
 								break;
 							}
 						}
-						
+
 					}
 					union.getUnionqueries().remove(s);
 					qs.remove(s);
@@ -152,36 +156,42 @@ public class SinlgePlanDFLGenerator {
 				toRepl.append("select * from (");
 				String separator = "";
 				for (SQLQuery s : queriesToSip.get(si)) {
-					/*if(separator.equals(" UNION ")||queriesToSip.get(si).size()==1){
-						s.getInputTables().remove(s.getInputTables().size()-1);
-						for(NonUnaryWhereCondition nuwc:s.getBinaryWhereConditions()){
-							if(nuwc.getAllColumnRefs().contains(new Column(si.getName(), "x"))){
-								s.getBinaryWhereConditions().remove(nuwc);
-								break;
-							}
-							qs.add(qs.size()-1, s);
-						}
-					}*/
+					/*
+					 * if(separator.equals(" UNION "
+					 * )||queriesToSip.get(si).size()==1){
+					 * s.getInputTables().remove(s.getInputTables().size()-1);
+					 * for(NonUnaryWhereCondition
+					 * nuwc:s.getBinaryWhereConditions()){
+					 * if(nuwc.getAllColumnRefs().contains(new
+					 * Column(si.getName(), "x"))){
+					 * s.getBinaryWhereConditions().remove(nuwc); break; }
+					 * qs.add(qs.size()-1, s); } }
+					 */
 					if (s != mostTables) {
 						toRepl.append(separator);
 						toRepl.append(s.toSipSQL(false));
-						separator = " UNION ";
+						separator = " UNION ALL ";
+						// now setting union all to avoid not necessary
+						// processing
+						// duplicate elimination will occur in the final query
 					}
 				}
-				qs.add(qs.size()-1, toReplace);
+				qs.add(qs.size() - 1, toReplace);
 				toRepl.append(separator);
 				toRepl.append(mostTables.toSipSQL(true));
 				toRepl.append(")");
 				toReplace.setSQL(toRepl.toString());
 				toReplace.setStringSQL();
 				union.getUnionqueries().add(toReplace);
-				if(qs.size()==2){
+				if (qs.size() == 2) {
+					toReplace.setSQL(toRepl.toString().replaceAll(" UNION ALL ", " UNION "));
 					toReplace.setTemporary(false);
 					qs.remove(union);
 				}
-				
+
 			}
 
+			System.out.println("final size:" + qs.size());
 		}
 
 		// remove not needed columns from nested subqueries
@@ -777,20 +787,75 @@ public class SinlgePlanDFLGenerator {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
 					if (nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column) {
 						if (join.getOpCode() == Node.JOIN && join.getChildren().size() == 2) {
-							SipInfo si = sipStruct.getSipInfo(join, (Projection) op.getObject());
-							if (si != null && si.getCounter() > 1) {
+							SipInfo siLeft = sipStruct.getSipInfo(join.getChildAt(0), (Projection) op.getObject());
+							SipInfo siRight = sipStruct.getSipInfo(join.getChildAt(1), (Projection) op.getObject());
+							for (Column c : ((Projection) op.getObject()).getAllColumnRefs()) {
+								if (!nuwc.getAllColumnRefs().contains(c)) {
+									if (join.getChildAt(1).getDescendantBaseTables().contains(c.getAlias())) {
+										siLeft = null;
+									}
+									if (join.getChildAt(0).getDescendantBaseTables().contains(c.getAlias())) {
+										siRight = null;
+									}
+								}
+							}
+							SipInfo si = null;
+							Set<String> leftOfCrossJoin=new HashSet<String>();
+							if (siLeft != null && siRight != null && siLeft.getCounter() > 1
+									&& siRight.getCounter() > 1) {
+								double leftEstGain = memo.getMemoValue(new MemoKey(join.getChildAt(0), null)).getPlan()
+										.getCost() * join.getChildAt(1).getNodeInfo().getNumberOfTuples();
+								double rightEstGain = memo.getMemoValue(new MemoKey(join.getChildAt(1), null)).getPlan()
+										.getCost() * join.getChildAt(0).getNodeInfo().getNumberOfTuples();
+								si = leftEstGain > rightEstGain ? siLeft : siRight;
+							} else if (siLeft != null && siLeft.getCounter() > 1) {
+								si = siLeft;
+							} else if (siRight != null && siRight.getCounter() > 1) {
+								si = siRight;
+								
+								for(String d:join.getChildren().get(0).getDescendantBaseTables()){
+									leftOfCrossJoin.add(tempResult.getQueryForBaseTable(d));
+								}
+							}
+							if (si != null) {
 								current.setSipInfo(si);
-								tempResult.getCurrent().addInputTableIfNotExists(new Table(si.getName(), si.getName()));
+								tempResult.getCurrent().addInputTableIfNotExists(new Table("siptable", si.getName()));
 								Column sipCol = new Column(si.getName(), "x");
 								if (si.getJoinCol().equals(nuwc.getLeftOp())) {
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(nuwc.getRightOp(),
-											sipCol, "=");
+									Column c = (Column) nuwc.getLeftOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
 									current.addBinaryWhereCondition(sipjoin);
 								}
 								if (si.getJoinCol().equals(nuwc.getRightOp())) {
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(nuwc.getLeftOp(),
-											sipCol, "=");
+									Column c = (Column) nuwc.getRightOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
 									current.addBinaryWhereCondition(sipjoin);
+								}
+								if(!leftOfCrossJoin.isEmpty()){
+									tempResult.getCurrent().addInputTableIfNotExists(new Table("siptable", si.getName()+"2"), leftOfCrossJoin.size());
+									Column sipCol2 = new Column(si.getName()+"2", "y");
+									if (si.getJoinCol().equals(nuwc.getLeftOp())) {
+										Column c = (Column) nuwc.getRightOp();
+										Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+												c.getAlias());
+
+										NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+										current.addBinaryWhereCondition(sipjoin);
+									}
+									if (si.getJoinCol().equals(nuwc.getRightOp())) {
+										Column c = (Column) nuwc.getLeftOp();
+										Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+												c.getAlias());
+
+										NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+										current.addBinaryWhereCondition(sipjoin);
+									}
 								}
 							}
 						}

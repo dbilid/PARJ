@@ -96,9 +96,9 @@ public class SipStructure {
 		return new Table("no", "no");
 	}
 
-	public SipInfo getSipInfo(Node op, Projection object) {
+	public SipInfo getSipInfo(Node eq, Projection object) {
 		for(SipInfo si:this.sipInfos.keySet()){
-			if(si.getJoinNode().equals(op.getChildAt(0).getObject().toString())||si.getJoinNode().equals(op.getChildAt(1).getObject().toString())){
+			if(si.getJoinNode().equals(eq.getObject().toString())){
 				return si;
 			}
 		}

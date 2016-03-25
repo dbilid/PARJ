@@ -19,7 +19,7 @@ public class SipInfo {
 		this.joinCol = c;
 		this.joinNode=node;
 		this.counter=0;
-		this.name="siptable";
+		this.name="siptable"+ Util.createUniqueId();
 	}
 
 	@Override

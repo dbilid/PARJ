@@ -2167,9 +2167,82 @@ public class SQLQuery {
 					separator = ", \n";
 				}
 			} else {
-				if(!b){
+				boolean newb=true;
+				if(newb){
+					output.append("(");
+					for (Table t : getInputTables()) {
+
+						if(t.getAlias().startsWith("siptable")){
+							separator=") CROSS JOIN ";
+						}
+						output.append(separator);
+						output.append(t.toString());
+						separator=" JOIN ";
+						if(t.getAlias().startsWith("siptable")){
+							separator=" JOIN ( ";
+						}
+						
+					}
+					//output.append(")");
+
+				}
+				
+				/*
+				 if(newb){
+					String otherTable="";
+					String sipTable="";
+					Column otherCol=null;
+					for(NonUnaryWhereCondition nuwc:this.binaryWhereConditions){
+						if(!(nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column)){
+							continue;
+						}
+						if(nuwc.getRightOp().getAllColumnRefs().get(0).getAlias().startsWith("sip")){
+							otherCol=nuwc.getLeftOp().getAllColumnRefs().get(0);
+							Column sipCol=nuwc.getRightOp().getAllColumnRefs().get(0);
+							sipCol.setName("y");
+							otherTable=nuwc.getLeftOp().getAllColumnRefs().get(0).getAlias();
+							sipTable=nuwc.getRightOp().getAllColumnRefs().get(0).getAlias();
+							break;
+						}
+					}
+					for (Table t : getInputTables()) {
+						if(t.getAlias().equals(otherTable)){
+							output.append(t.toString());
+							output.append(" CROSS JOIN ");
+							break;
+						}
+					}
+					output.append("siptable");
+					output.append(" ");
+					output.append(sipTable);
+					output.append(" JOIN (");
+					separator="";
+					for (Table t : getInputTables()) {
+						if(t.getAlias().equals(otherTable)){
+							continue;
+					}
+						if(t.getAlias().equals(sipTable)){
+							continue;
+						}
+						output.append(separator);
+						output.append(t.toString());
+						separator=" JOIN ";
+						
+					}
+					output.append(")");
+					if(!b){
+						output.append(" CROSS JOIN ");
+						output.append("siptable");
+						output.append(" ");
+						output.append(sipTable);
+						output.append("2");
+						this.binaryWhereConditions.add(new NonUnaryWhereCondition(otherCol, new Column(sipTable+"2", "x"), "="));
+					}
+				}
+				 if(!b){
 					for (Table t : getInputTables()) {
 						if(t.getName().startsWith("sip")){
+							t.setName("siptable");
 							separator=" CROSS JOIN ";
 						}
 						output.append(separator);
@@ -2190,6 +2263,8 @@ public class SQLQuery {
 							continue;
 						}
 						if(nuwc.getRightOp().getAllColumnRefs().get(0).getAlias().startsWith("sip")){
+							Column sipCol=nuwc.getRightOp().getAllColumnRefs().get(0);
+							sipCol.setName("y");
 							otherTable=nuwc.getLeftOp().getAllColumnRefs().get(0).getAlias();
 							sipTable=nuwc.getRightOp().getAllColumnRefs().get(0).getAlias();
 							break;
@@ -2202,6 +2277,7 @@ public class SQLQuery {
 							break;
 						}
 					}
+					output.append("siptable ");
 					output.append(sipTable);
 					output.append(" JOIN (");
 					separator="";
@@ -2219,7 +2295,7 @@ public class SQLQuery {
 						
 					}
 					output.append(")");
-				}
+				}*/
 				
 			}
 		}
@@ -2287,6 +2363,13 @@ public class SQLQuery {
 
 	public void setStringSQL() {
 		this.isStringSQL=true;
+		
+	}
+
+	public void addInputTableIfNotExists(Table table, int index) {
+		if (!this.inputTables.contains(table) && !table.getName().equals(this.getTemporaryTableName())) {
+			this.inputTables.add(index, table);
+		}
 		
 	}
 	
