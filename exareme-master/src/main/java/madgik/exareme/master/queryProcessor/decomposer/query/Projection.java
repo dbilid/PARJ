@@ -99,7 +99,7 @@ public class Projection implements Operand {
 
             }
             else{
-            	hash=31 * hash + Objects.hashCode(o.getOutputName()) + Objects.hashCode(o.getObject());
+            	hash=31 * hash + Objects.hashCode(o.getOutputName()) + o.getObject().hashCode();
             }
         }
         return hash;

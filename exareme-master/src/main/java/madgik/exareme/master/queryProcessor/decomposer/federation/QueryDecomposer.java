@@ -258,7 +258,8 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		expandDAG(root);
-		sipInfo.removeNotNeededSIPs();
+		if(this.useSIP){
+		sipInfo.removeNotNeededSIPs();}
 		//String a2 = root.dotPrint();
 		//System.out.println(a2);
 		// int no=root.count(0);
@@ -293,6 +294,10 @@ public class QueryDecomposer {
 		if(useGreedy){
 			root.addShareable(shareable);
 			System.out.println(shareable.size());
+			//add top union results
+			for(Node u:root.getChildAt(0).getChildren()){
+				greedyToMat.put(u, 0.0);
+			}
 			boolean onlyOne=false;
 		if(onlyOne){
 		Node mostProminent=null;
@@ -330,7 +335,8 @@ public class QueryDecomposer {
 				Memo memo=new Memo();
 				
 				if (noOfparts == 1) {
-					this.sipInfo.resetCounters();
+					if(this.useSIP){
+					this.sipInfo.resetCounters();}
 					best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
 						double matCost=0.0;
 						for(Double d:greedyToMat.values()){
@@ -358,7 +364,8 @@ public class QueryDecomposer {
 		
 		SinglePlan best;
 		if (noOfparts == 1) {
-			this.sipInfo.resetCounters();
+			if(this.useSIP){
+			this.sipInfo.resetCounters();}
 			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
 			if(useGreedy){
 				double matCost=0.0;
@@ -384,8 +391,9 @@ public class QueryDecomposer {
 		// System.out.println(best.getPath().toString());
 		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, memo, registry);
 		dsql.setN2a(n2a);
+		if(this.useSIP){
 		dsql.setSipStruct(this.sipInfo);
-		dsql.setUseSIP(useSIP);
+		dsql.setUseSIP(useSIP);}
 		return (List<SQLQuery>) dsql.generate();
 		// return null;
 	}
@@ -1246,6 +1254,10 @@ public class QueryDecomposer {
 
 		hashes.remove(q2.getHashId());
 		hashes.remove(q.getHashId());
+for(Node p:q.getParents()){
+	hashes.remove(p.getHashId());
+	p.setHashNeedsRecomputing();
+		}
 		q.getUnions().addAll(q2.getUnions());
 		
 
@@ -1253,6 +1265,9 @@ public class QueryDecomposer {
 			q.addChild(c);
 			q.addAllDescendantBaseTables(c.getDescendantBaseTables());
 		}
+		for(Node p:q.getParents()){
+			hashes.put(p.getHashId(), p);
+				}
 		q2.removeAllChildren();
 		for (int i = 0; i < q2.getParents().size(); i++) {
 			Node p = q2.getParents().get(i);
@@ -2086,7 +2101,7 @@ public class QueryDecomposer {
 			// String g = e.dotPrint();
 			memo.setPlanUsed(new MemoKey(e, null));
 			unionNo++;
-			
+			//e.setMaterialised(true);
 			// e.setPlanMaterialized(resultPlan.getPath().getPlanIterator());
 		}
 		return resultPlan;

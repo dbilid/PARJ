@@ -14,14 +14,14 @@ public final class Bucket {
     public static final double EMPTY_BUCKET_FREQ = 0.0;
     public static final double EMPTY_BUCKET_DIFF_VAL = 0.0;
     public static final double TRANSPARENT_FREQ = 1.0;
-    public static final double MIN_BUCKET_WIDTH = Double.MIN_NORMAL;
+    public static final double MIN_BUCKET_WIDTH = 1.0;
     public static final double MAX_BUCKET_DIFF_VALS = Double.POSITIVE_INFINITY;
     public static final Bucket FINAL_HISTOGRAM_BUCKET =
         new Bucket(EMPTY_BUCKET_FREQ, EMPTY_BUCKET_DIFF_VAL);
     public static final Bucket HOLE_BUCKET = new Bucket(EMPTY_BUCKET_FREQ, SINGLE_BUCKET_DIFF_VAL);
     public static final Bucket EMPTY_BUCKET = new Bucket(EMPTY_BUCKET_FREQ, EMPTY_BUCKET_DIFF_VAL);
     public static final Bucket TRANSPARENT_BUCKET =
-        new Bucket(TRANSPARENT_FREQ, MAX_BUCKET_DIFF_VALS);
+        new Bucket(TRANSPARENT_FREQ, MIN_BUCKET_WIDTH);
 
     private double frequency;
     private double diffValues;

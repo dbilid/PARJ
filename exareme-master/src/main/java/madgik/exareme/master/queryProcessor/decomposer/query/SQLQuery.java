@@ -2169,17 +2169,17 @@ public class SQLQuery {
 			} else {
 				boolean newb=true;
 				if(newb){
-					output.append("(");
+					//output.append("(");
 					for (Table t : getInputTables()) {
 
 						if(t.getAlias().startsWith("siptable")){
-							separator=") CROSS JOIN ";
+							separator=" CROSS JOIN  ";
 						}
 						output.append(separator);
 						output.append(t.toString());
 						separator=" JOIN ";
 						if(t.getAlias().startsWith("siptable")){
-							separator=" JOIN ( ";
+							separator=" CROSS JOIN  ";
 						}
 						
 					}
@@ -2371,6 +2371,15 @@ public class SQLQuery {
 			this.inputTables.add(index, table);
 		}
 		
+	}
+
+	public boolean sipJoinIsLast() {
+		Table t=this.inputTables.get(inputTables.size()-1);
+		if(t.getName().equalsIgnoreCase("siptable")){
+
+				return true;
+		}
+			return false;
 	}
 	
 	

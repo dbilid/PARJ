@@ -1,6 +1,8 @@
 package madgik.exareme.master.queryProcessor.estimator;
 
 import com.google.gson.Gson;
+
+import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
 import madgik.exareme.master.queryProcessor.estimator.db.RelInfo;
@@ -128,6 +130,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 					col = (Column) nuwc.getRightOp();
 					con = (Constant) nuwc.getLeftOp();
 				}
+				
 
 				// RelInfo lRel =
 				// this.schema.getTableIndex().get(col.tableAlias);
@@ -139,7 +142,17 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 				double filterValue = 0;
 				if (!con.isArithmetic()) {
-					filterValue = hashString(con.getValue().toString());
+					if(con.getValue() instanceof String){
+						String st=(String)con.getValue();
+						filterValue = StatUtils.hashString(con.getValue().toString());
+						String newSt="";
+						if(st.startsWith("\'")){
+							newSt=st.replaceAll("\'", "");
+							filterValue = StatUtils.hashString(newSt);
+						}
+						
+					}
+					
 				} else {
 					filterValue = Double.parseDouble(con.getValue().toString());
 				}

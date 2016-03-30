@@ -93,4 +93,42 @@ public class BinaryOperand implements Operand {
 		codes.add(Hashing.sha1().hashBytes(operator.getBytes()));
 		return Hashing.combineOrdered(codes);
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((leftOp == null) ? 0 : leftOp.hashCode());
+		result = prime * result + ((operator == null) ? 0 : operator.hashCode());
+		result = prime * result + ((rightOp == null) ? 0 : rightOp.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		BinaryOperand other = (BinaryOperand) obj;
+		if (leftOp == null) {
+			if (other.leftOp != null)
+				return false;
+		} else if (!leftOp.equals(other.leftOp))
+			return false;
+		if (operator == null) {
+			if (other.operator != null)
+				return false;
+		} else if (!operator.equals(other.operator))
+			return false;
+		if (rightOp == null) {
+			if (other.rightOp != null)
+				return false;
+		} else if (!rightOp.equals(other.rightOp))
+			return false;
+		return true;
+	}
+	
 }

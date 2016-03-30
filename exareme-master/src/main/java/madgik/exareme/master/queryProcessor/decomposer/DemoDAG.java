@@ -227,7 +227,7 @@ public class DemoDAG {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("10.q.sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("29.q.sql")) {
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }

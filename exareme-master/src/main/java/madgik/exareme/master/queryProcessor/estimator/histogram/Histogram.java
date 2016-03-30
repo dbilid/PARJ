@@ -14,8 +14,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author jim
  */
 public final class Histogram {
-    public static final double MAX_HISTOGRAM_VALUE = Double.POSITIVE_INFINITY;
-    public static final double MIN_HISTOGRAM_VALUE = Double.NEGATIVE_INFINITY;
+    public static final double MAX_HISTOGRAM_VALUE = 0.0;
+    public static final double MIN_HISTOGRAM_VALUE = 0.0;
 
     private NavigableMap<Double, Bucket> bucketIndex;
 
@@ -423,6 +423,9 @@ public final class Histogram {
             .lastKey()) {
 
             double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency();
+            if(Double.isInfinite(resultFreq)){
+            	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            }
 
             double minCombinerBucketVal = combinerBucketId;
             double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);

@@ -45,9 +45,9 @@ public class PostgresImporter {
 		ResultSet rs = md.getTables(null, "public", "%", new String[] {"TABLE"});
 		while (rs.next()) {
 			String tablename=rs.getString(3);
-			//if(!tablename.equalsIgnoreCase("wellbore_mud")){
-			//	continue;
-			//}
+			if(!tablename.equalsIgnoreCase("wellbore_core")){
+				continue;
+			}
 			SQLQuery s=new SQLQuery();
 			s.setFederated(true);
 			s.setMadisFunctionString("postgres h:localhost u:postres");
