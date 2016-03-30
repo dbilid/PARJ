@@ -608,5 +608,50 @@ public final class Histogram {
 
     }
 
+	public void filterjoin(Histogram h2) {
+		checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is null");
+
+        if (this.isTransparentHistogram() && !h2.isTransparentHistogram())
+            this.setBucketIndex(new TreeMap<Double, Bucket>(h2.getBucketIndex()));
+        else if (h2.isTransparentHistogram() && !this.isTransparentHistogram())
+            h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
+
+        if (!existsIntersection(h2)) {
+            System.out.println(this);
+            System.out.println(h2);
+            this.convertToTransparentHistogram();
+        } else {
+            Map<Double, Double> cbmap = this.combine(h2);
+            for (Map.Entry<Double, Double> e : cbmap.entrySet())
+                this.filterJoinBuckets(h2, e.getKey(), e.getValue());
+        }
+		
+	}
+
+	private void filterJoinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId) {
+        //preconditions
+        checkNotNull(h2, "Histogram::joinBuckets: parameter <h2> is null");
+
+        Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
+        Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
+
+        if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
+            .lastKey()) {
+
+            double resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getDiffValues() :combinerBucket.getFrequency()/combiningBucket.getDiffValues();
+            
+            if(Double.isInfinite(resultFreq)){
+            	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            }
+
+
+            double nodv = combiningBucket.getDiffValues();
+
+
+            combiningBucket.setDiffValues(nodv);
+            combiningBucket.setFrequency(resultFreq);
+        }
+    }
+
 
 }

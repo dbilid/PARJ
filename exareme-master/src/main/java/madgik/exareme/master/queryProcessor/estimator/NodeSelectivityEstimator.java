@@ -67,7 +67,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			if (o.getOpCode() == Node.JOIN) {
 				NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) o.getObject();
 				if (o.getChildren().size() == 1) {
-					estimateJoin(n, bwc, o.getChildAt(0), o.getChildAt(0));
+					estimateFilterJoin(n, bwc, o.getChildAt(0), o.getChildAt(0));
 				} else {
 					estimateJoin(n, bwc, o.getChildAt(0), o.getChildAt(1));
 				}
@@ -196,8 +196,51 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo resultRel = new RelInfo(lRel);
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
+		
 
 		resultHistogram.join(rRel.getAttrIndex().get(r.getName()).getHistogram());
+
+		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
+
+		// put all the right's RelInfo AttrInfos to the left one
+		resultRel.getAttrIndex().putAll(rRel.getAttrIndex());
+
+		// adjust RelInfo's histograms based on the resulting histogram
+		resultRel.adjustRelation(l.getName(), resultHistogram);
+
+		// fix alias mappings to RelInfo. The joining aliases must point to the
+		// same RelInfo after the join operation
+		schema.getTableIndex().put(l.getAlias(), resultRel);
+		schema.getTableIndex().put(r.getAlias(), resultRel);
+
+		// adding necessary equivalent hashing attribures
+		resultRel.getHashAttr().addAll(rRel.getHashAttr());
+
+		// TODO: fix nodeInfo
+		ni.setNumberOfTuples(resultRel.getNumberOfTuples());
+		ni.setTupleLength(resultRel.getTupleLength());
+		ni.setResultRel(resultRel);
+		n.setNodeInfo(ni);
+	}
+	
+	public void estimateFilterJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {
+		// NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) n.getObject();
+		NodeInfo ni = new NodeInfo();
+		Column l = (Column) nuwc.getLeftOp();
+		Column r = (Column) nuwc.getRightOp();
+		// String equals = nuwc.getOperator();
+
+		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);
+		// RelInfo rRel = this.schema.getTableIndex().get(r.tableAlias);
+		RelInfo lRel = left.getNodeInfo().getResultRel();
+		RelInfo rRel = right.getNodeInfo().getResultRel();
+
+		RelInfo resultRel = new RelInfo(lRel);
+
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
+		
+
+		resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
 
