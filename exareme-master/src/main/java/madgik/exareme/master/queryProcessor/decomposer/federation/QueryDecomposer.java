@@ -257,11 +257,14 @@ public class QueryDecomposer {
 		}
 		//String a = root.dotPrint();
 		//System.out.println(a);
+		long b=System.currentTimeMillis();
 		expandDAG(root);
+		System.out.println("expandtime:"+(System.currentTimeMillis()-b));
+		System.out.println("noOfnode:"+root.count(0));
 		if(this.useSIP){
 		sipInfo.removeNotNeededSIPs();}
-		StringBuilder a2 = root.dotPrint();
-		System.out.println(a2.toString());
+		//StringBuilder a2 = root.dotPrint();
+		//System.out.println(a2.toString());
 		//System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
@@ -825,7 +828,7 @@ public class QueryDecomposer {
 								}
 							}
 						}
-						else{
+						/*else{
 							Node c2 = op.getChildAt(0);
 							for (int c2Ch=0;c2Ch<c2.getChildren().size();c2Ch++){
 								Node c3 = c2.getChildren().get(c2Ch);
@@ -866,13 +869,17 @@ public class QueryDecomposer {
 											associativity.addChild(c3.getChildAt(1));
 											
 										}
+										Node table = new Node(Node.OR);
+										table.setObject(new Table("table" + Util.createUniqueId(), null));
+										
+											
 										if (hashes.containsKey(associativity.getHashId())) {
 											Node assocInHashes = hashes.get(associativity.getHashId());
-
+											table = assocInHashes.getFirstParent();
 											if (useGreedy) {
 												for (Integer u : eq.getUnions()) {
 													assocInHashes.getUnions().add(u);
-													c2.getUnions().add(u);
+													table.getUnions().add(u);
 												}
 											}
 											associativity.removeAllChildren();
@@ -880,13 +887,11 @@ public class QueryDecomposer {
 
 										} else {
 											hashes.put(associativity.getHashId(), associativity);
-											hashes.remove(c2.getHashId());
-											c2.addChildAt(associativity, 0);
-											c2Ch++;
+											table.addChild(associativity);
 
 											// table.setPartitionedOn(new
 											// PartitionCols(newBwc.getAllColumnRefs()));
-											hashes.put(c2.getHashId(), c2);
+											hashes.put(table.getHashId(), table);
 											
 											if (useGreedy) {
 												for (Integer u : eq.getUnions()) {
@@ -901,7 +906,7 @@ public class QueryDecomposer {
 												
 												
 											
-											c2.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
+											table.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
 										}
 										
 										// table.setPartitionedOn(new
@@ -916,7 +921,7 @@ public class QueryDecomposer {
 											newBwc2.setLeftOp(bwc2.getLeftOp());
 										// newBwc2.setLeftOp(bwc.getRightOp());
 										associativityTop.setObject(newBwc2);
-										associativityTop.addChild(c2);
+										associativityTop.addChild(table);
 										associativityTop.setExpanded(true);
 										
 										// System.out.println(associativityTop.getObject().toString());
@@ -950,18 +955,18 @@ public class QueryDecomposer {
 											// same as unify(eq', eq)???
 											// checking again children of eq?
 											associativityTop.removeAllChildren();
-											if (c2.getParents().isEmpty()) {
-												if (hashes.get(c2.getHashId()) == c2) {
-													hashes.remove(c2.getHashId());
+											if (table.getParents().isEmpty()) {
+												if (hashes.get(table.getHashId()) == table) {
+													hashes.remove(table.getHashId());
 												}
-												for (Node n : c2.getChildren()) {
+												for (Node n : table.getChildren()) {
 													if (n.getParents().size() == 1) {
 														if (hashes.get(n.getHashId()) == n) {
 															hashes.remove(n.getHashId());
 														}
 													}
 												}
-												c2.removeAllChildren();
+												table.removeAllChildren();
 											}
 											if (associativity.getParents().isEmpty()) {
 												if (hashes.get(associativity.getHashId()) == associativity) {
@@ -975,7 +980,7 @@ public class QueryDecomposer {
 								}
 							}
 							
-						}
+						}*/
 					}
 
 				}
@@ -2655,6 +2660,6 @@ for(Node p:q.getParents()){
 	}
 
 	public String getDotPrint() {
-		return root.dotPrint();
+		return root.dotPrint().toString();
 	}
 }
