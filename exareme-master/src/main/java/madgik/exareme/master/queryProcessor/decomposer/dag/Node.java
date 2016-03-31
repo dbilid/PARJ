@@ -243,7 +243,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		this.setHashNeedsRecomputing();
 	}
 
-	public String dotPrint() {
+	public StringBuilder dotPrint() {
 		StringBuilder result = new StringBuilder();
 		HashSet<String> shapes = new HashSet<String>();
 		LinkedList<Node> queue = new LinkedList<Node>();
@@ -262,7 +262,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 					result.append(" -> ");
 					result.append(c.dotString());
 					// result.append("[label=\"").append(i).append("\"]");
-					result.append(";");
+					result.append(";\n");
 				}
 
 			}
@@ -281,7 +281,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			result.insert(0, it.next());
 		}
 		result.insert(0, "strict digraph G{ {");
-		return result.toString();
+		return result;
 	}
 
 	private String dotString() {

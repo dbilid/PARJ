@@ -54,7 +54,7 @@ public class QueryDecomposer {
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
-	private boolean useSIP=true;
+	private boolean useSIP=false;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
@@ -254,14 +254,15 @@ public class QueryDecomposer {
 		
 		projectRefCols = true;
 		if (projectRefCols) {
-			createProjections(root);
 		}
-		// String a = root.dotPrint();
+		//String a = root.dotPrint();
+		//System.out.println(a);
 		expandDAG(root);
 		if(this.useSIP){
 		sipInfo.removeNotNeededSIPs();}
-		//String a2 = root.dotPrint();
-		//System.out.println(a2);
+		StringBuilder a2 = root.dotPrint();
+		System.out.println(a2.toString());
+		//System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
 			Node limit = new Node(Node.AND, Node.LIMIT);
@@ -823,6 +824,157 @@ public class QueryDecomposer {
 									}
 								}
 							}
+						}
+						else{
+							Node c2 = op.getChildAt(0);
+							for (int c2Ch=0;c2Ch<c2.getChildren().size();c2Ch++){
+								Node c3 = c2.getChildren().get(c2Ch);
+								// if (c2.getChildren().size() > 0) {
+								// Node c3 = c2.getChildAt(0);
+								if (c3.getObject() instanceof NonUnaryWhereCondition && c3.getChildren().size() > 1) {
+									NonUnaryWhereCondition bwc2 = (NonUnaryWhereCondition) c3.getObject();
+									if (bwc2.getOperator().equals("=")) {
+										boolean comesFromLeftOp = c3.getChildAt(0).isDescendantOfBaseTable(
+												bwc.getRightOp().getAllColumnRefs().get(0).getAlias());
+										boolean comesFromRightOp = c3.getChildAt(0).isDescendantOfBaseTable(
+												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
+										Node associativity = new Node(Node.AND, Node.JOIN);
+										if(!comesFromLeftOp && !comesFromRightOp){
+											continue;
+										}
+										boolean comesFromLeftOp2 = c3.getChildAt(1).isDescendantOfBaseTable(
+												bwc.getRightOp().getAllColumnRefs().get(0).getAlias());
+										boolean comesFromRightOp2 = c3.getChildAt(1).isDescendantOfBaseTable(
+												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
+										if(!comesFromLeftOp2 && !comesFromRightOp2){
+											continue;
+										}
+										NonUnaryWhereCondition newBwc = new NonUnaryWhereCondition();
+										newBwc.setOperator("=");
+										
+										newBwc.setRightOp(bwc.getRightOp());
+										newBwc.setLeftOp(bwc.getLeftOp());
+										associativity.setObject(newBwc);
+
+										if (comesFromLeftOp) {
+											associativity.addChild(c3.getChildAt(1));
+											associativity.addChild(c3.getChildAt(0));
+										
+
+										} else {
+											associativity.addChild(c3.getChildAt(0));
+											associativity.addChild(c3.getChildAt(1));
+											
+										}
+										if (hashes.containsKey(associativity.getHashId())) {
+											Node assocInHashes = hashes.get(associativity.getHashId());
+
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													assocInHashes.getUnions().add(u);
+													c2.getUnions().add(u);
+												}
+											}
+											associativity.removeAllChildren();
+											// associativity = assocInHashes;
+
+										} else {
+											hashes.put(associativity.getHashId(), associativity);
+											hashes.remove(c2.getHashId());
+											c2.addChildAt(associativity, 0);
+											c2Ch++;
+
+											// table.setPartitionedOn(new
+											// PartitionCols(newBwc.getAllColumnRefs()));
+											hashes.put(c2.getHashId(), c2);
+											
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													associativity.getUnions().add(u);
+													c2.getUnions().add(u);
+												}
+											}
+											
+												associativity.addAllDescendantBaseTables(
+														c3.getDescendantBaseTables());
+
+												
+												
+											
+											c2.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
+										}
+										
+										// table.setPartitionedOn(new
+										// PartitionCols(newBwc.getAllColumnRefs()));
+
+										// table.setIsCentralised(c3.getChildAt(0).isCentralised()
+										// && op.getChildAt(0).isCentralised());
+										Node associativityTop = new Node(Node.AND, Node.JOIN);
+										NonUnaryWhereCondition newBwc2 = new NonUnaryWhereCondition();
+										newBwc2.setOperator("=");
+											newBwc2.setRightOp(bwc2.getRightOp());
+											newBwc2.setLeftOp(bwc2.getLeftOp());
+										// newBwc2.setLeftOp(bwc.getRightOp());
+										associativityTop.setObject(newBwc2);
+										associativityTop.addChild(c2);
+										associativityTop.setExpanded(true);
+										
+										// System.out.println(associativityTop.getObject().toString());
+										if (!hashes.containsKey(associativityTop.getHashId())) {
+											hashes.put(associativityTop.getHashId(), associativityTop);
+											// Node newTop =
+											// hashes.checkAndPutWithChildren(associativityTop);
+											hashes.remove(eq.getHashId());
+											for (Node p : eq.getParents()) {
+												hashes.remove(p.getHashId());
+											}
+											eq.addChild(associativityTop);
+											associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
+											if (useGreedy) {
+												for (Integer u : eq.getUnions()) {
+													associativityTop.getUnions().add(u);
+												}
+											}
+											// noOfChildren++;
+											// eq.setPartitionedOn(new
+											// PartitionCols(newBwc.getAllColumnRefs()));
+											// if(!h.containsKey(eq.computeHashID())){
+											hashes.put(eq.getHashId(), eq);
+											for (Node p : eq.getParents()) {
+												hashes.put(p.computeHashID(), p);
+											}
+										
+										} else {
+
+											unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
+											// same as unify(eq', eq)???
+											// checking again children of eq?
+											associativityTop.removeAllChildren();
+											if (c2.getParents().isEmpty()) {
+												if (hashes.get(c2.getHashId()) == c2) {
+													hashes.remove(c2.getHashId());
+												}
+												for (Node n : c2.getChildren()) {
+													if (n.getParents().size() == 1) {
+														if (hashes.get(n.getHashId()) == n) {
+															hashes.remove(n.getHashId());
+														}
+													}
+												}
+												c2.removeAllChildren();
+											}
+											if (associativity.getParents().isEmpty()) {
+												if (hashes.get(associativity.getHashId()) == associativity) {
+													hashes.remove(associativity.getHashId());
+												}
+												associativity.removeAllChildren();
+											}
+
+										}
+									}
+								}
+							}
+							
 						}
 					}
 

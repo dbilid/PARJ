@@ -638,14 +638,18 @@ public final class Histogram {
         if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
             .lastKey()) {
 
-            double resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getDiffValues() :combinerBucket.getFrequency()/combiningBucket.getDiffValues();
-            
-            if(Double.isInfinite(resultFreq)){
-            	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
-            }
+            //double resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getDiffValues() :combinerBucket.getFrequency()/combiningBucket.getDiffValues();
+        	//double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getFrequency():combinerBucket.getFrequency()/combiningBucket.getFrequency();
 
+            //double nodv = combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues():combinerBucket.getDiffValues();
+        	
+        	double minCombinerBucketVal = combinerBucketId;
+            double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
+            double minCombiningBucketVal = combiningBucketId;
+            double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
+        	double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
 
-            double nodv = combiningBucket.getDiffValues();
+            double nodv = combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues()/(combinerBucket.getFrequency()*combinerBucket.getDiffValues()/(maxCombinerBucketVal-minCombinerBucketVal)):combinerBucket.getDiffValues()/(combiningBucket.getFrequency()*combiningBucket.getDiffValues()/(maxCombiningBucketVal-minCombiningBucketVal));
 
 
             combiningBucket.setDiffValues(nodv);
