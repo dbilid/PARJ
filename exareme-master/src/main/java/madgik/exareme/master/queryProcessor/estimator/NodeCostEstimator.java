@@ -60,6 +60,7 @@ public class NodeCostEstimator {
         }
     }
     private static Double estimateBaseProjection(Node o) {
+    	double a=indexCostCreation(o.getChildAt(0));
     	return (o.getChildAt(0).getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
 	}
 	//private final NodeSelectivityEstimator selEstimator;
@@ -256,5 +257,11 @@ public class NodeCostEstimator {
 	public static double getReadCost(Node e) {
 		double size=e.getNodeInfo().outputRelSize();
 		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+	}
+	
+	private static double indexCostCreation(Node e){
+		double size=e.getNodeInfo().outputRelSize();
+		double card=e.getNodeInfo().getNumberOfTuples();
+		return (size/Metadata.PAGE_SIZE) * Math.log(card)* Metadata.PAGE_IO_TIME;
 	}
 }
