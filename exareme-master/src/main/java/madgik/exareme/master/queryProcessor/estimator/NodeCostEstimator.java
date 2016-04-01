@@ -8,6 +8,8 @@ package madgik.exareme.master.queryProcessor.estimator;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
+import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
+import madgik.exareme.master.queryProcessor.decomposer.query.Selection;
 import madgik.exareme.master.queryProcessor.estimator.metadata.Metadata;
 
 import java.util.List;
@@ -22,14 +24,14 @@ public class NodeCostEstimator {
     private static final org.apache.log4j.Logger log =
         org.apache.log4j.Logger.getLogger(NodeCostEstimator.class);
 
-    public static Double getCostForOperator(Node o, Node e) {
+    public static Double getCostForOperator(Node o) {
         if (o.getOpCode() == Node.JOIN) {
         	if(o.getChildren().size()==1){
         		return 0.0;
         	}
             try {
                 NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o.getObject();
-                return estimateJoin(e, nuwc, o.getChildAt(0), o.getChildAt(1));
+                return estimateJoin(nuwc, o.getChildAt(0), o.getChildAt(1));
             } catch (Exception ex) {
                 log.debug("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
                 return 1.0;
@@ -42,14 +44,25 @@ public class NodeCostEstimator {
                 return 1.0;
             }
         } else if (o.getOpCode() == Node.PROJECT) {
-            return estimateProjection(e);
+            return estimateProjection(o);
+        } else if (o.getOpCode() == Node.BASEPROJECT) {
+        	if(o.getFirstParent().getFirstParent().getOpCode()!=Node.SELECT){
+            return estimateBaseProjection(o);
+        	}
+        	else{
+        		//we will return the cost in estimate filter
+        		return estimateProjection(o);
+        	}
         } else if (o.getOpCode() == Node.SELECT) {
-            return estimateFilter(e);
+            return estimateFilter(o);
         } else {
             return 0.0;
         }
     }
-    //private final NodeSelectivityEstimator selEstimator;
+    private static Double estimateBaseProjection(Node o) {
+    	return (o.getChildAt(0).getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+	}
+	//private final NodeSelectivityEstimator selEstimator;
 
     /*constructor*/
     public NodeCostEstimator() {
@@ -68,11 +81,41 @@ public class NodeCostEstimator {
     }
 
     public static double estimateFilter(Node n) {
-
-        return 0;
+    	//if it's not on base relation return 0
+    	if(n.getChildAt(0).getChildAt(0).getOpCode()!=Node.BASEPROJECT){
+    		return 0;
+    	}
+    	else{
+    		boolean indexUsage=false;
+    		Selection p=(Selection)n.getObject();
+    		for(Operand o:p.getOperands()){
+    			if(o instanceof NonUnaryWhereCondition){
+    				NonUnaryWhereCondition nuwc=(NonUnaryWhereCondition)o;
+    				if(nuwc.getOperator().equals("=")){
+    					Column c=nuwc.getAllColumnRefs().get(0);
+    					//if(IndexedColumns.contains(c)){
+    					//	indexUsage=true;
+    					//	break;
+    					//}
+    				}
+    			}
+    		}
+    		if(indexUsage){
+    			//cost is the no of pages contained in the result
+    			Node result=n.getFirstParent();
+    			 return (n.getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+    		}
+    		else{
+    			//cost is all the no of pages in the relation
+    			Node base=n.getChildAt(0).getChildAt(0).getChildAt(0);
+    			return (base.getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+    			
+    		}
+    	}
+        
     }
 
-    public static double estimateJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right)
+    public static double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
         throws Exception {
 
         double leftRelTuples = left.getNodeInfo().getNumberOfTuples();
@@ -161,7 +204,7 @@ public class NodeCostEstimator {
 
     private static double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
         double rightRelTuples, double rightRelSize) {
-        double cpuLocalCost, diskLocalCost;
+       // double cpuLocalCost, diskLocalCost;
             //smallRelTuples = leftRelTuples, bigRelTuples = rightRelTuples,
             //smallRelSize = leftRelSize, bigRelSize = rightRelSize;
 
@@ -174,20 +217,21 @@ public class NodeCostEstimator {
        
         //disk cost
         //->index construcrion, scanning the smallest tule table
-        double diskSmallRelIndexConstruction =
-            (leftRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
-        double diskBigRelScan = (rightRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
-        double noOfPages=leftRelSize/Metadata.PAGE_SIZE;
+        //double diskLeftRelIndexConstruction =
+        //    (leftRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+        //double diskRightRelScan = (rightRelSize / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+        double joinOpCost=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
+        //double noOfPages=leftRelSize/Metadata.PAGE_SIZE;
         //diskLocalCost = diskSmallRelIndexConstruction + noOfPages*diskBigRelScan;
-        diskLocalCost = diskSmallRelIndexConstruction + diskBigRelScan;
+        //diskLocalCost = diskLeftRelIndexConstruction + diskRightRelScan;
         //cpu cost
-        double smallRelTuples_log10 = Math.log10(leftRelTuples);
-        double localIndexConstruction =
-            leftRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
-        double localComparisons = rightRelTuples * smallRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
-        cpuLocalCost = localIndexConstruction + localComparisons;
+       // double leftRelTuples_log10 = Math.log10(leftRelTuples);
+        //double localIndexConstruction =
+        //    leftRelTuples * leftRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
+        // double localComparisons = rightRelTuples * leftRelTuples_log10 * Metadata.CPU_CYCLE_TIME;
+        //cpuLocalCost = localIndexConstruction + localComparisons;
 
-        return diskLocalCost + cpuLocalCost;
+        return joinOpCost;
     }
 
 	public static boolean isProfitableToMat(Node e, int used, double cost) {

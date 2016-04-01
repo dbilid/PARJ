@@ -54,7 +54,7 @@ public class QueryDecomposer {
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
-	private boolean useSIP=false;
+	private boolean useSIP=true;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
@@ -252,15 +252,15 @@ public class QueryDecomposer {
 	public List<SQLQuery> getPlan() {
 		// String dot0 = root.dotPrint();
 		
-		projectRefCols = true;
 		if (projectRefCols) {
+			createProjections(root);
 		}
 		//String a = root.dotPrint();
 		//System.out.println(a);
-		long b=System.currentTimeMillis();
+		//long b=System.currentTimeMillis();
 		expandDAG(root);
-		System.out.println("expandtime:"+(System.currentTimeMillis()-b));
-		System.out.println("noOfnode:"+root.count(0));
+		//System.out.println("expandtime:"+(System.currentTimeMillis()-b));
+		//System.out.println("noOfnode:"+root.count(0));
 		if(this.useSIP){
 		sipInfo.removeNotNeededSIPs();}
 		//StringBuilder a2 = root.dotPrint();
@@ -828,7 +828,7 @@ public class QueryDecomposer {
 								}
 							}
 						}
-						/*else{
+						else{
 							Node c2 = op.getChildAt(0);
 							for (int c2Ch=0;c2Ch<c2.getChildren().size();c2Ch++){
 								Node c3 = c2.getChildren().get(c2Ch);
@@ -980,7 +980,7 @@ public class QueryDecomposer {
 								}
 							}
 							
-						}*/
+						}
 					}
 
 				}
@@ -1694,7 +1694,7 @@ for(Node p:q.getParents()){
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 			SinglePlan e2Plan = new SinglePlan(Integer.MAX_VALUE);
-			Double opCost = NodeCostEstimator.getCostForOperator(o, e);
+			Double opCost = NodeCostEstimator.getCostForOperator(o);
 			if (o.getOpCode() == Node.JOIN) {
 				NonUnaryWhereCondition join = (NonUnaryWhereCondition) o.getObject();
 				e2RecordCloned.mergePartitionRecords(join);
@@ -1900,7 +1900,7 @@ for(Node p:q.getParents()){
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 
-			Double opCost = NodeCostEstimator.getCostForOperator(o, e);
+			Double opCost = NodeCostEstimator.getCostForOperator(o);
 			SinglePlan e2Plan = null;
 			// this must go after algorithmic implementation
 			double newLimit = limit - opCost;
@@ -2174,7 +2174,7 @@ for(Node p:q.getParents()){
 		for (int k = 0; k < e.getChildren().size(); k++) {
 			Node o = e.getChildAt(k);
 			SinglePlan e2Plan = new SinglePlan(Double.MAX_VALUE);
-			Double opCost = NodeCostEstimator.getCostForOperator(o, e);
+			Double opCost = NodeCostEstimator.getCostForOperator(o);
 			boolean fed = false;
 			boolean mat = false;
 			// this must go after algorithmic implementation
@@ -2476,7 +2476,7 @@ for(Node p:q.getParents()){
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 
-			Double opCost = NodeCostEstimator.getCostForOperator(o, e);
+			Double opCost = NodeCostEstimator.getCostForOperator(o);
 			SinglePlan e2Plan = null;
 			// this must go after algorithmic implementation
 			double newLimit = limit - opCost;
