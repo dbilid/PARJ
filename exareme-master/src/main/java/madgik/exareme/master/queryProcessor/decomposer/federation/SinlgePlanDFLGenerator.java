@@ -138,8 +138,8 @@ public class SinlgePlanDFLGenerator {
 										j--;
 									}
 								}
-								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getAlias()+"_"+col.getName() ), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getAlias()));
-								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getName() , col.getAlias()), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getAlias()));
+								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getBaseTable()+"_"+col.getName() ), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getBaseTable()));
+								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getName() , col.getBaseTable()), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getBaseTable()));
 								
 							}
 						}

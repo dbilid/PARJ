@@ -54,7 +54,7 @@ public class QueryDecomposer {
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
-	private boolean useSIP=true;
+	private boolean useSIP=false;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
