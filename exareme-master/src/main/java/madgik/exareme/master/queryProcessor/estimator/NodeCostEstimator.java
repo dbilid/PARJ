@@ -205,6 +205,9 @@ public class NodeCostEstimator {
 
     private static double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
         double rightRelTuples, double rightRelSize) {
+    	if(leftRelTuples<1||rightRelTuples<1){
+    		return 0.0;
+    	}
        // double cpuLocalCost, diskLocalCost;
             //smallRelTuples = leftRelTuples, bigRelTuples = rightRelTuples,
             //smallRelSize = leftRelSize, bigRelSize = rightRelSize;

@@ -256,6 +256,7 @@ public class MadisProcessExecutor {
             if(state.getOperator().getQuery().getIndexCommand()!=null){
             	log.debug("Adding index on table : \n" + state.getOperator().getQuery().getIndexCommand());
             	script.append(state.getOperator().getQuery().getIndexCommand());
+            	script.append("; \n");
             }
             script.append("-- Cleanup \n");
             for (String input : nonLocalTableDatabases.keySet()) {
