@@ -29,7 +29,7 @@ public class SinlgePlanDFLGenerator {
 	private boolean useSIP;
 	private SipStructure sipStruct;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
-	private boolean addIndicesToMatQueries =true;
+	private boolean addIndicesToMatQueries =false;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
@@ -189,6 +189,13 @@ public class SinlgePlanDFLGenerator {
 				if (queriesToSip.get(si).size() == 1) {
 					System.out.println("si with one query!" + queriesToSip.get(si));
 					SQLQuery s = queriesToSip.get(si).iterator().next();
+					for(int t=0;t<s.getInputTables().size();t++){
+						Table tbl=s.getInputTables().get(t);					
+						if(tbl.getName().equals("siptable")){
+							s.getInputTables().remove(t);
+							t--;
+						}
+					}
 					s.getInputTables().remove(s.getInputTables().size() - 1);
 					for (NonUnaryWhereCondition nuwc : s.getBinaryWhereConditions()) {
 						if (nuwc.getAllColumnRefs().contains(new Column(si.getName(), "x"))) {
