@@ -6,6 +6,7 @@ package madgik.exareme.master.queryProcessor.decomposer.federation;
 
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+import madgik.exareme.master.queryProcessor.decomposer.dag.PartitionCols;
 import madgik.exareme.master.queryProcessor.decomposer.dag.ResultList;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
 import madgik.exareme.utils.properties.AdpDBProperties;
@@ -24,9 +25,11 @@ public class SinlgePlanDFLGenerator {
 	private Memo memo;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private NamesToAliases n2a;
+	private Map<String, Set<Column>> matResultUsedCols;
 	private boolean useSIP;
 	private SipStructure sipStruct;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
+	private boolean addIndicesToMatQueries =true;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
@@ -35,6 +38,9 @@ public class SinlgePlanDFLGenerator {
 		this.partitionNo = partNo;
 		this.memo = m;
 		this.registry = r;
+		if(addIndicesToMatQueries){
+			matResultUsedCols=new HashMap<String, Set<Column>>();
+		}
 	}
 
 	public ResultList generate() {
@@ -98,6 +104,67 @@ public class SinlgePlanDFLGenerator {
 		 * 
 		 * } } }
 		 */
+		
+		if(addIndicesToMatQueries){
+			Map<Column, Column> correspondingCols=new HashMap<Column, Column>();
+			Set<Column> toCreateIndex=new HashSet<Column>();
+			for (int i = 0; i < qs.size() - 1; i++) {
+				SQLQuery q = qs.get(i);
+				
+					for(Column c:q.getAllColumns()){
+						if(correspondingCols.keySet().contains(c)){
+							Column cor=correspondingCols.get(c);
+							c.setName(cor.getName());
+							c.setAlias(cor.getAlias());
+							c.setBaseTable(cor.getBaseTable());
+						}
+					}
+				if(matResultUsedCols.keySet().contains(q.getTemporaryTableName())){
+					EquivalentColumnClasses ec=new EquivalentColumnClasses();
+					for(NonUnaryWhereCondition nuwc:q.getBinaryWhereConditions()){
+						if(nuwc.getOperator().equals("=")&&nuwc.getLeftOp() instanceof Column&&
+								nuwc.getRightOp() instanceof Column){
+							ec.mergePartitionRecords(nuwc);
+						}
+					}
+					for(PartitionCols eqCols:ec.getPartitionSets()){
+						Column representantive=eqCols.getFirstCol();
+						for(Column col:eqCols.getColumns()){
+							if(!col.equals(representantive)){
+								for(int j=0;j<q.getOutputs().size();j++){
+									Output o=q.getOutputs().get(j);
+									if(o.getObject().equals(col)){
+										q.getOutputs().remove(o);
+										j--;
+									}
+								}
+								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getAlias()+"_"+col.getName() ), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getAlias()));
+								correspondingCols.put(new Column(q.getTemporaryTableName(), col.getName() , col.getAlias()), new Column(q.getTemporaryTableName(), representantive.getName(), representantive.getAlias()));
+								
+							}
+						}
+					}
+					
+					for(Column indexCandidate:matResultUsedCols.get(q.getTemporaryTableName())){
+						Column renamed=new Column(q.getTemporaryTableName(), indexCandidate.getName(), indexCandidate.getAlias());
+						Column cor=correspondingCols.get(indexCandidate);
+						if(cor==null){
+							cor=renamed;
+						}
+						toCreateIndex.add(cor);
+					}
+					System.out.println("Indexes::"+toCreateIndex.toString());
+				}
+			}
+			for(Column i:toCreateIndex){
+				SQLQuery indexQuery=new SQLQuery();
+				indexQuery.setIsCreateIndex();
+				indexQuery.setSQL("distributed create index "+
+				i.getName()+"_"+i.getAlias()+" on "+i.getAlias()+"("+
+						i.getBaseTable()+"_"+i.getName()+")");
+				qs.add(qs.size()-1, indexQuery);
+			}
+		}
 
 		if (useSIP) {
 			System.out.println("initial size:" + qs.size());
@@ -901,11 +968,19 @@ public class SinlgePlanDFLGenerator {
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
-				inputNames.add(tempResult.getLastTable().getAlias());
-				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
+				String lastRes=tempResult.getLastTable().getAlias();
+				inputNames.add(lastRes);
+				if (lastRes != current.getTemporaryTableName()
 						&& !current.getInputTables().contains(tempResult.getLastTable())) {
 					current.addInputTable(tempResult.getLastTable());
-					addOutputs(current, tempResult.getLastTable().getAlias(), tempResult);
+					addOutputs(current, lastRes, tempResult);
+					if(addIndicesToMatQueries && p.getInputPlan(j).getNode().isMaterialised()){
+						if(!matResultUsedCols.containsKey(lastRes)){
+							matResultUsedCols.put(lastRes, new HashSet<Column>());
+						}
+						Set<Column> usedCols=matResultUsedCols.get(lastRes);
+						usedCols.add(nuwc.getOp(j).getAllColumnRefs().get(0));
+					}
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{

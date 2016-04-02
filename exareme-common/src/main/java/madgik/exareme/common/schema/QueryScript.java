@@ -93,6 +93,10 @@ public class QueryScript implements Serializable {
     public List<DMQuery> getDMQueries() {
         return Collections.unmodifiableList(dmQueries);
     }
+    
+    public boolean removeDMQuery(DMQuery dm){
+    	return this.dmQueries.remove(dm);
+    }
 
     @Override public String toString() {
         StringBuilder sb = new StringBuilder();

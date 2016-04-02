@@ -24,6 +24,7 @@ public class Select extends Query {
 
     private SQLSelect parsedSqlQuery = null;
     private List<String> queryStatements = null;
+    private String createIndex = null;
 
     public Select(int id, SQLSelect sqlQuery, TableView outputTable) {
         super(id, sqlQuery.getSql(), sqlQuery.getComments().toString());
@@ -104,4 +105,12 @@ public class Select extends Query {
 
         return sb.toString();
     }
+
+	public void setIndexCommand(String query) {
+		this.createIndex=query;
+	}
+	
+	public String getIndexCommand(){
+		return this.createIndex;
+	}
 }

@@ -253,6 +253,10 @@ public class MadisProcessExecutor {
                     script.append(outputParts + "),* from (" + query + ") as q;\n\n");
                 }
             }
+            if(state.getOperator().getQuery().getIndexCommand()!=null){
+            	log.debug("Adding index on table : \n" + state.getOperator().getQuery().getIndexCommand());
+            	script.append(state.getOperator().getQuery().getIndexCommand());
+            }
             script.append("-- Cleanup \n");
             for (String input : nonLocalTableDatabases.keySet()) {
                 ArrayList<String> databases = nonLocalTableDatabases.get(input);
@@ -260,6 +264,7 @@ public class MadisProcessExecutor {
                     continue;
                 }
             }
+            
             script.append("\n-- Script END \n\n");
             log.debug("Executing script : \n" + script.toString());
             log.debug(

@@ -10,6 +10,7 @@ import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondit
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author dimitris
@@ -135,6 +136,10 @@ public class EquivalentColumnClasses {
 
     public void setLastPartitioned(PartitionCols returnedPt) {
         this.deliverdPart = returnedPt;
+    }
+    
+    public Set<PartitionCols> getPartitionSets(){
+    	return this.classes.keySet();
     }
 
 

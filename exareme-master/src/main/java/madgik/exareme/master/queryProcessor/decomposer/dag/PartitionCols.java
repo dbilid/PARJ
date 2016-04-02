@@ -24,9 +24,6 @@ public class PartitionCols {
         return "PartitionCols{" + "cols=" + cols + '}';
     }
 
-    public HashSet<Column> getCols() {
-        return cols;
-    }
 
     @Override public int hashCode() {
         int hash = 7;
