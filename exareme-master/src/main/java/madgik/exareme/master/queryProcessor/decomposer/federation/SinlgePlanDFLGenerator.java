@@ -147,7 +147,7 @@ public class SinlgePlanDFLGenerator {
 					
 					for(Column indexCandidate:matResultUsedCols.get(q.getTemporaryTableName())){
 						Column renamed=new Column(q.getTemporaryTableName(), indexCandidate.getName(), indexCandidate.getAlias());
-						Column cor=correspondingCols.get(indexCandidate);
+						Column cor=correspondingCols.get(renamed);
 						if(cor==null){
 							cor=renamed;
 						}
