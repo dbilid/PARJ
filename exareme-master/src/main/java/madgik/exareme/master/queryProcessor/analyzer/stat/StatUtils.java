@@ -20,7 +20,7 @@ import java.sql.Types;
  */
 public class StatUtils {
 
-    private static final int HASH_STRING_CHARS = 3;
+    private static final int HASH_STRING_CHARS = 11;
     private static final int HASH_STRING_BASE = 256;
 
     public static double hashString(String str) {
@@ -29,7 +29,7 @@ public class StatUtils {
         // System.out.println("STRING FOR HASH: " + str);
         double hashStringVal = 0.0;
 
-        if (str.length() >= 3) {
+        if (str.length() >= HASH_STRING_CHARS) {
 
             char[] hashChars = new char[HASH_STRING_CHARS];
 

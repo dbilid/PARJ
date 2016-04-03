@@ -304,7 +304,7 @@ public final class Histogram {
     }
 
     private double approximateNextBucketValue(double value) {
-        return value + Math.nextAfter(value, Double.MAX_VALUE);
+        return Math.nextAfter(value, Double.MAX_VALUE);
     }
 
     private CommonHistogramsRange commonRange(Histogram h2) {
@@ -532,7 +532,7 @@ public final class Histogram {
         return combinedBucketsMap;
     }
 
-    private void convertToTransparentHistogram() {
+    public void convertToTransparentHistogram() {
         //        System.out.println("TRANSPARANTING...");
         //        System.out.println(this);
 

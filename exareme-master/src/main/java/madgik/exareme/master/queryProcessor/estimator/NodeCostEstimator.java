@@ -34,6 +34,7 @@ public class NodeCostEstimator {
                 return estimateJoin(nuwc, o.getChildAt(0), o.getChildAt(1));
             } catch (Exception ex) {
                 log.debug("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
+                System.out.println("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
                 return 1.0;
             }
         } else if (o.getOpCode() == Node.UNION) {
@@ -46,6 +47,7 @@ public class NodeCostEstimator {
         } else if (o.getOpCode() == Node.PROJECT) {
             return estimateProjection(o);
         } else if (o.getOpCode() == Node.BASEPROJECT) {
+        	try {
         	if(o.getFirstParent().getFirstParent().getOpCode()!=Node.SELECT){
             return estimateBaseProjection(o);
         	}
@@ -53,8 +55,17 @@ public class NodeCostEstimator {
         		//we will return the cost in estimate filter
         		return estimateProjection(o);
         	}
+        	 } catch (Exception ex) {
+                 log.error("Cannot get cost for project op " + o.toString() + ". Assuming dummy cost");
+                 return 1.0;
+             }
         } else if (o.getOpCode() == Node.SELECT) {
+        	try {
             return estimateFilter(o);
+        	 } catch (Exception ex) {
+                 log.error("Cannot get cost for select op " + o.toString() + ". Assuming dummy cost");
+                 return 1.0;
+             }
         } else {
             return 0.0;
         }

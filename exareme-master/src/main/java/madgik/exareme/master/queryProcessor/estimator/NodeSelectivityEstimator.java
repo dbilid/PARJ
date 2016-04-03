@@ -19,7 +19,7 @@ import java.util.Set;
  * @author jim
  */
 public class NodeSelectivityEstimator implements SelectivityEstimator {
-	private static final int HASH_STRING_CHARS = 3;
+	private static final int HASH_STRING_CHARS = 11;
 	private static final int HASH_STRING_BASE = 256;
 
 	private Schema schema;
@@ -81,7 +81,8 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			}
 		}
 		 }catch(Exception ex){
-		 log.error("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
+			 System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
+			 log.error("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
 		 }
 
 	}
@@ -196,9 +197,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo resultRel = new RelInfo(lRel);
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
-		
 
-		resultHistogram.join(rRel.getAttrIndex().get(r.getName()).getHistogram());
+		if(rRel.getNumberOfTuples()<0.5 || lRel.getNumberOfTuples()<0.5){
+			resultHistogram.convertToTransparentHistogram();
+		}
+		else{
+			resultHistogram.join(rRel.getAttrIndex().get(r.getName()).getHistogram());
+		}
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
 
