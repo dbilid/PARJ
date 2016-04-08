@@ -87,6 +87,10 @@ public class SipInfo {
 	public Column getJoinCol() {
 		return joinCol;
 	}
+
+	public Projection getProjection() {
+		return this.projection;
+	}
 	
 	
 	

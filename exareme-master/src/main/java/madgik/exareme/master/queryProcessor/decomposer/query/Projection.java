@@ -75,7 +75,6 @@ public class Projection implements Operand {
         if ((obj == null) || (obj.getClass() != this.getClass())) {
             return false;
         }
-        // object must be Test at this point
         Projection other = (Projection) obj;
         if (other.getOperands().size() == this.ops.size()) {
             for (Output o : this.ops) {

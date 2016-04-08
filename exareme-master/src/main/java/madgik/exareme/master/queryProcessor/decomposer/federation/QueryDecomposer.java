@@ -54,11 +54,14 @@ public class QueryDecomposer {
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
-	private boolean useSIP=false;
+	private boolean useSIP = true;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 	private final boolean useGreedy = true;
+	private boolean onlyLeft = false;
+	private int unionnumber;
+	SipToUnions sipToUnions;
 
 	public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
 		this(initial, ".", 1, null);
@@ -120,7 +123,7 @@ public class QueryDecomposer {
 		this.addAliases = DecomposerUtils.ADD_ALIASES;
 		// this.n2a = new NamesToAliases();
 		this.addNotNulls = DecomposerUtils.ADD_NOT_NULLS;
-		//this.memo = new Memo();
+		// this.memo = new Memo();
 		this.limits = new HashMap<Node, Double>();
 		this.importExternal = DecomposerUtils.IMPORT_EXTERNAL;
 		if (projectRefCols) {
@@ -136,8 +139,8 @@ public class QueryDecomposer {
 			 * } } refCols.put(t.getName(), colsForT); }
 			 */
 		}
-		if(useSIP){
-			sipInfo=new SipStructure();
+		if (useSIP) {
+			sipInfo = new SipStructure();
 		}
 	}
 
@@ -251,21 +254,25 @@ public class QueryDecomposer {
 
 	public List<SQLQuery> getPlan() {
 		// String dot0 = root.dotPrint();
-		
+
 		if (projectRefCols) {
 			createProjections(root);
 		}
-		//String a = root.dotPrint();
-		//System.out.println(a);
-		//long b=System.currentTimeMillis();
+		// String a = root.dotPrint();
+		// System.out.println(a);
+		// long b=System.currentTimeMillis();
+		unionnumber = 0;
+		sipToUnions = new SipToUnions();
+		sipToUnions.put(unionnumber, new HashSet<SipNode>());
 		expandDAG(root);
-		//System.out.println("expandtime:"+(System.currentTimeMillis()-b));
-		//System.out.println("noOfnode:"+root.count(0));
-		if(this.useSIP){
-		sipInfo.removeNotNeededSIPs();}
+		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
+		// System.out.println("noOfnode:"+root.count(0));
+		if (this.useSIP) {
+			sipInfo.removeNotNeededSIPs();
+		}
 		//StringBuilder a2 = root.dotPrint();
 		//System.out.println(a2.toString());
-		//System.out.println(root.dotPrint());
+		// System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
 			Node limit = new Node(Node.AND, Node.LIMIT);
@@ -293,90 +300,104 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		long t1 = System.currentTimeMillis();
-		List<Node> shareable=new ArrayList<Node>();
-		Map<Node, Double> greedyToMat=new HashMap<Node, Double>();
-		if(useGreedy){
+		List<Node> shareable = new ArrayList<Node>();
+		Map<Node, Double> greedyToMat = new HashMap<Node, Double>();
+		if (useGreedy) {
 			root.addShareable(shareable);
 			System.out.println(shareable.size());
-			//add top union results
-			for(Node u:root.getChildAt(0).getChildren()){
-				greedyToMat.put(u, 0.0);
-			}
-			boolean onlyOne=false;
-		if(onlyOne){
-		Node mostProminent=null;
-		int score=0;
-		for(Node n:shareable){
-			int nScore=(n.getUnions().size()*10)+n.getDescendantBaseTables().size();
-			if(nScore>score){
-				score=nScore;
-				mostProminent=n;
-			}
-		}
-		greedyToMat.put(mostProminent, 0.0);
-		}
-		else{
-			Collections.sort(shareable);
-			
-			Memo finalMemo=new Memo();
-
-			SinglePlan best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, finalMemo, greedyToMat);
-			double finalCost=best.getCost();
-			System.out.println("no mat:"+finalCost);
-			boolean existsBetterPlan=true;
-			int indexOfBest=-1;
-			while(existsBetterPlan){
-				if(indexOfBest>-1){
-				greedyToMat.put(shareable.get(indexOfBest), 0.0);
+			// add top union results
+			Node u1 = root.getChildAt(0);
+			if (u1.getOpCode() == Node.UNION) {
+				for (Node u : u1.getChildren()) {
+					greedyToMat.put(u, 0.0);
 				}
-				existsBetterPlan=false;
-			
-			for(int i=0;i<10&&i<shareable.size();i++){
-				if(greedyToMat.containsKey(shareable.get(shareable.size()-(i+1)))){
-					continue;
-				}
-				greedyToMat.put(shareable.get(shareable.size()-(i+1)), 0.0);
-				Memo memo=new Memo();
-				
-				if (noOfparts == 1) {
-					if(this.useSIP){
-					this.sipInfo.resetCounters();}
-					best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
-						double matCost=0.0;
-						for(Double d:greedyToMat.values()){
-							matCost+=d;
-						}
-						best.setCost(best.getCost()+matCost);
-						System.out.println(shareable.get(shareable.size()-(i+1)).getObject().toString());
-						System.out.println(best.getCost());
-						greedyToMat.remove(shareable.get(shareable.size()-(i+1)));
-					if(best.getCost()<finalCost){
-						indexOfBest=shareable.size()-(i+1);
-						finalCost=best.getCost();
-						finalMemo=memo;
-						existsBetterPlan=true;
+			} else {
+				Node u2 = u1.getChildAt(0).getChildAt(0);
+				if (u2.getOpCode() == Node.UNION) {
+					for (Node u : u2.getChildren()) {
+						greedyToMat.put(u, 0.0);
 					}
 				}
 			}
+			boolean onlyOne = false;
+			if (onlyOne) {
+				Node mostProminent = null;
+				int score = 0;
+				for (Node n : shareable) {
+					int nScore = (n.getUnions().size() * 10) + n.getDescendantBaseTables().size();
+					if (nScore > score) {
+						score = nScore;
+						mostProminent = n;
+					}
+				}
+				greedyToMat.put(mostProminent, 0.0);
+			} else {
+				Collections.sort(shareable);
+
+				Memo finalMemo = new Memo();
+				unionnumber = 0;
+				SinglePlan best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
+				double finalCost = best.getCost();
+				System.out.println("no mat:" + finalCost);
+				boolean existsBetterPlan = true;
+				int indexOfBest = -1;
+				while (existsBetterPlan) {
+					if (indexOfBest > -1) {
+						greedyToMat.put(shareable.get(indexOfBest), 0.0);
+					}
+					existsBetterPlan = false;
+
+					for (int i = 0; i < 0 && i < shareable.size(); i++) {
+						if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
+							continue;
+						}
+						greedyToMat.put(shareable.get(shareable.size() - (i + 1)), 0.0);
+						Memo memo = new Memo();
+
+						if (noOfparts == 1) {
+							if (this.useSIP) {
+								this.sipInfo.resetCounters();
+							}
+							unionnumber = 0;
+							best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+							double matCost = 0.0;
+							for (Double d : greedyToMat.values()) {
+								matCost += d;
+							}
+							best.setCost(best.getCost() + matCost);
+							System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
+							System.out.println(best.getCost());
+							greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
+							if (best.getCost() < finalCost) {
+								indexOfBest = shareable.size() - (i + 1);
+								finalCost = best.getCost();
+								finalMemo = memo;
+								existsBetterPlan = true;
+							}
+						}
+					}
+				}
+
 			}
-			
 		}
-		}
-		
+
 		System.out.println(System.currentTimeMillis() - t1);
-		Memo memo=new Memo();
-		
+		Memo memo = new Memo();
+		System.out.println("no of mat.:" + greedyToMat.size());
 		SinglePlan best;
 		if (noOfparts == 1) {
-			if(this.useSIP){
-			this.sipInfo.resetCounters();}
-			best = getBestPlanCentralized(root, Double.MAX_VALUE, 0, memo, greedyToMat);
-			if(useGreedy){
-				double matCost=0.0;
-				for(Double d:greedyToMat.values()){
-					matCost+=d;
+			if (this.useSIP) {
+				this.sipInfo.resetCounters();
+			}
+			unionnumber = 0;
+			best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+			//sipInfo.printMultiUsed();
+			if (useGreedy) {
+				double matCost = 0.0;
+				for (Double d : greedyToMat.values()) {
+					matCost += d;
 				}
-				best.setCost(best.getCost()+matCost);
+				best.setCost(best.getCost() + matCost);
 			}
 		} else {
 			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
@@ -395,9 +416,11 @@ public class QueryDecomposer {
 		// System.out.println(best.getPath().toString());
 		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, memo, registry);
 		dsql.setN2a(n2a);
-		if(this.useSIP){
-		dsql.setSipStruct(this.sipInfo);
-		dsql.setUseSIP(useSIP);}
+		if (this.useSIP) {
+			dsql.setSipStruct(this.sipInfo);
+			dsql.setUseSIP(useSIP);
+			dsql.setSipToUnions(sipToUnions);
+		}
 		return (List<SQLQuery>) dsql.generate();
 		// return null;
 	}
@@ -559,6 +582,7 @@ public class QueryDecomposer {
 	// null, ex);
 	// }
 	// }
+
 	private void expandDAG(Node eq) {
 
 		for (int i = 0; i < eq.getChildren().size(); i++) {
@@ -579,6 +603,7 @@ public class QueryDecomposer {
 				// join commutativity a join b -> b join a
 				// This never adds a node because of hashing!!!!!!
 				if (op.getObject() instanceof NonUnaryWhereCondition) {
+
 					NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) op.getObject();
 					if (bwc.getOperator().equals("=")) {
 						Node commutativity = new Node(Node.AND, Node.JOIN);
@@ -591,33 +616,43 @@ public class QueryDecomposer {
 							commutativity.addChild(op.getChildAt(1));
 						}
 						commutativity.addChild(op.getChildAt(0));
-
-						if (!hashes.containsKey(commutativity.getHashId())) {
-							hashes.put(commutativity.getHashId(), commutativity);
-							hashes.remove(eq.getHashId());
-							for (Node p : eq.getParents()) {
-								hashes.remove(p.getHashId());
+						boolean useCommutativity = true;
+						if (onlyLeft) {
+							for (Node cc : commutativity.getChildren()) {
+								Table t = (Table) cc.getObject();
+								if (t.getName().startsWith("table")) {
+									useCommutativity = false;
+									break;
+								}
 							}
+						}
+						if (useCommutativity) {
+							if (!hashes.containsKey(commutativity.getHashId())) {
+								hashes.put(commutativity.getHashId(), commutativity);
+								hashes.remove(eq.getHashId());
+								for (Node p : eq.getParents()) {
+									hashes.remove(p.getHashId());
+								}
 
-							eq.addChild(commutativity);
+								eq.addChild(commutativity);
 
-							hashes.put(eq.getHashId(), eq);
-							commutativity.addAllDescendantBaseTables(op.getDescendantBaseTables());
-							if (useGreedy) {
+								hashes.put(eq.getHashId(), eq);
+								commutativity.addAllDescendantBaseTables(op.getDescendantBaseTables());
+								if (useGreedy) {
 									for (Integer u : op.getUnions()) {
 										commutativity.getUnions().add(u);
 									}
-							}
+								}
 
-							for (Node p : eq.getParents()) {
-								hashes.put(p.computeHashID(), p);
-							}
-						} else {
-							unify(eq, hashes.get(commutativity.getHashId()).getFirstParent());
-							commutativity.removeAllChildren();
+								for (Node p : eq.getParents()) {
+									hashes.put(p.computeHashID(), p);
+								}
+							} else {
+								unify(eq, hashes.get(commutativity.getHashId()).getFirstParent());
+								commutativity.removeAllChildren();
 
+							}
 						}
-
 					}
 				}
 
@@ -690,7 +725,7 @@ public class QueryDecomposer {
 													table.getUnions().add(u);
 												}
 											}
-											
+
 											if (comesFromLeftOp) {
 												associativity.addAllDescendantBaseTables(
 														c3.getChildAt(0).getDescendantBaseTables());
@@ -702,7 +737,7 @@ public class QueryDecomposer {
 											}
 											table.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
 										}
-										
+
 										// table.setPartitionedOn(new
 										// PartitionCols(newBwc.getAllColumnRefs()));
 
@@ -827,10 +862,9 @@ public class QueryDecomposer {
 									}
 								}
 							}
-						}
-						else{
+						} else {
 							Node c2 = op.getChildAt(0);
-							for (int c2Ch=0;c2Ch<c2.getChildren().size();c2Ch++){
+							for (int c2Ch = 0; c2Ch < c2.getChildren().size(); c2Ch++) {
 								Node c3 = c2.getChildren().get(c2Ch);
 								// if (c2.getChildren().size() > 0) {
 								// Node c3 = c2.getChildAt(0);
@@ -842,19 +876,19 @@ public class QueryDecomposer {
 										boolean comesFromRightOp = c3.getChildAt(0).isDescendantOfBaseTable(
 												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
 										Node associativity = new Node(Node.AND, Node.JOIN);
-										if(!comesFromLeftOp && !comesFromRightOp){
+										if (!comesFromLeftOp && !comesFromRightOp) {
 											continue;
 										}
 										boolean comesFromLeftOp2 = c3.getChildAt(1).isDescendantOfBaseTable(
 												bwc.getRightOp().getAllColumnRefs().get(0).getAlias());
 										boolean comesFromRightOp2 = c3.getChildAt(1).isDescendantOfBaseTable(
 												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
-										if(!comesFromLeftOp2 && !comesFromRightOp2){
+										if (!comesFromLeftOp2 && !comesFromRightOp2) {
 											continue;
 										}
 										NonUnaryWhereCondition newBwc = new NonUnaryWhereCondition();
 										newBwc.setOperator("=");
-										
+
 										newBwc.setRightOp(bwc.getRightOp());
 										newBwc.setLeftOp(bwc.getLeftOp());
 										associativity.setObject(newBwc);
@@ -862,17 +896,15 @@ public class QueryDecomposer {
 										if (comesFromLeftOp) {
 											associativity.addChild(c3.getChildAt(1));
 											associativity.addChild(c3.getChildAt(0));
-										
 
 										} else {
 											associativity.addChild(c3.getChildAt(0));
 											associativity.addChild(c3.getChildAt(1));
-											
+
 										}
 										Node table = new Node(Node.OR);
 										table.setObject(new Table("table" + Util.createUniqueId(), null));
-										
-											
+
 										if (hashes.containsKey(associativity.getHashId())) {
 											Node assocInHashes = hashes.get(associativity.getHashId());
 											table = assocInHashes.getFirstParent();
@@ -892,23 +924,19 @@ public class QueryDecomposer {
 											// table.setPartitionedOn(new
 											// PartitionCols(newBwc.getAllColumnRefs()));
 											hashes.put(table.getHashId(), table);
-											
+
 											if (useGreedy) {
 												for (Integer u : eq.getUnions()) {
 													associativity.getUnions().add(u);
 													c2.getUnions().add(u);
 												}
 											}
-											
-												associativity.addAllDescendantBaseTables(
-														c3.getDescendantBaseTables());
 
-												
-												
-											
+											associativity.addAllDescendantBaseTables(c3.getDescendantBaseTables());
+
 											table.addAllDescendantBaseTables(associativity.getDescendantBaseTables());
 										}
-										
+
 										// table.setPartitionedOn(new
 										// PartitionCols(newBwc.getAllColumnRefs()));
 
@@ -917,13 +945,13 @@ public class QueryDecomposer {
 										Node associativityTop = new Node(Node.AND, Node.JOIN);
 										NonUnaryWhereCondition newBwc2 = new NonUnaryWhereCondition();
 										newBwc2.setOperator("=");
-											newBwc2.setRightOp(bwc2.getRightOp());
-											newBwc2.setLeftOp(bwc2.getLeftOp());
+										newBwc2.setRightOp(bwc2.getRightOp());
+										newBwc2.setLeftOp(bwc2.getLeftOp());
 										// newBwc2.setLeftOp(bwc.getRightOp());
 										associativityTop.setObject(newBwc2);
 										associativityTop.addChild(table);
 										associativityTop.setExpanded(true);
-										
+
 										// System.out.println(associativityTop.getObject().toString());
 										if (!hashes.containsKey(associativityTop.getHashId())) {
 											hashes.put(associativityTop.getHashId(), associativityTop);
@@ -948,7 +976,7 @@ public class QueryDecomposer {
 											for (Node p : eq.getParents()) {
 												hashes.put(p.computeHashID(), p);
 											}
-										
+
 										} else {
 
 											unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
@@ -979,7 +1007,7 @@ public class QueryDecomposer {
 									}
 								}
 							}
-							
+
 						}
 					}
 
@@ -1177,231 +1205,28 @@ public class QueryDecomposer {
 					op.computeHashID();
 				}
 				op.setExpanded(true);
-				
+
 			}
 		}
 		eq.computeHashID();
-		if(useSIP&&!eq.getParents().isEmpty()&&eq.getParents().get(0).getOpCode()==Node.PROJECT){
-			Projection p=(Projection)eq.getParents().get(0).getObject();
-			for(int chNo=0;chNo<eq.getChildren().size();chNo++){
-			Node join=eq.getChildAt(chNo);
-			if(join.getChildren().size()==2 ){
-				sipInfo.addToSipInfo(p, join);
-			}
-			}
-		}
-	}
-
-	private void addRepartitionToPhysicalDAG(Node eq, HashMap<Pair<Node, Column>, Node> memo) {
-		// Set<PartitionCols> partitionRecord=new HashSet<PartitionCols>();
-		// HashMap<Pair<NonUnaryWhereCondition, Integer>, Node>
-		// partitionedEquivalent=new HashMap<Pair<NonUnaryWhereCondition,
-		// Integer>, Node>();
-		for (int i = 0; i < eq.getChildren().size(); i++) {
-
-			Node op = eq.getChildAt(i);
-			// for (Node c : e.getChildren()) {
-			if (op.getOpCode() == Node.JOIN) {
-
-				NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) op.getObject();
-				Column leftJoinCol = bwc.getLeftOp().getAllColumnRefs().get(0);
-				Column rightJoinCol = bwc.getRightOp().getAllColumnRefs().get(0);
-
-				if (op.getChildren().size() == 1) {
-					// join in the same table! does not need repartition
-					// Node lt = op.getChildAt(0);
-					// if (memo.containsKey(lt)) {
-					// c.removeChild(lt);
-					// c.addChildAt(memo.get(lt), 0);
-					// } else {
-					addRepartitionToPhysicalDAG(op.getChildAt(0), memo);
-					eq.addToPartitionRecord(op.getChildAt(0).getPartitionRecord());
-					// }
-				} else {
-
-					Node leftJoin = op.getChildAt(0);
-					Node rightJoin = op.getChildAt(1);
-					Pair lp = new Pair(leftJoin, leftJoinCol);
-					// why only leftJoinCol and not equivalent?
-					// because memo contains every column of a set
-					if (memo.containsKey(lp)) {
-						op.removeChild(leftJoin);
-						op.addChildAt(memo.get(lp), 0);
-						eq.addToPartitionRecord(memo.get(lp).getPartitionRecord());
-					} else {
-
-						// split partitioned sets to different nodes
-						if (leftJoin.isPartitionedOn().size() > 1) {
-							Node nonPartitioned = leftJoin;
-							List<Node> gchildren = leftJoin.getChildren();
-							Iterator<PartitionCols> combined = combineColumns(leftJoin.isPartitionedOn());
-							// Iterator<PartitionCols>
-							// it=c.getChildAt(0).isPartitionedOn().iterator();
-							leftJoin.setPartitionedOn(combined.next());
-							leftJoin.removeAllChildren();
-							for (Node gchild : gchildren) {
-								Operand nuwc = (Operand) gchild.getObject();
-								if (leftJoin.getFirstPartitionedSet().contains(nuwc.getAllColumnRefs().get(0))) {
-									leftJoin.addChild(gchild);
-								}
-							}
-							// addRepartitionToNode(leftJoin, bwc.getLeftOp(),
-							// op, memo);
-
-							while (combined.hasNext()) {
-								Node partNode = new Node(Node.OR);
-								partNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
-								partNode.setPartitionedOn(combined.next());
-								for (Node gchild : gchildren) {
-									Operand nuwc = (Operand) gchild.getObject();
-									if (partNode.getFirstPartitionedSet().contains(nuwc.getAllColumnRefs().get(0))) {
-										partNode.addChild(gchild);
-									}
-								}
-								boolean exists = false;
-								Node existing = null;
-								for (Column pc : partNode.getFirstPartitionedSet().getColumns()) {
-
-									Pair lp2 = new Pair(nonPartitioned, pc);
-									if (memo.containsKey(lp2)) {
-
-										existing = memo.get(lp2);
-										// partNode=existing;
-										exists = true;
-										break;
-									}
-								}
-								if (exists) {
-									for (Node exch : partNode.getChildren()) {
-										existing.addChild(exch);
-									}
-									existing.getFirstPartitionedSet()
-											.addColumns(partNode.getFirstPartitionedSet().getColumns());
-									eq.addToPartitionRecord(existing.getPartitionRecord());
-									// partNode = existing;
-								} else {
-
-									// Node otherjoin = new Node(Node.AND,
-									// Node.JOIN);
-									// otherjoin.setObject(bwc);
-									// otherjoin.addChild(partNode);
-									// createEnforcerForNode(rightJoin,
-									// otherjoin, memo, bwc.getRightOp());
-									// otherjoin.addChild(rightJoin);
-									// right join????? get from hash?
-									// eq.addChildAt(otherjoin, 0);
-									// i++;
-									addRepartitionToNode(partNode, bwc.getLeftOp(), op, eq, memo);
-									addRepartitionToNode(rightJoin, bwc.getRightOp(), op, eq, memo);
-									for (Column pc : partNode.getFirstPartitionedSet().getColumns()) {
-
-										Pair lp2 = new Pair(nonPartitioned, pc);
-										memo.put(lp2, partNode);
-									}
-								}
-								// addRepartitionToPhysicalDAG(partNode, memo);
-
-							}
-						}
-						addRepartitionToNode(leftJoin, bwc.getLeftOp(), op, eq, memo);
-
+		if (useSIP && !eq.getParents().isEmpty() && eq.getParents().get(0).getOpCode() == Node.UNION) {
+			Projection p = (Projection) eq.getChildAt(0).getObject();
+			for (int pChNo = 0; pChNo < eq.getChildAt(0).getChildren().size(); pChNo++) {
+				Node joinTable = eq.getChildAt(0).getChildAt(pChNo);
+				for (int chNo = 0; chNo < joinTable.getChildren().size(); chNo++) {
+					Node join = joinTable.getChildAt(chNo);
+					if (join.getChildren().size() == 2) {
+						sipInfo.addToSipInfo(p, join, sipToUnions.get(unionnumber));
+						// Set<Node> newsip=new HashSet<Node>();
+						// newsip.add(join.getChildAt(0));
+						// newsip.add(join.getChildAt(1));
+						// sipToUnions.get(unionnumber).add(newsip);
 					}
-
-					Pair rp = new Pair(rightJoin, rightJoinCol);
-					if (memo.containsKey(rp)) {
-						op.removeChild(rightJoin);
-						op.addChildAt(memo.get(rp), 1);
-						eq.addToPartitionRecord(memo.get(rp).getPartitionRecord());
-					} else {
-						// split partitioned sets to different nodes
-						if (rightJoin.isPartitionedOn().size() > 1) {
-							Node nonPartitioned = rightJoin;
-							List<Node> gchildren = rightJoin.getChildren();
-							Iterator<PartitionCols> combined = combineColumns(rightJoin.isPartitionedOn());
-							// Iterator<PartitionCols>
-							// it=c.getChildAt(0).isPartitionedOn().iterator();
-							rightJoin.setPartitionedOn(combined.next());
-							rightJoin.removeAllChildren();
-							for (Node gchild : gchildren) {
-								Operand nuwc = (Operand) gchild.getObject();
-								if (rightJoin.getFirstPartitionedSet().contains(nuwc.getAllColumnRefs().get(0))) {
-									rightJoin.addChild(gchild);
-								}
-							}
-							// addRepartitionToNode(rightJoin, bwc.getRightOp(),
-							// op, memo);
-
-							while (combined.hasNext()) {
-								Node partNode = new Node(Node.OR);
-								partNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
-								partNode.setPartitionedOn(combined.next());
-								for (Node gchild : gchildren) {
-									Operand nuwc = (Operand) gchild.getObject();
-									if (partNode.getFirstPartitionedSet().contains(nuwc.getAllColumnRefs().get(0))) {
-										partNode.addChild(gchild);
-									}
-								}
-								boolean exists = false;
-								Node existing = null;
-								for (Column pc : partNode.getFirstPartitionedSet().getColumns()) {
-
-									Pair lp2 = new Pair(nonPartitioned, pc);
-									if (memo.containsKey(lp2)) {
-
-										existing = memo.get(lp2);
-										// partNode=existing;
-										exists = true;
-										break;
-									}
-								}
-								if (exists) {
-									for (Node exch : partNode.getChildren()) {
-										existing.addChild(exch);
-									}
-									existing.getFirstPartitionedSet()
-											.addColumns(partNode.getFirstPartitionedSet().getColumns());
-									eq.addToPartitionRecord(existing.getPartitionRecord());
-									// partNode = existing;
-								} else {
-
-									// Node otherjoin = new Node(Node.AND,
-									// Node.JOIN);
-									// otherjoin.setObject(bwc);
-									// otherjoin.addChild(leftJoin);
-									// otherjoin.addChild(partNode);
-									// createEnforcerForNode(leftJoin,
-									// otherjoin, memo, bwc.getRightOp());
-									// otherjoin.addChild(leftJoin);
-									// eq.addChildAt(otherjoin, 0);
-									// i++;
-									addRepartitionToNode(leftJoin, bwc.getLeftOp(), op, eq, memo);
-									addRepartitionToNode(partNode, bwc.getRightOp(), op, eq, memo);
-									for (Column pc : partNode.getFirstPartitionedSet().getColumns()) {
-
-										Pair lp2 = new Pair(nonPartitioned, pc);
-										memo.put(lp2, partNode);
-									}
-								}
-								// addRepartitionToPhysicalDAG(partNode, memo);
-
-							}
-						}
-						addRepartitionToNode(rightJoin, bwc.getRightOp(), op, eq, memo);
-
-					}
-
-				}
-			} else {// not join
-				for (Node g : op.getChildren()) {
-					addRepartitionToPhysicalDAG(g, memo);
-					eq.addToPartitionRecord(g.getPartitionRecord());
-
 				}
 			}
-
-			// partitionRecord.add(c.getPartitionHistory());
+			unionnumber++;
+			sipToUnions.put(unionnumber, new HashSet<SipNode>());
 		}
-		// e.addToPartitionHistory(getUniqueColumns(partitionRecord));
 	}
 
 	private void unify(Node q, Node q2) {
@@ -1411,20 +1236,19 @@ public class QueryDecomposer {
 
 		hashes.remove(q2.getHashId());
 		hashes.remove(q.getHashId());
-for(Node p:q.getParents()){
-	hashes.remove(p.getHashId());
-	p.setHashNeedsRecomputing();
+		for (Node p : q.getParents()) {
+			hashes.remove(p.getHashId());
+			p.setHashNeedsRecomputing();
 		}
 		q.getUnions().addAll(q2.getUnions());
-		
 
 		for (Node c : q2.getChildren()) {
 			q.addChild(c);
 			q.addAllDescendantBaseTables(c.getDescendantBaseTables());
 		}
-		for(Node p:q.getParents()){
+		for (Node p : q.getParents()) {
 			hashes.put(p.getHashId(), p);
-				}
+		}
 		q2.removeAllChildren();
 		for (int i = 0; i < q2.getParents().size(); i++) {
 			Node p = q2.getParents().get(i);
@@ -1476,101 +1300,6 @@ for(Node p:q.getParents()){
 			}
 		}
 		return resultCols.iterator();
-	}
-
-	private void addRepartitionToNode(Node n, Operand joinOperand, Node parent, Node gParent,
-			HashMap<Pair<Node, Column>, Node> memo) {
-		for (Column pc : n.getFirstPartitionedSet().getColumns()) {
-			Pair lp2 = new Pair(n, pc);
-
-			memo.put(lp2, n);
-		}
-		PartitionCols ptned = new PartitionCols();
-		Node lEnforcerParent = new Node(Node.OR);
-		if (!(n.isCentralised() || n.getFirstPartitionedSet().contains((joinOperand.getAllColumnRefs().get(0))))) {
-			Node lEnforcer = new Node(Node.AND);
-
-			lEnforcer.setOperator(Node.REPARTITION);
-
-			// c.addToPartitionHistory(bwc.getLeftOp().getAllColumnRefs());
-			lEnforcer.setObject(joinOperand.getAllColumnRefs().get(0));
-			Pair lp = new Pair(n, joinOperand.getAllColumnRefs().get(0));
-			ptned.addColumns(joinOperand.getAllColumnRefs());
-			if (memo.containsKey(lp)) {
-				lEnforcerParent = memo.get(lp);
-			} else {
-
-				lEnforcerParent.setObject(new Table("table" + Util.createUniqueId(), null));
-				lEnforcerParent.setPartitionedOn(ptned);
-
-				memo.put(lp, lEnforcerParent);
-			}
-			lEnforcerParent.addToPartitionRecord(ptned);
-			lEnforcerParent.addChild(lEnforcer);
-			lEnforcer.addChild(n);
-			int childNo = parent.getFirstIndexOfChild(n);
-			parent.removeChild(n);
-			parent.addChildAt(lEnforcerParent, childNo);
-		}
-		addRepartitionToPhysicalDAG(n, memo);
-		gParent.addToPartitionRecord(ptned);
-		gParent.addToPartitionRecord(n.getPartitionRecord());
-		lEnforcerParent.addToPartitionRecord(n.getPartitionRecord());
-		if (n.getPartitionRecord().contains(ptned)) {
-			// do not increade counter of lEnforcerParent, only of nodes below
-			// it
-			n.increasePruningCounter();
-			increasePrunningCounter(n, ptned);
-		}
-	}
-
-	private void increasePrunningCounter(Node eq, PartitionCols ptned) {
-		for (Node op : eq.getChildren()) {
-
-			for (Node eq2 : op.getChildren()) {
-				if (eq2.partitionRecordContains(ptned)) {
-					eq2.increasePruningCounter();
-					PartitionCols newCols = new PartitionCols();
-					newCols.addColumns(ptned.getColumns());
-					if (!Collections.disjoint(eq2.getFirstPartitionedSet().getColumns(), newCols.getColumns())) {
-						// if there is a common column, add all eq2 partition
-						// columns to newCols
-						newCols.addColumns(eq2.getFirstPartitionedSet().getColumns());
-					}
-					increasePrunningCounter(eq2, newCols);
-				}
-			}
-		}
-	}
-
-	public void createEnforcerForNode(Node n, Node parent, HashMap<Pair<Node, Column>, Node> memo,
-			Operand joinOperand) {
-		PartitionCols ptned = new PartitionCols();
-		Node lEnforcerParent = new Node(Node.OR);
-		if (!(n.isCentralised() || n.getFirstPartitionedSet().contains((joinOperand.getAllColumnRefs().get(0))))) {
-			Node lEnforcer = new Node(Node.AND);
-
-			lEnforcer.setOperator(Node.REPARTITION);
-
-			// c.addToPartitionHistory(bwc.getLeftOp().getAllColumnRefs());
-			lEnforcer.setObject(joinOperand.getAllColumnRefs().get(0));
-			Pair lp = new Pair(n, joinOperand.getAllColumnRefs().get(0));
-
-			if (memo.containsKey(lp)) {
-				lEnforcerParent = memo.get(lp);
-			} else {
-
-				ptned.addColumns(joinOperand.getAllColumnRefs());
-				lEnforcerParent.setObject(new Table("table" + Util.createUniqueId(), null));
-				lEnforcerParent.setPartitionedOn(ptned);
-				lEnforcerParent.addToPartitionRecord(ptned);
-				memo.put(lp, lEnforcerParent);
-			}
-			lEnforcerParent.addChild(lEnforcer);
-			lEnforcer.addChild(n);
-			parent.removeChild(n);
-			parent.addChild(lEnforcerParent);
-		}
 	}
 
 	private Node addAliasesToDAG(Node parent, List<String> firstAliases, List<String> nextAliases, NodeHashValues h) {
@@ -2107,7 +1836,7 @@ for(Node p:q.getParents()){
 
 	}
 
-	private SinglePlan getBestPlanCentralized(Node e, double limit, int unionNo, Memo memo, Map<Node, Double> greedyToMat) {
+	private SinglePlan getBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat) {
 		MemoKey ec = new MemoKey(e, null);
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
@@ -2118,30 +1847,30 @@ for(Node p:q.getParents()){
 			if (!useGreedy) {
 				int used = cmv.getUsed();
 				// if(cmv.isInvalidated()){
-				resultPlan = searchForBestPlanCentralized(e, limit, unionNo, memo, greedyToMat);
+				resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
 				cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
 				cmv.addUsed(used);
 				// }
 
 				if (NodeCostEstimator.isProfitableToMat(e, cmv.getUsed() + 1, resultPlan.getCost())) {
-					memo.removeUsageFromChildren(ec, cmv.getUsed(), unionNo);
+					memo.removeUsageFromChildren(ec, cmv.getUsed(), unionnumber);
 					cmv.setMaterialized(true);
-					cmv.setMatUnion(unionNo);
+					cmv.setMatUnion(unionnumber);
 
 					resultPlan = new SinglePlan(0.0, null);
 					// cmv.setPlan(resultPlan);
 				}
 			} else {
 				resultPlan = memo.getMemoValue(ec).getPlan();
-				if(greedyToMat.containsKey(e)){
+				if (greedyToMat.containsKey(e)) {
 					cmv.setMaterialized(true);
 					e.setMaterialised(true);
-					greedyToMat.put(e, resultPlan.getCost()+NodeCostEstimator.getWriteCost(e));
+					greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 10);
 					resultPlan.setCost(NodeCostEstimator.getReadCost(e));
 				}
 			}
 		} else {
-			resultPlan = searchForBestPlanCentralized(e, limit, unionNo, memo, greedyToMat);
+			resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;
@@ -2150,7 +1879,7 @@ for(Node p:q.getParents()){
 		}
 	}
 
-	private SinglePlan searchForBestPlanCentralized(Node e, double limit, int unionNo, Memo memo, Map<Node, Double> greedyToMat) {
+	private SinglePlan searchForBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat) {
 
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			SinglePlan r = new SinglePlan(0);
@@ -2195,7 +1924,7 @@ for(Node p:q.getParents()){
 
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
 				// cel, partitionRecord, toMatAlg));
-				SinglePlan t = getBestPlanCentralized(e2, algLimit, unionNo, memo, greedyToMat);
+				SinglePlan t = getBestPlanCentralized(e2, algLimit, memo, greedyToMat);
 				algPlan.addInputPlan(e2, null);
 				algPlan.increaseCost(t.getCost());
 
@@ -2233,7 +1962,6 @@ for(Node p:q.getParents()){
 			if (algPlan.getCost() < e2Plan.getCost()) {
 				e2Plan = algPlan;
 			}
-			
 
 			// }
 			if (e2Plan.getCost() < resultPlan.getCost()) {
@@ -2241,27 +1969,65 @@ for(Node p:q.getParents()){
 				memo.put(e, resultPlan, mat, false, fed);
 
 			}
-			
-			if(useSIP&&!e.getParents().isEmpty()&&e.getParents().get(0).getOpCode()==Node.PROJECT){
-				Projection p=(Projection)e.getParents().get(0).getObject();
-				CentralizedMemoValue cmv=(CentralizedMemoValue)memo.getMemoValue(new MemoKey(e, null));
-				Node join=e.getChildAt(cmv.getPlan().getChoice());
-				if(join.getChildren().size()==2 ){
-					sipInfo.markSipUsed(p, join);
-				}
-			}
+
+			/*
+			 * if(useSIP&&!e.getParents().isEmpty()&&e.getParents().get(0).
+			 * getOpCode()==Node.PROJECT){ Projection
+			 * p=(Projection)e.getParents().get(0).getObject();
+			 * CentralizedMemoValue
+			 * cmv=(CentralizedMemoValue)memo.getMemoValue(new MemoKey(e,
+			 * null)); Node join=e.getChildAt(cmv.getPlan().getChoice());
+			 * if(join.getChildren().size()==2 ){ sipInfo.markSipUsed(p, join);
+			 * } }
+			 */
 		}
-		
-		
+
 		if (!e.getParents().isEmpty() && (e.getParents().get(0).getOpCode() == Node.UNION
 				|| e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
 			// String g = e.dotPrint();
-			memo.setPlanUsed(new MemoKey(e, null));
-			unionNo++;
-			//e.setMaterialised(true);
+			if (this.useSIP) {
+				getUsedSips(e.getChildAt(memo.getMemoValue(new MemoKey(e, null)).getPlan().getChoice()), memo,
+						unionnumber);
+			}
+
+			unionnumber++;
+			// e.setMaterialised(true);
 			// e.setPlanMaterialized(resultPlan.getPath().getPlanIterator());
 		}
 		return resultPlan;
+
+	}
+
+	private void getUsedSips(Node op, Memo memo, int uNo) {
+		if (op.getOpCode() == Node.JOIN && op.getChildren().size() == 2) {
+			Set<SipNode> usips = sipToUnions.get(uNo);
+			for (SipNode us : usips) {
+				if (us.getNode().equals(op.getChildAt(0))) {
+					 if(this.sipInfo.getSipInfo(us.getSipInfo())!=null){
+					// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
+
+					us.getSipInfo().increaseCounter();
+					// }
+					 }
+				} else if (us.getSipInfo().getJoinNode().equals(op.getChildAt(1).getObject().toString())) {
+					 if(this.sipInfo.getSipInfo(us.getSipInfo())!=null){
+					// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
+
+					us.getSipInfo().increaseCounter();
+					 }
+				}
+			}
+
+		}
+
+		for (Node c : op.getChildren()) {
+			if (c.isMaterialised()) {
+				continue;
+			}
+			if (!c.getChildren().isEmpty()) {
+				getUsedSips(c.getChildAt(memo.getMemoValue(new MemoKey(c, null)).getPlan().getChoice()), memo, uNo);
+			}
+		}
 
 	}
 

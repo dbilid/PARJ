@@ -74,6 +74,8 @@ public class SQLQuery {
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
 
+	private boolean todeleteSip;
+
 	public SQLQuery() {
 		super();
 		temporaryTableName = "table" + Util.createUniqueId();
@@ -100,6 +102,7 @@ public class SQLQuery {
 		joinNode = null;
 		joinOperands = new ArrayList<Operand>();
 		si = null;
+		todeleteSip=false;
 	}
 
 	public String toDistSQL() {
@@ -1415,7 +1418,31 @@ public class SQLQuery {
 		if (!this.inputTables.contains(table)
 				&& !table.getName().equals(this.getTemporaryTableName())) {
 			this.inputTables.add(table);
+			if(this.todeleteSip){
+				deleteSipInfo();
+			}
 		}
+	}
+
+	private void deleteSipInfo() {
+		this.si=null;
+		String alias="";
+		for(int i=0;i<inputTables.size();i++){
+			Table t=this.inputTables.get(i);
+			if(t.getName().equals("siptable")){
+				alias=t.getAlias();
+				inputTables.remove(i);
+				break;
+			}
+		}
+		for(int i=0;i<this.getBinaryWhereConditions().size();i++){
+			NonUnaryWhereCondition nuwc=this.getBinaryWhereConditions().get(i);
+			if(nuwc.getRightOp().equals(new Column(alias, "x"))){
+				this.binaryWhereConditions.remove(i);
+				break;
+			}
+		}
+		
 	}
 
 	public List<List<String>> getListOfAliases(NamesToAliases n2a,
@@ -2057,6 +2084,9 @@ public class SQLQuery {
 	}
 
 	public void setSipInfo(SipInfo si) {
+		if(this.si!=null){
+			this.deleteSipInfo();
+		}
 		this.si = si;
 
 	}
@@ -2387,6 +2417,11 @@ public class SQLQuery {
 			return true;
 		}
 		return false;
+	}
+
+	public void setToDeleteSipInfo(boolean b) {
+		this.todeleteSip=b;
+		
 	}
 
 }

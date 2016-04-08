@@ -29,7 +29,9 @@ public class SinlgePlanDFLGenerator {
 	private boolean useSIP;
 	private SipStructure sipStruct;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
-	private boolean addIndicesToMatQueries =false;
+	private boolean addIndicesToMatQueries =true;
+	private SipToUnions sipToUnions;
+	private int unionNo;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
@@ -49,7 +51,7 @@ public class SinlgePlanDFLGenerator {
 
 		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
-
+		unionNo=0;
 		if (partitionNo == 1) {
 			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
 		} else if (DecomposerUtils.PUSH_PROCESSING) {
@@ -196,7 +198,7 @@ public class SinlgePlanDFLGenerator {
 							t--;
 						}
 					}
-					s.getInputTables().remove(s.getInputTables().size() - 1);
+					//s.getInputTables().remove(s.getInputTables().size() - 1);
 					for (NonUnaryWhereCondition nuwc : s.getBinaryWhereConditions()) {
 						if (nuwc.getAllColumnRefs().contains(new Column(si.getName(), "x"))) {
 							s.getBinaryWhereConditions().remove(nuwc);
@@ -846,7 +848,7 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 
-				if (useSIP) {
+				/*if (useSIP) {
 					Node join = op.getChildAt(0).getChildAt(memo.getMemoValue(p.getInputPlan(0)).getPlan().getChoice());
 					if(join.getObject() instanceof NonUnaryWhereCondition){
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
@@ -939,6 +941,7 @@ public class SinlgePlanDFLGenerator {
 					}
 					}
 				}
+				*/
 
 			}
 			// if (!current.getOutputs().isEmpty()) {
@@ -949,7 +952,7 @@ public class SinlgePlanDFLGenerator {
 				inputName = tempResult.getLastTable().getAlias();
 				if (inputName != current.getTemporaryTableName()
 						&& !current.getInputTables().contains(tempResult.getLastTable())) {
-					current.addInputTable(tempResult.getLastTable());
+					current.addInputTableIfNotExists(tempResult.getLastTable());
 
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
@@ -979,7 +982,7 @@ public class SinlgePlanDFLGenerator {
 				inputNames.add(lastRes);
 				if (lastRes != current.getTemporaryTableName()
 						&& !current.getInputTables().contains(tempResult.getLastTable())) {
-					current.addInputTable(tempResult.getLastTable());
+					current.addInputTableIfNotExists(tempResult.getLastTable());
 					addOutputs(current, lastRes, tempResult);
 					if(addIndicesToMatQueries && p.getInputPlan(j).getNode().isMaterialised()){
 						if(!matResultUsedCols.containsKey(lastRes)){
@@ -1000,7 +1003,7 @@ public class SinlgePlanDFLGenerator {
 						}
 
 					}
-				}
+				}				
 			}
 
 			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
@@ -1021,6 +1024,117 @@ public class SinlgePlanDFLGenerator {
 						}
 
 					}
+				}
+			}
+			
+			if (useSIP) {
+				//Node join = op.getChildAt(0).getChildAt(memo.getMemoValue(p.getInputPlan(0)).getPlan().getChoice());
+				//if(join.getObject() instanceof NonUnaryWhereCondition){
+				//NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
+				if (nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column) {
+					if (op.getChildren().size() == 2) {
+						//SipInfo siLeft = sipToUnions.getSipInfo(unionNo, op.getChildAt(0));
+						SipInfo siRight =  sipToUnions.getSipInfo(unionNo, op);
+						Projection proj=null;
+						//if(siLeft!=null){
+						//	proj=siLeft.getProjection();
+						//}
+						//else
+							if(siRight!=null){
+							proj=siRight.getProjection();
+					//	}
+					//	if(proj!=null){
+							System.out.println(proj);
+						for (Column c : proj.getAllColumnRefs()) {
+							if (!nuwc.getAllColumnRefs().contains(c)) {
+								//if (op.getChildAt(1).getDescendantBaseTables().contains(c.getAlias())) {
+							//		siLeft = null;
+							//	}
+								if (op.getChildAt(0).getDescendantBaseTables().contains(c.getAlias())) {
+								//	siRight = null;
+								}
+							}
+						}
+						SipInfo si = siRight;
+						Set<String> leftOfCrossJoin=new HashSet<String>();
+						Set<String> rightOfCrossJoin=new HashSet<String>();
+						/*if (siLeft != null && siRight != null && siLeft.getCounter() > 1
+								&& siRight.getCounter() > 1) {
+							double leftEstGain = memo.getMemoValue(new MemoKey(op.getChildAt(0), null)).getPlan()
+									.getCost() * op.getChildAt(1).getNodeInfo().getNumberOfTuples();
+							double rightEstGain = memo.getMemoValue(new MemoKey(op.getChildAt(1), null)).getPlan()
+									.getCost() * op.getChildAt(0).getNodeInfo().getNumberOfTuples();
+							si = leftEstGain > rightEstGain ? siLeft : siRight;
+						} else if (siLeft != null && siLeft.getCounter() > 1) {
+							si = siLeft;
+						} else if (siRight != null && siRight.getCounter() > 1) {
+							si = siRight;
+						}*/
+						if(si!=null && si==siRight){
+							if(siRight.getJoinNode().equals(op.getChildAt(1).getObject().toString())){
+								for(String d:op.getChildren().get(1).getDescendantBaseTables()){
+									rightOfCrossJoin.add(tempResult.getQueryForBaseTable(d));
+								}
+							}
+							else{
+							for(String d:op.getChildren().get(0).getDescendantBaseTables()){
+								leftOfCrossJoin.add(tempResult.getQueryForBaseTable(d));
+							}
+							}
+						}
+						
+						if (si != null && si.getCounter()>1) {
+							
+							
+							if(!leftOfCrossJoin.isEmpty()){
+								if(leftOfCrossJoin.contains(current.getInputTables().get(0).getAlias())){
+									current.setSipInfo(si);
+								current.addInputTableIfNotExists(new Table("siptable", si.getName()), leftOfCrossJoin.size());
+								Column sipCol2 = new Column(si.getName(), "x");
+								if (si.getJoinCol().equals(nuwc.getLeftOp())) {
+									Column c = (Column) nuwc.getRightOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+									current.addBinaryWhereCondition(sipjoin);
+								}
+								if (si.getJoinCol().equals(nuwc.getRightOp())) {
+									Column c = (Column) nuwc.getLeftOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+									current.addBinaryWhereCondition(sipjoin);
+								}
+								}
+							}
+							else{
+								current.setSipInfo(si);
+								current.addInputTableIfNotExists(new Table("siptable", si.getName()), tempResult.getCurrent().getInputTables().size()-rightOfCrossJoin.size());
+								current.setToDeleteSipInfo(true);
+								Column sipCol = new Column(si.getName(), "x");
+								if (si.getJoinCol().equals(nuwc.getLeftOp())) {
+									Column c = (Column) nuwc.getRightOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
+									current.addBinaryWhereCondition(sipjoin);
+								}
+								if (si.getJoinCol().equals(nuwc.getRightOp())) {
+									Column c = (Column) nuwc.getLeftOp();
+									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+											c.getAlias());
+
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
+									current.addBinaryWhereCondition(sipjoin);
+							//	}
+								}
+							}
+						}
+					}
+				}
 				}
 			}
 
@@ -1045,6 +1159,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
+				unionNo=l;
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
@@ -1726,5 +1841,11 @@ public class SinlgePlanDFLGenerator {
 	public void setSipStruct(SipStructure sipStruct) {
 		this.sipStruct = sipStruct;
 	}
+
+	public void setSipToUnions(SipToUnions sipToUnions) {
+		this.sipToUnions=sipToUnions;
+		
+	}
+
 
 }

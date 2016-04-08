@@ -129,6 +129,10 @@ public class NodeCostEstimator {
 
     public static double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
         throws Exception {
+    	if(left.getDescendantBaseTables().size()==1&&right.getDescendantBaseTables().size()>1){
+    		//bushy join
+    		return 1000000.0;
+    	}
 
         double leftRelTuples = left.getNodeInfo().getNumberOfTuples();
         double leftRelSize = left.getNodeInfo().outputRelSize();
@@ -142,7 +146,7 @@ public class NodeCostEstimator {
         if (Double.isNaN(responseTime)) {
             throw new Exception("NaN");
         }
-
+        
         return responseTime;
     }
 
