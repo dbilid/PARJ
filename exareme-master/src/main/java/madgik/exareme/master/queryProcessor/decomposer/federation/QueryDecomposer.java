@@ -92,6 +92,7 @@ public class QueryDecomposer {
 		if (initialQuery.isUnionAll()) {
 			union.setObject(("UNIONALL"));
 			union.setOperator(Node.UNIONALL);
+			this.useSIP=false;
 		} else {
 			union.setObject(("UNION"));
 			union.setOperator(Node.UNION);
@@ -347,7 +348,7 @@ public class QueryDecomposer {
 					}
 					existsBetterPlan = false;
 
-					for (int i = 0; i < 0 && i < shareable.size(); i++) {
+					for (int i = 0; i < 50 && i < shareable.size(); i++) {
 						if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
 							continue;
 						}
@@ -1865,12 +1866,19 @@ public class QueryDecomposer {
 				if (greedyToMat.containsKey(e)) {
 					cmv.setMaterialized(true);
 					e.setMaterialised(true);
-					greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 10);
+					//greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 0.0);
 					resultPlan.setCost(NodeCostEstimator.getReadCost(e));
 				}
 			}
 		} else {
 			resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
+			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
+			if (greedyToMat.containsKey(e)&&e.getFirstParent().getOpCode()!=Node.UNION) {
+				cmv.setMaterialized(true);
+				e.setMaterialised(true);
+				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 6.5);
+				resultPlan.setCost(NodeCostEstimator.getReadCost(e));
+			}
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
 			return resultPlan;

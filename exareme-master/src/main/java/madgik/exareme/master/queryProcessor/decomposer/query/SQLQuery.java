@@ -642,7 +642,7 @@ public class SQLQuery {
 	// this.nestedSelectSubqueryAlias = correlationName;
 	// }
 	public void setHasUnionRootNode(boolean b) {
-		this.hasUnionRootNode = true;
+		this.hasUnionRootNode = b;
 	}
 
 	public boolean hasNestedSuqueriesOrLeftJoin() {
@@ -2254,9 +2254,9 @@ public class SQLQuery {
 						output.append(separator);
 						output.append(t.toString());
 						separator = " JOIN ";
-						if (t.getAlias().startsWith("siptable")) {
-							separator = " CROSS JOIN  ";
-						}
+						//if (t.getAlias().startsWith("siptable")) {
+						//	separator = " CROSS JOIN  ";
+						//}
 
 					}
 					// output.append(")");

@@ -110,7 +110,7 @@ public class Projection implements Operand {
         }
     }
 
-    @Override public Operand clone() throws CloneNotSupportedException {
+    @Override public Projection clone() throws CloneNotSupportedException {
         Projection cloned = new Projection();
         for (Output o : this.ops) {
             cloned.ops.add(o.clone());

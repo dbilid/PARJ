@@ -259,6 +259,12 @@ public class SinlgePlanDFLGenerator {
 
 			System.out.println("final size:" + qs.size());
 		}
+		
+
+					
+		
+		
+		
 
 		// remove not needed columns from nested subqueries
 
@@ -293,6 +299,29 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 		}
+		
+		
+		boolean mergeUnions=true;
+		if(mergeUnions && qs.size()>50){
+			SQLQuery last=qs.get(qs.size()-1);
+			SQLQuery current=new SQLQuery();
+			current.setIsUnionAll(true);
+			current.setHasUnionRootNode(last.isHasUnionRootNode());
+			List<SQLQuery> allUnions=last.getUnionqueries();
+			last.setUnionqueries(new ArrayList<SQLQuery>());
+			last.getUnionqueries().add(current);
+			qs.add(qs.size()-1, current);
+				for(int i=0;i<allUnions.size();i++){
+					if(i%50==49){
+						current=new SQLQuery();
+						current.setIsUnionAll(true);
+						current.setHasUnionRootNode(last.isHasUnionRootNode());
+						qs.add(qs.size()-1, current);
+						last.getUnionqueries().add(current);
+					}
+					current.getUnionqueries().add(allUnions.get(i));
+				}
+			}
 		return qs;
 	}
 
@@ -1034,7 +1063,10 @@ public class SinlgePlanDFLGenerator {
 				if (nuwc.getLeftOp() instanceof Column && nuwc.getRightOp() instanceof Column) {
 					if (op.getChildren().size() == 2) {
 						//SipInfo siLeft = sipToUnions.getSipInfo(unionNo, op.getChildAt(0));
-						SipInfo siRight =  sipToUnions.getSipInfo(unionNo, op);
+						SipNode sn=sipToUnions.getSipInfo(unionNo, op);
+						SipInfo siRight =null;
+						if(sn!=null){
+						 siRight =  sn.getSipInfo();}
 						Projection proj=null;
 						//if(siLeft!=null){
 						//	proj=siLeft.getProjection();
@@ -1083,7 +1115,7 @@ public class SinlgePlanDFLGenerator {
 							}
 						}
 						
-						if (si != null && si.getCounter()>1) {
+						if (si != null && si.getCounter()>1&&!e.isMaterialised()) {
 							
 							
 							if(!leftOfCrossJoin.isEmpty()){
@@ -1091,20 +1123,50 @@ public class SinlgePlanDFLGenerator {
 									current.setSipInfo(si);
 								current.addInputTableIfNotExists(new Table("siptable", si.getName()), leftOfCrossJoin.size());
 								Column sipCol2 = new Column(si.getName(), "x");
+								
 								if (si.getJoinCol().equals(nuwc.getLeftOp())) {
 									Column c = (Column) nuwc.getRightOp();
 									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
 											c.getAlias());
+									Operand previous=c2;
+									for(SipInfoValue siv:this.sipStruct.getSipInfo(si)){
+										if(siv.getNode()==sn.getNode()){
+											for(Column out:siv.getOutputs()){
+												BinaryOperand bo=new BinaryOperand();
+												bo.setOperator("||");
+												bo.setLeftOp(previous);
+												bo.setRightOp(new Column(tempResult.getQueryForBaseTable(out.getAlias()), out.getName(),
+										out.getAlias()));
+												previous=bo;
+											}
+											break;
+										}
+									}
+									
 
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous, sipCol2, "=");
 									current.addBinaryWhereCondition(sipjoin);
 								}
 								if (si.getJoinCol().equals(nuwc.getRightOp())) {
 									Column c = (Column) nuwc.getLeftOp();
 									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
 											c.getAlias());
+									Operand previous=c2;
+									for(SipInfoValue siv:this.sipStruct.getSipInfo(si)){
+										if(siv.getNode()==sn.getNode()){
+											for(Column out:siv.getOutputs()){
+												BinaryOperand bo=new BinaryOperand();
+												bo.setOperator("||");
+												bo.setLeftOp(previous);
+												bo.setRightOp(new Column(tempResult.getQueryForBaseTable(out.getAlias()), out.getName(),
+										out.getAlias()));
+												previous=bo;
+											}
+											break;
+										}
+									}
 
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol2, "=");
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous, sipCol2, "=");
 									current.addBinaryWhereCondition(sipjoin);
 								}
 								}
@@ -1118,16 +1180,46 @@ public class SinlgePlanDFLGenerator {
 									Column c = (Column) nuwc.getRightOp();
 									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
 											c.getAlias());
+									
+									Operand previous=c2;
+									for(SipInfoValue siv:this.sipStruct.getSipInfo(si)){
+										if(siv.getNode()==sn.getNode()){
+											for(Column out:siv.getOutputs()){
+												BinaryOperand bo=new BinaryOperand();
+												bo.setOperator("||");
+												bo.setLeftOp(previous);
+												bo.setRightOp(new Column(tempResult.getQueryForBaseTable(out.getAlias()), out.getName(),
+										out.getAlias()));
+												previous=bo;
+											}
+											break;
+										}
+									}
 
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous, sipCol, "=");
 									current.addBinaryWhereCondition(sipjoin);
 								}
 								if (si.getJoinCol().equals(nuwc.getRightOp())) {
 									Column c = (Column) nuwc.getLeftOp();
 									Column c2 = new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
 											c.getAlias());
+									Operand previous=c2;
+									for(SipInfoValue siv:this.sipStruct.getSipInfo(si)){
+										if(siv.getNode()==sn.getNode()){
+											for(Column out:siv.getOutputs()){
+												BinaryOperand bo=new BinaryOperand();
+												bo.setOperator("||");
+												bo.setLeftOp(previous);
+												bo.setRightOp(new Column(tempResult.getQueryForBaseTable(out.getAlias()), out.getName(),
+										out.getAlias()));
+												previous=bo;
+											}
+											break;
+										}
+										
+									}
 
-									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(c2, sipCol, "=");
+									NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous, sipCol, "=");
 									current.addBinaryWhereCondition(sipjoin);
 							//	}
 								}

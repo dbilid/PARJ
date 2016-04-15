@@ -5,12 +5,15 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
@@ -26,12 +29,13 @@ public class PostgresImporter {
 
 	public static void main(String[] args) throws Exception {
 		boolean importtables=false;
-		boolean analyze=true;
-		String path="/media/dimitris/T/exaremenpd100/";
+		boolean analyze=false;
+		boolean analyzeSQLITE=true;
+		String path="/media/dimitris/T/exaremenpd100b/";
 		DB dbinfo=new DB("ex");
 		dbinfo.setSchema("public");
 		dbinfo.setDriver("org.postgresql.Driver");
-		dbinfo.setPass("pass");
+		dbinfo.setPass("gray769watt724!@#");
 		dbinfo.setUser("postgres");
 		dbinfo.setMadisString("postgres h:localhost port:5432 u:postgres p:gray769watt724!@# db:npd_vig_scale100");
 		dbinfo.setURL("jdbc:postgresql://localhost/npd_vig_scale100");
@@ -45,7 +49,7 @@ public class PostgresImporter {
 		ResultSet rs = md.getTables(null, "public", "%", new String[] {"TABLE"});
 		while (rs.next()) {
 			String tablename=rs.getString(3);
-			//if(!tablename.equalsIgnoreCase("wellbore_core")){
+			//if(!tablename.equalsIgnoreCase("wellbore_development_all")&&!tablename.equalsIgnoreCase("wellbore_exploration_all")&&!tablename.equalsIgnoreCase("wellbore_core")){
 			//	continue;
 			//}
 			SQLQuery s=new SQLQuery();
@@ -58,6 +62,9 @@ public class PostgresImporter {
 
 	            while (rs2.next()) {
 	            	String columnname=rs2.getString(4);
+	            //	if(!columnname.equalsIgnoreCase("dscNpdidDiscovery")){
+	            //		continue;
+	           // 	}
 	            	attrs.add(columnname);
 	                //Column c=new Column(tablename, columnname);
 	                s.addOutput(tablename, columnname);
@@ -87,6 +94,20 @@ public class PostgresImporter {
 					// change table name back to adding DB id
 					
 					StatUtils.addSchemaToFile(path + "histograms.json", sch);
+	            }
+	            if(analyzeSQLITE){
+	            	Class.forName("org.sqlite.JDBC");
+	   			 org.sqlite.SQLiteConfig config = new org.sqlite.SQLiteConfig();
+	   			 config.setCacheSize(1200000);
+	   			 config.setPageSize(4096);
+	   			 SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
+	   			    dataSource.setUrl("jdbc:sqlite:"+path+tablename+".0.db");
+	   			    dataSource.setConfig(config);
+	   			Connection connection=dataSource.getConnection();//DriverManager.getConnection("jdbc:sqlite:test.db");
+	   			Statement st=connection.createStatement();
+	   			st.execute("analyze "+tablename);
+	   			st.close();
+	   			connection.close();
 	            }
 		}
 		rs.close();

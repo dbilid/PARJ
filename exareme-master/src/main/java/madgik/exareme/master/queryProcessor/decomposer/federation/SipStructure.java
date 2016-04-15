@@ -12,7 +12,7 @@ import madgik.exareme.master.queryProcessor.decomposer.query.Projection;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
 
 public class SipStructure {
-	private final Map<SipInfo, Set<Node>> sipInfos = new HashMap<SipInfo, Set<Node>>();
+	private final Map<SipInfo, Set<SipInfoValue>> sipInfos = new HashMap<SipInfo, Set<SipInfoValue>>();
 
 	public void addToSipInfo(Projection p, Node n, Set<SipNode> set) {
 		NonUnaryWhereCondition join = (NonUnaryWhereCondition) n.getObject();
@@ -21,37 +21,39 @@ public class SipStructure {
 		if (!(join.getLeftOp() instanceof Column && join.getRightOp() instanceof Column)) {
 			return;
 		}
-		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left.getObject().toString());
+		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left);
 		boolean exists = false;
+		SipInfoValue siv=new SipInfoValue(right, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
 			if (siKey.equals(si)) {
-				Set<Node> nodes = sipInfos.get(siKey);
-				nodes.add(right);
+				Set<SipInfoValue> nodes = sipInfos.get(siKey);
+				nodes.add(siv);
 				set.add(new SipNode(right, siKey));
 				exists = true;
 				break;
 			}
 		}
 		if (!exists) {
-			Set<Node> s = new HashSet<Node>();
-			s.add(right);
+			Set<SipInfoValue> s = new HashSet<SipInfoValue>();
+			s.add(siv);
 			sipInfos.put(si, s);
 			set.add(new SipNode(right, si));
 		}
 		exists = false;
-		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right.getObject().toString());
+		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right);
+		siv=new SipInfoValue(left, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
 			if (siKey.equals(si)) {
-				Set<Node> nodes = sipInfos.get(siKey);
-				nodes.add(left);
+				Set<SipInfoValue> nodes = sipInfos.get(siKey);
+				nodes.add(siv);
 				set.add(new SipNode(left, siKey));
 				exists = true;
 				break;
 			}
 		}
 		if (!exists) {
-			Set<Node> s = new HashSet<Node>();
-			s.add(left);
+			Set<SipInfoValue> s = new HashSet<SipInfoValue>();
+			s.add(siv);
 			sipInfos.put(si, s);
 			set.add(new SipNode(left, si));
 		}
@@ -79,14 +81,14 @@ public class SipStructure {
 		if (!(join.getLeftOp() instanceof Column && join.getRightOp() instanceof Column)) {
 			return;
 		}
-		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left.getObject().toString());
+		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left);
 		for (SipInfo key : sipInfos.keySet()) {
 			if (si.equals(key)) {
 				key.increaseCounter();
 				break;
 			}
 		}
-		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right.getObject().toString());
+		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right);
 		for (SipInfo key : sipInfos.keySet()) {
 			if (si.equals(key)) {
 				key.increaseCounter();
@@ -130,7 +132,7 @@ public class SipStructure {
 		
 	}
 
-	public Set<Node> getSipInfo(SipInfo si) {
+	public Set<SipInfoValue> getSipInfo(SipInfo si) {
 		return sipInfos.get(si);
 	}
 

@@ -23,15 +23,15 @@ public class SipToUnions {
 		return sipToUnions.get(i);
 	}
 
-	public SipInfo getSipInfo(int unionNo, Node node) {
+	public SipNode getSipInfo(int unionNo, Node node) {
 		Set<SipNode> unionSip=sipToUnions.get(unionNo);
 		if(unionSip!=null){
 			for(SipNode sn:unionSip){
 				if(sn.getNode().equals(node.getChildAt(0))){
-					return sn.getSipInfo();
+					return sn;
 				}
 				if(sn.getSipInfo().getJoinNode().equals(node.getChildAt(1).getObject().toString())){
-					return sn.getSipInfo();
+					return sn;
 				}
 			}
 		}
