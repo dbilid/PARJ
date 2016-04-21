@@ -12,9 +12,11 @@ import org.apache.log4j.Logger;
 
 import java.sql.*;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -83,7 +85,7 @@ public class Stat implements StatExtractor {
                 toupleSize += columnSize;
 
                 // execute queries for numberOfDiffValues, minVal, maxVal
-                Map<String, Integer> diffValFreqMap = new HashMap<String, Integer>();
+                //Map<String, Integer> diffValFreqMap = new HashMap<String, Integer>();
 
                 // computing column's min and max values
                 MinMax mm = computeMinMax(tableName, columnName);
@@ -91,12 +93,12 @@ public class Stat implements StatExtractor {
                 String maxVal = mm.getMax();
 
                 // /
-                List<ValFreq> freqs = computeDistinctValuesFrequency(tableName, columnName);
+                Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequency(tableName, columnName);
 
-                for (ValFreq k : freqs) {
-                    diffValFreqMap.put(k.getVal(), k.getFreq());
+                //for (ValFreq k : freqs) {
+               //     diffValFreqMap.put(k.getVal(), k.getFreq());
 
-                }
+               // }
 
                 // /add min max diff vals in the sampling values
                 int minOcc = computeValOccurences(tableName, columnName, minVal);
@@ -195,9 +197,9 @@ public class Stat implements StatExtractor {
         return diffValCount;
     }
 
-    private List<ValFreq> computeDistinctValuesFrequency(String table_sample, String columnName)
+    private Map<String, Integer> computeDistinctValuesFrequency(String table_sample, String columnName)
         throws Exception {
-        List<ValFreq> freqs = new LinkedList<ValFreq>();
+    	Map<String, Integer> freqs = new HashMap<String, Integer>();
 
         String query = "select `" + columnName + "` as val, count(*) as freq from `" + table_sample
             + "` where `" + columnName + "` is not null group by `" + columnName + "`";
@@ -206,7 +208,7 @@ public class Stat implements StatExtractor {
         ResultSet rs = stmt.executeQuery(query);
 
         while (rs.next()) {
-            freqs.add(new ValFreq(rs.getString("val"), rs.getInt("freq")));
+            freqs.put(rs.getString("val"), rs.getInt("freq"));
         }
 
         rs.close();
@@ -256,6 +258,42 @@ public class Stat implements StatExtractor {
         public int getFreq() {
             return freq;
         }
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + freq;
+			result = prime * result + ((val == null) ? 0 : val.hashCode());
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			ValFreq other = (ValFreq) obj;
+			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (freq != other.freq)
+				return false;
+			if (val == null) {
+				if (other.val != null)
+					return false;
+			} else if (!val.equals(other.val))
+				return false;
+			return true;
+		}
+
+		private Stat getOuterType() {
+			return Stat.this;
+		}
+        
 
     }
 

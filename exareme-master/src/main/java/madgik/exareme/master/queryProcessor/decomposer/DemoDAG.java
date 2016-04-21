@@ -191,7 +191,7 @@ public class DemoDAG {
 		
 		NodeSelectivityEstimator nse = null;
 		try {
-			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100b/" + "histograms.json");
+			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100c/" + "histograms.json");
 		} catch (Exception e) {
 			
 		}
@@ -227,7 +227,7 @@ public class DemoDAG {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("09.q.sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("10.q.sql")) {
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }

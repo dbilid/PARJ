@@ -92,7 +92,7 @@ public class QueryDecomposer {
 		if (initialQuery.isUnionAll()) {
 			union.setObject(("UNIONALL"));
 			union.setOperator(Node.UNIONALL);
-			this.useSIP=false;
+			this.useSIP = false;
 		} else {
 			union.setObject(("UNION"));
 			union.setOperator(Node.UNION);
@@ -254,13 +254,13 @@ public class QueryDecomposer {
 	}
 
 	public List<SQLQuery> getPlan() {
-		// String dot0 = root.dotPrint();
-
+		//String dot0 = root.dotPrint();
+		StringBuilder a = root.dotPrint();
+		System.out.println(a.toString());
 		if (projectRefCols) {
 			createProjections(root);
 		}
-		// String a = root.dotPrint();
-		// System.out.println(a);
+
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
@@ -271,8 +271,8 @@ public class QueryDecomposer {
 		if (this.useSIP) {
 			sipInfo.removeNotNeededSIPs();
 		}
-		//StringBuilder a2 = root.dotPrint();
-		//System.out.println(a2.toString());
+		// StringBuilder a2 = root.dotPrint();
+		// System.out.println(a2.toString());
 		// System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
@@ -348,7 +348,7 @@ public class QueryDecomposer {
 					}
 					existsBetterPlan = false;
 
-					for (int i = 0; i < 50 && i < shareable.size(); i++) {
+					for (int i = 0; i < 0 && i < shareable.size(); i++) {
 						if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
 							continue;
 						}
@@ -392,7 +392,7 @@ public class QueryDecomposer {
 			}
 			unionnumber = 0;
 			best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
-			//sipInfo.printMultiUsed();
+			// sipInfo.printMultiUsed();
 			if (useGreedy) {
 				double matCost = 0.0;
 				for (Double d : greedyToMat.values()) {
@@ -1866,17 +1866,18 @@ public class QueryDecomposer {
 				if (greedyToMat.containsKey(e)) {
 					cmv.setMaterialized(true);
 					e.setMaterialised(true);
-					//greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 0.0);
+					// greedyToMat.put(e, resultPlan.getCost() +
+					// NodeCostEstimator.getWriteCost(e) * 0.0);
 					resultPlan.setCost(NodeCostEstimator.getReadCost(e));
 				}
 			}
 		} else {
 			resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
 			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
-			if (greedyToMat.containsKey(e)&&e.getFirstParent().getOpCode()!=Node.UNION) {
+			if (greedyToMat.containsKey(e) && e.getFirstParent().getOpCode() != Node.UNION) {
 				cmv.setMaterialized(true);
 				e.setMaterialised(true);
-				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 6.5);
+				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 12);
 				resultPlan.setCost(NodeCostEstimator.getReadCost(e));
 			}
 		}
@@ -2011,18 +2012,18 @@ public class QueryDecomposer {
 			Set<SipNode> usips = sipToUnions.get(uNo);
 			for (SipNode us : usips) {
 				if (us.getNode().equals(op.getChildAt(0))) {
-					 if(this.sipInfo.getSipInfo(us.getSipInfo())!=null){
-					// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
+					if (this.sipInfo.getSipInfo(us.getSipInfo()) != null) {
+						// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
 
-					us.getSipInfo().increaseCounter();
-					// }
-					 }
+						us.getSipInfo().increaseCounter();
+						// }
+					}
 				} else if (us.getSipInfo().getJoinNode().equals(op.getChildAt(1).getObject().toString())) {
-					 if(this.sipInfo.getSipInfo(us.getSipInfo())!=null){
-					// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
+					if (this.sipInfo.getSipInfo(us.getSipInfo()) != null) {
+						// if(this.sipInfo.getSipInfo(us.getSipInfo()).contains(op.getChildAt(0))){
 
-					us.getSipInfo().increaseCounter();
-					 }
+						us.getSipInfo().increaseCounter();
+					}
 				}
 			}
 

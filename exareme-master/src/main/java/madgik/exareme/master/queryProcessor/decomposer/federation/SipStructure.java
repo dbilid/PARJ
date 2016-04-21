@@ -23,7 +23,7 @@ public class SipStructure {
 		}
 		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left);
 		boolean exists = false;
-		SipInfoValue siv=new SipInfoValue(right, si.AnonymizeColumns());
+		SipInfoValue siv = new SipInfoValue(right, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
 			if (siKey.equals(si)) {
 				Set<SipInfoValue> nodes = sipInfos.get(siKey);
@@ -41,7 +41,7 @@ public class SipStructure {
 		}
 		exists = false;
 		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right);
-		siv=new SipInfoValue(left, si.AnonymizeColumns());
+		siv = new SipInfoValue(left, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
 			if (siKey.equals(si)) {
 				Set<SipInfoValue> nodes = sipInfos.get(siKey);
@@ -124,12 +124,12 @@ public class SipStructure {
 	}
 
 	public void printMultiUsed() {
-		for(SipInfo si:sipInfos.keySet()){
-			if(si.getCounter()>1){
+		for (SipInfo si : sipInfos.keySet()) {
+			if (si.getCounter() > 1) {
 				System.out.println(si);
 			}
 		}
-		
+
 	}
 
 	public Set<SipInfoValue> getSipInfo(SipInfo si) {

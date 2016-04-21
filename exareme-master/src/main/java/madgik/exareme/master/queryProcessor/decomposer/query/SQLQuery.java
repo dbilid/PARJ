@@ -69,7 +69,7 @@ public class SQLQuery {
 
 	private List<Operand> joinOperands;
 
-	private SipInfo si;
+	private Set<SipInfo> sis;
 	private String sql;
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
@@ -101,7 +101,7 @@ public class SQLQuery {
 		existsInCache = false;
 		joinNode = null;
 		joinOperands = new ArrayList<Operand>();
-		si = null;
+		sis = null;
 		todeleteSip=false;
 	}
 
@@ -1425,7 +1425,7 @@ public class SQLQuery {
 	}
 
 	private void deleteSipInfo() {
-		this.si=null;
+		this.sis=null;
 		String alias="";
 		for(int i=0;i<inputTables.size();i++){
 			Table t=this.inputTables.get(i);
@@ -2083,16 +2083,17 @@ public class SQLQuery {
 
 	}
 
-	public void setSipInfo(SipInfo si) {
-		if(this.si!=null){
-			this.deleteSipInfo();
+	public void addSipInfo(SipInfo si) {
+		if(this.sis==null){
+			//this.deleteSipInfo();
+			this.sis=new HashSet<SipInfo>();
 		}
-		this.si = si;
+		this.sis.add(si);
 
 	}
 
-	public SipInfo getSipInfo() {
-		return si;
+	public Set<SipInfo> getSipInfo() {
+		return sis;
 	}
 
 	public String toSipSQL(boolean b) {
@@ -2188,30 +2189,7 @@ public class SQLQuery {
 
 		} else if (!this.unionqueries.isEmpty()) {
 			// UNIONS
-			output.append("(");
-			for (int i = 0; i < this.getUnionqueries().size(); i++) {
-				if (i == DecomposerUtils.MAX_NUMBER_OF_UNIONS) {
-					break;
-				}
-				output.append(separator);
-				output.append("select ");
-				if (this.getUnionqueries().get(i).isOutputColumnsDinstict()) {
-					output.append("distinct ");
-				}
-				output.append("* from \n");
-				output.append(this.getUnionqueries().get(i)
-						.getResultTableName());
-				if (this.isUnionAll()) {
-					separator = " union all \n";
-				} else {
-					separator = " union ";
-				}
-			}
-			output.append(")");
-			if (getUnionAlias() != null) {
-				output.append(" ");
-				output.append(getUnionAlias());
-			}
+			return "";
 
 		} else {
 			if (!this.nestedSelectSubqueries.isEmpty()) {
@@ -2411,6 +2389,9 @@ public class SQLQuery {
 	}
 
 	public boolean sipJoinIsLast() {
+		if(this.inputTables.isEmpty()){
+			return false;
+		}
 		Table t = this.inputTables.get(inputTables.size() - 1);
 		if (t.getName().equalsIgnoreCase("siptable")) {
 

@@ -161,8 +161,13 @@ public class DataImporter implements Runnable {
 					
 
 					for (int i = 1; i <= columnsNumber; i++) {
-
-						sqliteStatement.setObject(i, resultSet.getObject(i));
+						Object ob=resultSet.getObject(i);
+						if(ob instanceof Date){
+							sqliteStatement.setObject(i, ob.toString());
+						}
+						else{
+						sqliteStatement.setObject(i, ob);
+						}
 					}
 
 					sqliteStatement.addBatch();

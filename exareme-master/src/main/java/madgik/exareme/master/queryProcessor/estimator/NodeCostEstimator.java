@@ -134,6 +134,7 @@ public class NodeCostEstimator {
     		return 1000000.0;
     	}
 
+
         double leftRelTuples = left.getNodeInfo().getNumberOfTuples();
         double leftRelSize = left.getNodeInfo().outputRelSize();
         double rightRelTuples = right.getNodeInfo().getNumberOfTuples();
@@ -268,18 +269,36 @@ public class NodeCostEstimator {
 	}
 
 	public static double getWriteCost(Node e) {
+		try{
 		double size=e.getNodeInfo().outputRelSize();
 		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+		}
+		catch(Exception ex){
+			log.error("Cannot get Write Cost for Table "+e.toString()+" Retruning Dummy Cost");
+			return 10;
+		}
 	}
 
 	public static double getReadCost(Node e) {
+		try{
 		double size=e.getNodeInfo().outputRelSize();
 		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+		}
+		catch(Exception ex){
+			log.error("Cannot get Read Cost for Table "+e.toString()+" Retruning Dummy Cost");
+			return 10;
+		}
 	}
 	
 	private static double indexCostCreation(Node e){
+		try{
 		double size=e.getNodeInfo().outputRelSize();
 		double card=e.getNodeInfo().getNumberOfTuples();
 		return (size/Metadata.PAGE_SIZE) * Math.log(card)* Metadata.PAGE_IO_TIME;
+	}
+	catch(Exception ex){
+		log.error("Cannot get Index Creation Cost for Table "+e.toString()+" Retruning Dummy Cost");
+		return 10;
+	}
 	}
 }

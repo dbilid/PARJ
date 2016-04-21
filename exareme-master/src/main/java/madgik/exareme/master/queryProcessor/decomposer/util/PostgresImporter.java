@@ -30,8 +30,9 @@ public class PostgresImporter {
 	public static void main(String[] args) throws Exception {
 		boolean importtables=false;
 		boolean analyze=false;
-		boolean analyzeSQLITE=true;
-		String path="/media/dimitris/T/exaremenpd100b/";
+		boolean analyzeSQLITE=false;
+		boolean vacuum = true;
+		String path="/media/dimitris/T/exaremenpd500/";
 		DB dbinfo=new DB("ex");
 		dbinfo.setSchema("public");
 		dbinfo.setDriver("org.postgresql.Driver");
@@ -49,6 +50,9 @@ public class PostgresImporter {
 		ResultSet rs = md.getTables(null, "public", "%", new String[] {"TABLE"});
 		while (rs.next()) {
 			String tablename=rs.getString(3);
+			//if(tablename.compareTo("field_reserves")<0){
+			//	continue;
+			//}
 			//if(!tablename.equalsIgnoreCase("wellbore_development_all")&&!tablename.equalsIgnoreCase("wellbore_exploration_all")&&!tablename.equalsIgnoreCase("wellbore_core")){
 			//	continue;
 			//}
@@ -82,7 +86,7 @@ public class PostgresImporter {
 						di.setAddToRegisrty(true);
 						es.execute(di);
 				es.shutdown();
-				es.awaitTermination(30, TimeUnit.MINUTES);
+				es.awaitTermination(40, TimeUnit.MINUTES);
 	            }
 	            if(analyze){
 	            	
@@ -101,11 +105,26 @@ public class PostgresImporter {
 	   			 config.setCacheSize(1200000);
 	   			 config.setPageSize(4096);
 	   			 SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
-	   			    dataSource.setUrl("jdbc:sqlite:"+path+tablename+".0.db");
+	   			    dataSource.setUrl("jdbc:sqlite:"+path+tablename.replace("NCS", "ncs")+".0.db");
 	   			    dataSource.setConfig(config);
 	   			Connection connection=dataSource.getConnection();//DriverManager.getConnection("jdbc:sqlite:test.db");
 	   			Statement st=connection.createStatement();
 	   			st.execute("analyze "+tablename);
+	   			st.close();
+	   			connection.close();
+	            }
+	            if(vacuum){
+	            	Class.forName("org.sqlite.JDBC");
+	            	System.out.println("executing vacuum on table "+tablename);
+	   			 org.sqlite.SQLiteConfig config = new org.sqlite.SQLiteConfig();
+	   			 config.setCacheSize(1200000);
+	   			 config.setPageSize(4096);
+	   			 SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
+	   			    dataSource.setUrl("jdbc:sqlite:"+path+tablename.replace("NCS", "ncs")+".0.db");
+	   			    dataSource.setConfig(config);
+	   			Connection connection=dataSource.getConnection();//DriverManager.getConnection("jdbc:sqlite:test.db");
+	   			Statement st=connection.createStatement();
+	   			st.execute("vacuum");
 	   			st.close();
 	   			connection.close();
 	            }

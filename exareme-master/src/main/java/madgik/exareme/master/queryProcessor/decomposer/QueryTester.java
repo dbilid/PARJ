@@ -28,9 +28,9 @@ public class QueryTester {
 		for(String file:readFilesFromDir(dir)){
 			queries.put(file, readFile(file));
 		}
-		boolean postgres=true;
+		boolean postgres=false;
 		boolean exareme=false;
-		boolean sqlite=false;
+		boolean sqlite=true;
 		if(postgres){
 			Class.forName("org.postgresql.Driver");
 			Connection connection = null;
@@ -43,7 +43,7 @@ public class QueryTester {
 				ResultSet rs=s.executeQuery(query);
 				int results=0;
 				while(rs.next()){
-					Object a=rs.getObject(1);
+					//Object a=rs.getObject(1);
 					results++;
 				}
 				rs.close();
@@ -55,7 +55,7 @@ public class QueryTester {
 		if(exareme){
 			//Driver test=new AdpDriver();
 			Class.forName("madgik.exareme.jdbc.federated.AdpDriver");
-			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd100b/");
+			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd100c/");
 			Statement s=connection.createStatement();
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
@@ -84,23 +84,35 @@ public class QueryTester {
 			}
 			Class.forName("org.sqlite.JDBC");
 			 org.sqlite.SQLiteConfig config = new org.sqlite.SQLiteConfig();
-			 config.setCacheSize(1200000);
-			 config.setPageSize(4096);
+			 //config.setCacheSize(1200000);
+			 //config.setPageSize(4096);
+			 //config.setLockingMode(mode);
 			 SQLiteConnectionPoolDataSource dataSource = new SQLiteConnectionPoolDataSource();
-			    dataSource.setUrl("jdbc:sqlite:/media/dimitris/T/exaremenpd100/test.db");
+			    dataSource.setUrl("jdbc:sqlite:/media/dimitris/T/exaremenpd100b/test2.db");
 			    dataSource.setConfig(config);
 			Connection connection=dataSource.getConnection();//DriverManager.getConnection("jdbc:sqlite:test.db");
+
+			//connection.createStatement().execute("PRAGMA journal_mode = OFF");
+			connection.createStatement().execute("PRAGMA synchronous = OFF");
+			connection.createStatement().execute("PRAGMA ignore_check_constraints = true;");
+			connection.createStatement().execute("PRAGMA locking_mode = EXCLUSIVE");
+			connection.createStatement().execute("PRAGMA automatic_index = TRUE");
+			connection.createStatement().execute("PRAGMA page_size = 16384");
+			connection.createStatement().execute("PRAGMA cache_size = 600000");
+
 			Statement s=connection.createStatement();
 			//s.execute("PRAGMA cache_size = 600000");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/company.0.db' as company");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/strat_litho_wellbore_core.0.db' as strat_litho_wellbore_core");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/wellbore_core.0.db' as wellbore_core");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/wellbore_development_all.0.db' as wellbore_development_all");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/wellbore_exploration_all.0.db' as wellbore_exploration_all");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/wellbore_npdid_overview.0.db' as wellbore_npdid_overview");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/wellbore_shallow_all.0.db' as wellbore_shallow_all");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/discovery.0.db' as discovery");
-			s.execute("attach database '/media/dimitris/T/exaremenpd100b/field.0.db' as field");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/company.0.db' as company");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/strat_litho_wellbore_core.0.db' as strat_litho_wellbore_core");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/wellbore_core.0.db' as wellbore_core");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/wellbore_development_all.0.db' as wellbore_development_all");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/wellbore_exploration_all.0.db' as wellbore_exploration_all");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/wellbore_npdid_overview.0.db' as wellbore_npdid_overview");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/wellbore_shallow_all.0.db' as wellbore_shallow_all");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/discovery.0.db' as discovery");
+			s.execute("attach database '/media/dimitris/T/exaremenpd100c/field.0.db' as field");
+			
+			
 			
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
@@ -145,7 +157,7 @@ public class QueryTester {
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
     	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith(".sql")) {
-    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("09.q.sql"))
+    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("10.q.sql"))
     	    		  continue;
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }

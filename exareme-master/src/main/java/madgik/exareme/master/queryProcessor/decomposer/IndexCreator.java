@@ -14,8 +14,8 @@ public class IndexCreator {
 
 	public static void main(String[] args) throws IOException, SQLException {
 		// TODO Auto-generated method stub
-		boolean declaredIndices=false;
-		String dir="/media/dimitris/T/exaremenpd100b/";
+		boolean declaredIndices=true;
+		String dir="/media/dimitris/T/exaremenpd1500/";
 		String declared="/home/dimitris/ontopv1/npd-benchmark/data/db_creation_scripts/postgres/postgresindexes.sql";
 		String automatic="/home/dimitris/ontopv1/npd-benchmark/data/db_creation_scripts/postgres/postgresAutomaticIndexes.sql";
 		String file=automatic;
