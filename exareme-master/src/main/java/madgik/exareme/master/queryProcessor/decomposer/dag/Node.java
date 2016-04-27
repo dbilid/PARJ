@@ -54,7 +54,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	private int opCode;
 	private Object o;
 	private boolean expanded;
-	private boolean isCentralised;
+	private boolean shareableComputed;
 	private boolean hashNeedsRecomputing;
 	private Set<PartitionCols> partitionedColumns;
 	private Set<PartitionCols> isBottomNodeForPruningColumns;
@@ -70,6 +70,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 
 	public Node(int type) {
 		this.hashNeedsRecomputing = true;
+		shareableComputed=false;
 		this.type = type;
 		this.opCode = -1;
 		prunningCounter = 0;
@@ -223,7 +224,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	}
 
 	public List<Node> getChildren() {
-		return this.children;
+		return Collections.unmodifiableList(this.children);
 	}
 
 	public Object getObject() {
@@ -374,13 +375,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		this.expanded = expanded;
 	}
 
-	public void setIsCentralised(boolean tableIsCentralised) {
-		this.isCentralised = tableIsCentralised;
-	}
 
-	public boolean isCentralised() {
-		return this.isCentralised;
-	}
 
 	public int getOpCode() {
 		return this.opCode;
@@ -720,7 +715,11 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	}
 
 	public NodeInfo getNodeInfo() {
+		if(this.getObject().toString().startsWith("table70 ")&&nodeInfo!=null){
+			System.out.println(nodeInfo.getResultRel().getAttrIndex().get("wlbNpdidWellbore"));
+		}
 		return nodeInfo;
+		
 	}
 
 	public void setNodeInfo(NodeInfo nodeInfo) {
@@ -776,6 +775,9 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	}
 
 	public void addShareable(List<Node> shareable) {
+		if(shareableComputed){
+			return;
+		}
 		if (this.unions.size() > 1 && this.type == Node.OR && !shareable.contains(this) && this.getDescendantBaseTables().size()>1) {
 			if (shareable.add(this)) {
 				return;
@@ -784,6 +786,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		for (Node c : this.children) {
 			c.addShareable(shareable);
 		}
+		shareableComputed=true;
 
 	}
 

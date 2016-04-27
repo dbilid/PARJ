@@ -1424,7 +1424,7 @@ public class SQLQuery {
 		}
 	}
 
-	private void deleteSipInfo() {
+	public void deleteSipInfo() {
 		this.sis=null;
 		String alias="";
 		for(int i=0;i<inputTables.size();i++){
@@ -1442,6 +1442,8 @@ public class SQLQuery {
 				break;
 			}
 		}
+		sis=null;
+		this.todeleteSip=false;
 		
 	}
 
@@ -2403,6 +2405,24 @@ public class SQLQuery {
 	public void setToDeleteSipInfo(boolean b) {
 		this.todeleteSip=b;
 		
+	}
+
+	public boolean containsSip() {
+		for(Table t:this.inputTables){
+		if (t.getName().equalsIgnoreCase("siptable")) {
+
+			return true;
+		}}
+		return false;
+	}
+
+	public int getRightOfSip() {
+		for(int i=0;i<inputTables.size();i++){
+			if(inputTables.get(inputTables.size()-(i+1)).getName().equals("siptable")){
+				return i+1;
+			}
+		}
+		return 0;
 	}
 
 }

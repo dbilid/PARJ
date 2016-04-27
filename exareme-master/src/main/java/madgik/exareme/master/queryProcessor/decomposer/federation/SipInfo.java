@@ -2,10 +2,13 @@ package madgik.exareme.master.queryProcessor.decomposer.federation;
 
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
+import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Output;
 import madgik.exareme.master.queryProcessor.decomposer.query.Projection;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
@@ -14,6 +17,7 @@ public class SipInfo {
 	
 	private Projection projection;
 	private Column joinCol;
+	private Set<Column> moreJoinCols;//filterjoin
 	private Node joinNode;
 	private int counter;
 	private String name;
@@ -29,7 +33,9 @@ public class SipInfo {
 		this.joinNode=node;
 		this.counter=0;
 		this.name="siptable"+ Util.createUniqueId();
+		moreJoinCols=new HashSet<Column>();
 	}
+
 
 	@Override
 	public String toString() {
@@ -43,6 +49,7 @@ public class SipInfo {
 		result = prime * result + ((joinCol == null) ? 0 : joinCol.getHashID().asInt());
 		result = prime * result + ((joinNode == null) ? 0 : joinNode.hashCode());
 		result = prime * result + ((projection == null) ? 0 : projection.hashCode());
+		result = prime * result + ((moreJoinCols==null) ? 0 : moreJoinCols.hashCode()); 
 		return result;
 	}
 
@@ -60,6 +67,7 @@ public class SipInfo {
 				return false;
 		} else if (!joinCol.equals(joinCol))
 			return false;
+		else
 		if (joinNode == null) {
 			if (other.joinNode != null)
 				return false;
@@ -69,6 +77,11 @@ public class SipInfo {
 			if (other.projection != null)
 				return false;
 		} else if (!projection.equals(other.projection))
+			return false;
+		if (moreJoinCols == null) {
+			if (other.moreJoinCols != null)
+				return false;
+		} else if (!moreJoinCols.equals(other.moreJoinCols))
 			return false;
 		return true;
 	}
@@ -121,6 +134,19 @@ public class SipInfo {
 		}
 		return result;
 	}
+
+
+	public void addJoinCol(Column c){
+		this.moreJoinCols.add(c);
+	}
 	
+	public Column getOtherJoinCol(){
+		if(this.moreJoinCols.isEmpty()){
+			return null;
+		}
+		else{
+			return moreJoinCols.iterator().next();
+		}
+	}
 
 }

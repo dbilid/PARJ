@@ -12,8 +12,10 @@ import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -126,6 +128,39 @@ public class ConjunctiveQueryDecomposer {
 		// else we have only one DB, for each table make a subquery
 		// else {
 		Node last = null;
+		
+		boolean checkToRemoveReduntantJoins=false;
+		if(checkToRemoveReduntantJoins&&root.getOpCode()==Node.UNION){
+			Map<String, Boolean> tbleHashOnlyOneCol=new HashMap<String, Boolean>();
+			for(Column c:initialQuery.getAllColumns()){
+				if(tbleHashOnlyOneCol.containsKey(c.getAlias())){
+					tbleHashOnlyOneCol.put(c.getAlias(), false);
+				}
+				else{
+					tbleHashOnlyOneCol.put(c.getAlias(), true);
+				}
+			}
+			for(String s:tbleHashOnlyOneCol.keySet()){
+				if(tbleHashOnlyOneCol.get(s)){
+					for(NonUnaryWhereCondition join:initialQuery.getBinaryWhereConditions()){
+						if(join.getLeftOp() instanceof Column && join.getRightOp() instanceof Column && join.getOperator().equals("=")){
+							Column left=(Column)join.getLeftOp() ;
+							Column right=(Column)join.getRightOp() ;
+							if(left.getName().equals(right.getName())){
+							if(left.getAlias().equals(s)){
+								
+							}
+							if(right.getAlias().equals(s)){
+								
+							}
+						}
+					}
+				}
+			}
+		}
+		}
+		
+		
 		for (Table t : this.initialQuery.getInputTables()) {
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());

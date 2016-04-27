@@ -129,7 +129,7 @@ public class NodeCostEstimator {
 
     public static double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
         throws Exception {
-    	if(left.getDescendantBaseTables().size()==1&&right.getDescendantBaseTables().size()>1){
+    	if(right.getDescendantBaseTables().size()>1){
     		//bushy join
     		return 1000000.0;
     	}
@@ -271,7 +271,7 @@ public class NodeCostEstimator {
 	public static double getWriteCost(Node e) {
 		try{
 		double size=e.getNodeInfo().outputRelSize();
-		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME_SCAN;
 		}
 		catch(Exception ex){
 			log.error("Cannot get Write Cost for Table "+e.toString()+" Retruning Dummy Cost");
@@ -282,7 +282,7 @@ public class NodeCostEstimator {
 	public static double getReadCost(Node e) {
 		try{
 		double size=e.getNodeInfo().outputRelSize();
-		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
+		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME_SCAN;
 		}
 		catch(Exception ex){
 			log.error("Cannot get Read Cost for Table "+e.toString()+" Retruning Dummy Cost");

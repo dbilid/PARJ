@@ -195,11 +195,10 @@ public final class Histogram {
     public void join(Histogram h2) {
         //preconditions
         checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is null");
-
         if (this.isTransparentHistogram() && !h2.isTransparentHistogram())
             this.setBucketIndex(new TreeMap<Double, Bucket>(h2.getBucketIndex()));
         else if (h2.isTransparentHistogram() && !this.isTransparentHistogram())
-            h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
+        	h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
 
         if (!existsIntersection(h2)) {
             System.out.println(this);

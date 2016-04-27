@@ -195,20 +195,21 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo rRel = right.getNodeInfo().getResultRel();
 
 		RelInfo resultRel = new RelInfo(lRel);
+		RelInfo newR=new RelInfo(rRel);
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
 
-		if(rRel.getNumberOfTuples()<0.5 || lRel.getNumberOfTuples()<0.5){
+		if(newR.getNumberOfTuples()<0.5 || lRel.getNumberOfTuples()<0.5){
 			resultHistogram.convertToTransparentHistogram();
 		}
 		else{
-			resultHistogram.join(rRel.getAttrIndex().get(r.getName()).getHistogram());
+			resultHistogram.join(newR.getAttrIndex().get(r.getName()).getHistogram());
 		}
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
 
 		// put all the right's RelInfo AttrInfos to the left one
-		resultRel.getAttrIndex().putAll(rRel.getAttrIndex());
+		resultRel.getAttrIndex().putAll(newR.getAttrIndex());
 
 		// adjust RelInfo's histograms based on the resulting histogram
 		resultRel.adjustRelation(l.getName(), resultHistogram);
@@ -219,7 +220,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		schema.getTableIndex().put(r.getAlias(), resultRel);
 
 		// adding necessary equivalent hashing attribures
-		resultRel.getHashAttr().addAll(rRel.getHashAttr());
+		resultRel.getHashAttr().addAll(newR.getHashAttr());
 
 		// TODO: fix nodeInfo
 		ni.setNumberOfTuples(resultRel.getNumberOfTuples());

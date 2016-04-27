@@ -254,9 +254,9 @@ public class QueryDecomposer {
 	}
 
 	public List<SQLQuery> getPlan() {
-		//String dot0 = root.dotPrint();
-		StringBuilder a = root.dotPrint();
-		System.out.println(a.toString());
+		// String dot0 = root.dotPrint();
+		// StringBuilder a = root.dotPrint();
+		// System.out.println(a.toString());
 		if (projectRefCols) {
 			createProjections(root);
 		}
@@ -669,7 +669,7 @@ public class QueryDecomposer {
 							for (Node c3 : c2.getChildren()) {
 								// if (c2.getChildren().size() > 0) {
 								// Node c3 = c2.getChildAt(0);
-								if (c3.getObject() instanceof NonUnaryWhereCondition && c3.getChildren().size() > 1) {
+								if (c3.getObject() instanceof NonUnaryWhereCondition) {
 									NonUnaryWhereCondition bwc2 = (NonUnaryWhereCondition) c3.getObject();
 									if (bwc2.getOperator().equals("=")) {
 										boolean comesFromLeftOp = c3.getChildAt(0).isDescendantOfBaseTable(
@@ -758,10 +758,10 @@ public class QueryDecomposer {
 										associativityTop.setObject(newBwc2);
 										associativityTop.addChild(table);
 
-										if (comesFromLeftOp) {
+										if (comesFromLeftOp && c3.getChildren().size() > 1) {
 											associativityTop.addChild(c3.getChildAt(1));
 
-										} else {
+										} else if (c3.getChildren().size() > 1) {
 											associativityTop.addChild(c3.getChildAt(0));
 
 										}
@@ -1013,194 +1013,6 @@ public class QueryDecomposer {
 					}
 
 				}
-				// join right associativity: (a join b) join c -> a join (b join
-				// c)
-				// or b join (a join c)???
-				/*
-				 * if (op.getObject() instanceof NonUnaryWhereCondition) {
-				 * NonUnaryWhereCondition bwc = (NonUnaryWhereCondition)
-				 * op.getObject(); if (bwc.getOperator().equals("=")) { //for
-				 * (Node c2 : op.getChildren()) { if (op.getChildren().size() >
-				 * 1) { Node c2 = op.getChildAt(0); boolean now = false; if
-				 * (op.getChildAt(1).getObject().toString().equals("D alias3"))
-				 * { String dot = op.getChildAt(0).dotPrint();
-				 * System.out.println("ddd"); } for (Node c3 : c2.getChildren())
-				 * { // if (c2.getChildren().size() > 0) { // Node c3 =
-				 * c2.getChildAt(0); if (c3.getObject() instanceof
-				 * NonUnaryWhereCondition && c3.getChildren().size() > 1) {
-				 * NonUnaryWhereCondition bwc2 = (NonUnaryWhereCondition)
-				 * c3.getObject(); if (bwc2.getOperator().equals("=")) { //we
-				 * have to check from which table bwc.getLeftOp() comes!!!!
-				 * //and make this table the left op in newBwc
-				 * //DistSQLGenerator.baseTableIsDescendantOfNode() boolean
-				 * comesFromLeftOp =
-				 * DistSQLGenerator.baseTableIsDescendantOfNode
-				 * (c3.getChildAt(0),
-				 * bwc.getLeftOp().getAllColumnRefs().get(0).tableAlias); Node
-				 * associativity = new Node(Node.AND, Node.JOIN);
-				 * NonUnaryWhereCondition newBwc = new NonUnaryWhereCondition();
-				 * newBwc.setOperator("=");
-				 * 
-				 * newBwc.setLeftOp(bwc.getLeftOp());
-				 * newBwc.setRightOp(bwc.getRightOp());
-				 * associativity.setObject(newBwc); if (comesFromLeftOp) {
-				 * associativity.addChild(c3.getChildAt(0));
-				 * 
-				 * associativity.setPartitionRecord(c3.getChildAt(0).
-				 * getPartitionRecord()); } else {
-				 * associativity.addChild(c3.getChildAt(1));
-				 * 
-				 * associativity.setPartitionRecord(c3.getChildAt(1).
-				 * getPartitionRecord()); }
-				 * associativity.addChild(op.getChildAt(1));
-				 * 
-				 * associativity.mergePartitionRecords(op.getChildAt(1).
-				 * getPartitionRecord(), newBwc.getAllColumnRefs());
-				 * associativity.checkChildrenForPruning(); Node table = new
-				 * Node(Node.OR); table.setObject(new Table("table" +
-				 * Util.createUniqueId().toString(), null));
-				 * 
-				 * if (hashes.containsKey(associativity.getHashId())) {
-				 * associativity = hashes.get(associativity.getHashId()); table
-				 * = associativity.getFirstParent(); } else {
-				 * hashes.put(associativity.getHashId(), associativity);
-				 * table.addChild(associativity);
-				 * table.setPartitionRecord(associativity.getPartitionRecord());
-				 * hashes.put(table.getHashId(), table); }
-				 * 
-				 * // table.addChild(associativity);
-				 * //table.setPartitionedOn(new
-				 * PartitionCols(newBwc.getAllColumnRefs()));
-				 * //table.setIsCentralised(c3.getChildAt(1).isCentralised() &&
-				 * op.getChildAt(1).isCentralised()); Node associativityTop =
-				 * new Node(Node.AND, Node.JOIN); NonUnaryWhereCondition newBwc2
-				 * = new NonUnaryWhereCondition(); newBwc2.setOperator("="); if
-				 * (comesFromLeftOp) { newBwc2.setLeftOp(bwc2.getRightOp());
-				 * newBwc2.setRightOp(bwc2.getLeftOp()); } else {
-				 * newBwc2.setLeftOp(bwc2.getLeftOp());
-				 * newBwc2.setRightOp(bwc2.getRightOp()); }
-				 * 
-				 * // newBwc2.setRightOp(bwc.getLeftOp());
-				 * associativityTop.setObject(newBwc2); if (comesFromLeftOp) {
-				 * associativityTop.addChild(c3.getChildAt(1));
-				 * 
-				 * associativityTop.setPartitionRecord(c3.getChildAt(1).
-				 * getPartitionRecord()); } else {
-				 * associativityTop.addChild(c3.getChildAt(0));
-				 * 
-				 * associativityTop.setPartitionRecord(c3.getChildAt(0).
-				 * getPartitionRecord()); }
-				 * 
-				 * associativityTop.addChild(table);
-				 * 
-				 * associativityTop.mergePartitionRecords(table.
-				 * getPartitionRecord (), newBwc2.getAllColumnRefs());
-				 * associativityTop.checkChildrenForPruning(); if
-				 * (!hashes.containsKey(associativityTop.getHashId())) {
-				 * hashes.put(associativityTop.getHashId(), associativityTop);
-				 * //Node newTop =
-				 * hashes.checkAndPutWithChildren(associativityTop);
-				 * hashes.remove(eq.getHashId()); eq.addChild(associativityTop);
-				 * //noOfChildren++; //eq.setPartitionedOn(new
-				 * PartitionCols(newBwc.getAllColumnRefs())); //
-				 * if(!h.containsKey(eq.computeHashID())){
-				 * hashes.put(eq.getHashId(), eq); } else { unify(eq,
-				 * hashes.get(associativityTop.getHashId()).getFirstParent());
-				 * //same as unify(eq', eq)??? checking again children of eq?
-				 * associativityTop.removeAllChildren(); //do we need this?
-				 * 
-				 * } } } } } } }
-				 */
-				// join predicate pushdown
-				// select_a(A) join B -> select_a(A join B)
-				/*
-				 * if (op.getObject() instanceof NonUnaryWhereCondition) {
-				 * NonUnaryWhereCondition bwc = (NonUnaryWhereCondition)
-				 * op.getObject(); if (bwc.getOperator().equals("=")) { //for
-				 * (Node c2 : op.getChildren()) { if (op.getChildren().size() >
-				 * 1) { Node c2 = op.getChildAt(0); //Node b = op.getChildAt(1);
-				 * if (c2.getChildren().size() > 0) { Node c3 =
-				 * c2.getChildAt(0); if (c3.getObject() instanceof Selection) {
-				 * Selection s = (Selection) c3.getObject(); Node newJoin = new
-				 * Node(Node.AND, Node.JOIN); newJoin.setObject(bwc);
-				 * newJoin.addChild(c3.getChildAt(0));
-				 * newJoin.setPartitionRecord(op.getPartitionRecord());
-				 * newJoin.addChild(op.getChildAt(1));
-				 * //newJoin.mergePartitionRecords
-				 * (op.getChildAt(1).getPartitionRecord(),
-				 * bwc.getAllColumnRefs()); Node ab = new Node(Node.OR);
-				 * ab.setObject(new Table("table" +
-				 * Util.createUniqueId().toString(), null)); if
-				 * (hashes.containsKey(newJoin.getHashId())) {
-				 * //newJoin.removeAllChildren(); newJoin =
-				 * hashes.get(newJoin.getHashId()); ab =
-				 * newJoin.getFirstParent(); } else {
-				 * hashes.put(newJoin.getHashId(), newJoin);
-				 * ab.addChild(newJoin);
-				 * ab.setPartitionRecord(newJoin.getPartitionRecord()); } Node
-				 * sel = new Node(Node.AND, Node.SELECT); sel.setObject(s);
-				 * sel.addChild(ab);
-				 * sel.setPartitionRecord(ab.getPartitionRecord()); if
-				 * (hashes.containsKey(sel.getHashId())) { unify(eq,
-				 * hashes.get(sel.getHashId()).getFirstParent()); //same as
-				 * unify(eq', eq)??? checking again children of eq?
-				 * sel.removeAllChildren(); if (ab.getParents().isEmpty()) { if
-				 * (hashes.get(ab.getHashId()) == ab) {
-				 * hashes.remove(ab.getHashId()); } ab.removeAllChildren(); } if
-				 * (newJoin.getParents().isEmpty()) { if
-				 * (hashes.get(newJoin.getHashId()) == newJoin) {
-				 * hashes.remove(newJoin.getHashId()); }
-				 * newJoin.removeAllChildren(); }
-				 * 
-				 * } else { hashes.put(sel.getHashId(), sel);
-				 * hashes.remove(eq.getHashId()); eq.addChild(sel);
-				 * //noOfChildren++; } //String g = this.root.dotPrint(); //
-				 * Node top = hashes.checkAndPutWithChildren(sel);
-				 * 
-				 * if (!hashes.containsKey(eq.getHashId())) {
-				 * hashes.put(eq.getHashId(), eq); } //check if top can be
-				 * unified with some other node? } }
-				 * 
-				 * c2 = op.getChildAt(1); //b = op.getChildAt(0); if
-				 * (c2.getChildren().size() > 0) { Node c3 = c2.getChildAt(0);
-				 * if (c3.getObject() instanceof Selection) { Selection s =
-				 * (Selection) c3.getObject(); Node newJoin = new Node(Node.AND,
-				 * Node.JOIN); newJoin.setObject(op.getObject());
-				 * newJoin.addChild(op.getChildAt(0));
-				 * newJoin.setPartitionRecord
-				 * (op.getChildAt(0).getPartitionRecord());
-				 * newJoin.addChild(c3.getChildAt(0));
-				 * newJoin.setPartitionRecord(op.getPartitionRecord());
-				 * //newJoin
-				 * .mergePartitionRecords(c3.getChildAt(0).getPartitionRecord(),
-				 * bwc.getAllColumnRefs());
-				 * 
-				 * Node ab = new Node(Node.OR); ab.setObject(new Table("table" +
-				 * Util.createUniqueId().toString(), null)); if
-				 * (hashes.containsKey(newJoin.getHashId())) {
-				 * //newJoin.removeAllChildren(); newJoin =
-				 * hashes.get(newJoin.getHashId()); ab =
-				 * newJoin.getFirstParent(); } else {
-				 * hashes.put(newJoin.getHashId(), newJoin);
-				 * ab.addChild(newJoin);
-				 * ab.setPartitionRecord(newJoin.getPartitionRecord()); } Node
-				 * sel = new Node(Node.AND, Node.SELECT); sel.setObject(s);
-				 * sel.addChild(ab);
-				 * sel.setPartitionRecord(ab.getPartitionRecord()); if
-				 * (hashes.containsKey(sel.getHashId())) { unify(eq,
-				 * hashes.get(sel.getHashId()).getFirstParent()); //same as
-				 * unify(eq', eq)??? checking again children of eq?
-				 * sel.removeAllChildren(); } else { hashes.put(sel.getHashId(),
-				 * sel); hashes.remove(eq.getHashId()); eq.addChild(sel);
-				 * //noOfChildren++; } //String g = this.root.dotPrint(); //
-				 * Node top = hashes.checkAndPutWithChildren(sel);
-				 * 
-				 * if (!hashes.containsKey(eq.getHashId())) {
-				 * hashes.put(eq.getHashId(), eq); } //check if top can be
-				 * unified with some other node? } } }
-				 * 
-				 * } }
-				 */
 
 				if (!(op.getObject() instanceof NonUnaryWhereCondition)) {
 					op.computeHashID();
@@ -1222,6 +1034,20 @@ public class QueryDecomposer {
 						// newsip.add(join.getChildAt(0));
 						// newsip.add(join.getChildAt(1));
 						// sipToUnions.get(unionnumber).add(newsip);
+					} else if(join.getOpCode()==Node.JOIN){
+						//System.out.println("yes");
+						NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
+						Node joinTable2 = join.getChildAt(0);
+						for (int chNo2 = 0; chNo2 < joinTable2.getChildren().size(); chNo2++) {
+							Node join2 = joinTable2.getChildAt(chNo2);
+							if (join2.getChildren().size() == 2) {
+								sipInfo.addToSipInfo(p, join2, sipToUnions.get(unionnumber), nuwc);
+								// Set<Node> newsip=new HashSet<Node>();
+								// newsip.add(join.getChildAt(0));
+								// newsip.add(join.getChildAt(1));
+								// sipToUnions.get(unionnumber).add(newsip);
+							}
+						}
 					}
 				}
 			}
@@ -1877,7 +1703,7 @@ public class QueryDecomposer {
 			if (greedyToMat.containsKey(e) && e.getFirstParent().getOpCode() != Node.UNION) {
 				cmv.setMaterialized(true);
 				e.setMaterialised(true);
-				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 12);
+				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 2);
 				resultPlan.setCost(NodeCostEstimator.getReadCost(e));
 			}
 		}

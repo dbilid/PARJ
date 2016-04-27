@@ -22,40 +22,20 @@ import madgik.exareme.jdbc.federated.AdpDriver;
 public class QueryTester {
 
 	public static void main(String[] args) throws SQLException, ClassNotFoundException, IOException {
-		String dir="/home/dimitris/npdsql/existential/";
+		String dir="/home/dimitris/npdsql/existLast/";
 		//String dir="/home/dimitris/sqlitenpd";
 		Map<String, String> queries=new HashMap<String, String>();
 		for(String file:readFilesFromDir(dir)){
 			queries.put(file, readFile(file));
 		}
-		boolean postgres=false;
-		boolean exareme=false;
-		boolean sqlite=true;
-		if(postgres){
-			Class.forName("org.postgresql.Driver");
-			Connection connection = null;
-			connection = DriverManager.getConnection(
-			   "jdbc:postgresql://localhost:5432/npd_vig_scale100","postgres", "gray769watt724!@#");
-			Statement s=connection.createStatement();
-			for(String file:queries.keySet()){
-				String query=queries.get(file);
-				long t1=System.currentTimeMillis();
-				ResultSet rs=s.executeQuery(query);
-				int results=0;
-				while(rs.next()){
-					//Object a=rs.getObject(1);
-					results++;
-				}
-				rs.close();
-				System.out.println("Query "+file+ " executed in Postgres in "+ (System.currentTimeMillis()-t1) +" ms ");
-				System.out.println("No of results:"+results);
-			}
-			connection.close();
-		}
+		boolean postgres=true;
+		boolean exareme=true;
+		boolean sqlite=false;
+		
 		if(exareme){
 			//Driver test=new AdpDriver();
 			Class.forName("madgik.exareme.jdbc.federated.AdpDriver");
-			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd100c/");
+			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd500/");
 			Statement s=connection.createStatement();
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
@@ -73,6 +53,27 @@ public class QueryTester {
 					System.out.println("error in query "+file);
 					System.out.println(e.getMessage());
 				}
+			}
+			connection.close();
+		}
+		if(postgres){
+			Class.forName("org.postgresql.Driver");
+			Connection connection = null;
+			connection = DriverManager.getConnection(
+			   "jdbc:postgresql://localhost:5432/npd_vig_scale500","postgres", "gray769watt724!@#");
+			Statement s=connection.createStatement();
+			for(String file:queries.keySet()){
+				String query=queries.get(file);
+				long t1=System.currentTimeMillis();
+				ResultSet rs=s.executeQuery(query);
+				int results=0;
+				while(rs.next()){
+					//Object a=rs.getObject(1);
+					results++;
+				}
+				rs.close();
+				System.out.println("Query "+file+ " executed in Postgres in "+ (System.currentTimeMillis()-t1) +" ms ");
+				System.out.println("No of results:"+results);
 			}
 			connection.close();
 		}
@@ -156,9 +157,11 @@ public class QueryTester {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith(".sql")) {
-    	    	  if(!listOfFiles[i].getCanonicalPath().endsWith("10.q.sql"))
-    	    		  continue;
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("q.sql")) {
+    	    	  //if(listOfFiles[i].getCanonicalPath().endsWith("30.q.sql"))
+    	    	//	  continue;
+    	    	 // if(listOfFiles[i].getCanonicalPath().endsWith("06.q.sql"))
+    	    	//	  continue;
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }
