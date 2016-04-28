@@ -38,6 +38,8 @@ public class DecomposerUtils {
 	public static final boolean REMOVE_OUTPUTS;
 	public static final boolean PUSH_PROCESSING;
 	public static final boolean WRITE_ALIASES;
+	public static final double DISK_SCAN;
+	public static final int MOST_PROMINENT;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -71,6 +73,8 @@ public class DecomposerUtils {
         REMOVE_OUTPUTS=properties.getBoolean("remove.outputs");
         PUSH_PROCESSING=properties.getBoolean("push.processing");
         WRITE_ALIASES=properties.getBoolean("write.aliases");
+        DISK_SCAN=properties.getFloat("disk.scan");
+        MOST_PROMINENT=properties.getInt("most.prominent");
         
         log.trace("Decomposer Properties Loaded.");
     }

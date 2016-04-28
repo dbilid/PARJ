@@ -59,6 +59,7 @@ public class QueryDecomposer {
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 	private final boolean useGreedy = true;
+	private final int mostProminent=DecomposerUtils.MOST_PROMINENT;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
@@ -348,7 +349,7 @@ public class QueryDecomposer {
 					}
 					existsBetterPlan = false;
 
-					for (int i = 0; i < 0 && i < shareable.size(); i++) {
+					for (int i = 0; i < mostProminent && i < shareable.size(); i++) {
 						if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
 							continue;
 						}

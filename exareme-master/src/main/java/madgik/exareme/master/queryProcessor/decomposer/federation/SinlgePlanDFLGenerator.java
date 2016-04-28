@@ -1091,7 +1091,7 @@ public class SinlgePlanDFLGenerator {
 			}
 
 			if (useSIP) {
-				int existingRight = current.getRightOfSip();
+				int existingLeft = current.getLeftOfSip();
 				// if(current.containsSip()){
 				// current.deleteSipInfo();
 				// }
@@ -1142,9 +1142,8 @@ public class SinlgePlanDFLGenerator {
 													break;
 												}
 											}
-											if (existingRight < current.getInputTables().size()
-													- leftOfCrossJoin.size()) {
-												if (existingRight > 0) {
+											if (existingLeft < leftOfCrossJoin.size()) {
+												if (existingLeft > 0) {
 													current.deleteSipInfo();
 												}
 												NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous,
@@ -1174,9 +1173,8 @@ public class SinlgePlanDFLGenerator {
 													break;
 												}
 											}
-											if (existingRight < current.getInputTables().size()
-													- leftOfCrossJoin.size()) {
-												if (existingRight > 0) {
+											if (existingLeft <  leftOfCrossJoin.size()) {
+												if (existingLeft > 0) {
 													current.deleteSipInfo();
 												}
 												NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous,
@@ -1213,10 +1211,10 @@ public class SinlgePlanDFLGenerator {
 												break;
 											}
 										}
-										if (existingRight < rightOfCrossJoin.size()) {
-											if (existingRight > 0) {
-												current.deleteSipInfo();
-											}
+										if (existingLeft==0) {
+										//	if (existingLeft > 0) {
+										//		current.deleteSipInfo();
+										//	}
 											NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous,
 													sipCol, "=");
 											current.addBinaryWhereCondition(sipjoin);
@@ -1247,10 +1245,7 @@ public class SinlgePlanDFLGenerator {
 											}
 
 										}
-										if (existingRight < rightOfCrossJoin.size()) {
-											if (existingRight > 0) {
-												current.deleteSipInfo();
-											}
+										if (existingLeft==0) {
 											NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(previous,
 													sipCol, "=");
 											current.addBinaryWhereCondition(sipjoin);

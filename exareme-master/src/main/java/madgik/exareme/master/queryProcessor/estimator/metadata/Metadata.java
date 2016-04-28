@@ -5,6 +5,7 @@
  */
 package madgik.exareme.master.queryProcessor.estimator.metadata;
 
+import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.estimator.db.Schema;
 
 /**
@@ -21,7 +22,7 @@ public final class Metadata {
     //    public static final double PAGE_IO_TIME = 0.000048828;//disk with 80 MB/s. it takes 0.000048828 seconds (~= 48microsec) for a single page io
     //    public static final double PAGE_IO_TIME = 0.0008192;//0.00015625
     public static final double PAGE_IO_TIME = 0.0000028;//100MB/sec
-    public static final double PAGE_IO_TIME_SCAN = 0.0009;//100MB/sec
+    public static final double PAGE_IO_TIME_SCAN = DecomposerUtils.DISK_SCAN;//100MB/sec
     public static final int NUMBER_SIZE = 8; //bytes
     public static final int TEXT_SIZE = 200;//bytes
     public static final double INDEX_UTILIZATION = 0.01;

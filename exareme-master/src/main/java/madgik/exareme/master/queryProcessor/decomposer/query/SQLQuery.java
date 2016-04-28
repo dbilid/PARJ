@@ -2416,10 +2416,10 @@ public class SQLQuery {
 		return false;
 	}
 
-	public int getRightOfSip() {
+	public int getLeftOfSip() {
 		for(int i=0;i<inputTables.size();i++){
-			if(inputTables.get(inputTables.size()-(i+1)).getName().equals("siptable")){
-				return i+1;
+			if(inputTables.get(i).getName().equals("siptable")){
+				return i;
 			}
 		}
 		return 0;
