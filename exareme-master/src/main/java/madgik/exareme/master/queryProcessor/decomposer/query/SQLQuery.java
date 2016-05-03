@@ -8,6 +8,7 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoReaderDB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
 import madgik.exareme.master.queryProcessor.decomposer.federation.SipInfo;
+import madgik.exareme.master.queryProcessor.decomposer.federation.SipJoin;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import org.apache.log4j.Logger;
@@ -69,12 +70,10 @@ public class SQLQuery {
 
 	private List<Operand> joinOperands;
 
-	private Set<SipInfo> sis;
+	private Set<SipJoin> sis;
 	private String sql;
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
-
-	private boolean todeleteSip;
 
 	public SQLQuery() {
 		super();
@@ -102,7 +101,6 @@ public class SQLQuery {
 		joinNode = null;
 		joinOperands = new ArrayList<Operand>();
 		sis = null;
-		todeleteSip=false;
 	}
 
 	public String toDistSQL() {
@@ -1418,33 +1416,18 @@ public class SQLQuery {
 		if (!this.inputTables.contains(table)
 				&& !table.getName().equals(this.getTemporaryTableName())) {
 			this.inputTables.add(table);
-			if(this.todeleteSip){
-				deleteSipInfo();
+			if (this.sis != null) {
+				Set<SipJoin> toDelete=new HashSet<SipJoin>();
+				for (SipJoin sj : this.sis) {
+					if (sj.isDeleteOnTableInsert()) {
+						toDelete.add(sj);
+					}
+				}
+				for(SipJoin d:toDelete){
+					sis.remove(d);
+				}
 			}
 		}
-	}
-
-	public void deleteSipInfo() {
-		this.sis=null;
-		String alias="";
-		for(int i=0;i<inputTables.size();i++){
-			Table t=this.inputTables.get(i);
-			if(t.getName().equals("siptable")){
-				alias=t.getAlias();
-				inputTables.remove(i);
-				break;
-			}
-		}
-		for(int i=0;i<this.getBinaryWhereConditions().size();i++){
-			NonUnaryWhereCondition nuwc=this.getBinaryWhereConditions().get(i);
-			if(nuwc.getRightOp().equals(new Column(alias, "x"))){
-				this.binaryWhereConditions.remove(i);
-				break;
-			}
-		}
-		sis=null;
-		this.todeleteSip=false;
-		
 	}
 
 	public List<List<String>> getListOfAliases(NamesToAliases n2a,
@@ -2085,16 +2068,16 @@ public class SQLQuery {
 
 	}
 
-	public void addSipInfo(SipInfo si) {
-		if(this.sis==null){
-			//this.deleteSipInfo();
-			this.sis=new HashSet<SipInfo>();
+	public void addSipInfo(SipJoin si) {
+		if (this.sis == null) {
+			// this.deleteSipInfo();
+			this.sis = new HashSet<SipJoin>();
 		}
 		this.sis.add(si);
 
 	}
 
-	public Set<SipInfo> getSipInfo() {
+	public Set<SipJoin> getSipInfo() {
 		return sis;
 	}
 
@@ -2234,9 +2217,9 @@ public class SQLQuery {
 						output.append(separator);
 						output.append(t.toString());
 						separator = " JOIN ";
-						//if (t.getAlias().startsWith("siptable")) {
-						//	separator = " CROSS JOIN  ";
-						//}
+						// if (t.getAlias().startsWith("siptable")) {
+						// separator = " CROSS JOIN  ";
+						// }
 
 					}
 					// output.append(")");
@@ -2391,7 +2374,7 @@ public class SQLQuery {
 	}
 
 	public boolean sipJoinIsLast() {
-		if(this.inputTables.isEmpty()){
+		if (this.inputTables.isEmpty()) {
 			return false;
 		}
 		Table t = this.inputTables.get(inputTables.size() - 1);
@@ -2402,27 +2385,64 @@ public class SQLQuery {
 		return false;
 	}
 
-	public void setToDeleteSipInfo(boolean b) {
-		this.todeleteSip=b;
-		
-	}
-
 	public boolean containsSip() {
-		for(Table t:this.inputTables){
-		if (t.getName().equalsIgnoreCase("siptable")) {
+		for (Table t : this.inputTables) {
+			if (t.getName().equalsIgnoreCase("siptable")) {
 
-			return true;
-		}}
+				return true;
+			}
+		}
 		return false;
 	}
 
 	public int getLeftOfSip() {
-		for(int i=0;i<inputTables.size();i++){
-			if(inputTables.get(i).getName().equals("siptable")){
+		for (int i = 0; i < inputTables.size(); i++) {
+			if (inputTables.get(i).getName().equals("siptable")) {
 				return i;
 			}
 		}
 		return 0;
+	}
+
+	public void addSipJoin(String si) {
+		for(SipJoin sj:this.sis){
+			if(sj.getSipName().equals(si)){
+				this.addBinaryWhereCondition(sj.getBwc());
+				this.addInputTableIfNotExists(new Table("siptable", si), sj.getNumber());
+				return;
+			}
+		}
+		log.warn("SipJoin not found");
+	}
+
+	public String getMostProminentSipjoin() {
+		if(this.sis!=null){
+			int min=this.getInputTables().size();
+			String result=null;
+			for(SipJoin sj:this.sis){
+				if(sj.getNumber()<min){
+					min=sj.getNumber();
+					result=sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
+	}
+
+	public String getLeastProminentSipjoin() {
+		if(this.sis!=null){
+			int max=0;
+			String result=null;
+			for(SipJoin sj:this.sis){
+				if(sj.getNumber()>max){
+					max=sj.getNumber();
+					result=sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
 	}
 
 }

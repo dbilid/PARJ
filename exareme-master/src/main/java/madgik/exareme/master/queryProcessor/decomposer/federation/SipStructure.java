@@ -161,11 +161,13 @@ public class SipStructure {
 		if(left.isDescendantOfBaseTable(nuwc.getRightOp().getAllColumnRefs().get(0).getAlias())){
 			leftFilterColumn=nuwc.getRightOp().getAllColumnRefs().get(0);
 		}
-		if(leftFilterColumn==null || rightFilterColumn==null){
-			return;
-		}
+		//if(leftFilterColumn==null || rightFilterColumn==null){
+			//return;
+		//}
 		SipInfo si = new SipInfo(p, join.getLeftOp().getAllColumnRefs().get(0), left);
+		if(leftFilterColumn!=null && rightFilterColumn!=null){
 		si.addJoinCol(leftFilterColumn);
+		}
 		boolean exists = false;
 		SipInfoValue siv = new SipInfoValue(right, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
@@ -185,7 +187,9 @@ public class SipStructure {
 		}
 		exists = false;
 		si = new SipInfo(p, join.getRightOp().getAllColumnRefs().get(0), right);
+		if(leftFilterColumn!=null && rightFilterColumn!=null){
 		si.addJoinCol(rightFilterColumn);
+		}
 		siv = new SipInfoValue(left, si.AnonymizeColumns());
 		for (SipInfo siKey : sipInfos.keySet()) {
 			if (siKey.equals(si)) {
