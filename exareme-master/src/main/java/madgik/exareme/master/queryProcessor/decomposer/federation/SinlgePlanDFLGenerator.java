@@ -315,6 +315,7 @@ public class SinlgePlanDFLGenerator {
 			}
 			if (!makeQueryForEachSip) {
 				Map<String, Boolean> sips=new HashMap<String, Boolean>();
+				Set<String> createVtables=new HashSet<String>();
 				for (int i = 0; i < qs.size() - 1; i++) {
 					//check to remove sips that are used only once
 					SQLQuery q = qs.get(i);
@@ -323,6 +324,7 @@ public class SinlgePlanDFLGenerator {
 						for(SipJoin sj:sis){
 							if(sips.containsKey(sj.getSipName())){
 								sips.put(sj.getSipName(), Boolean.TRUE);
+								createVtables.add("create virtual table "+sj.getSipName()+" using unionsiptext; \n");
 							}
 							else{
 								sips.put(sj.getSipName(), Boolean.FALSE);
@@ -341,9 +343,7 @@ public class SinlgePlanDFLGenerator {
 					s.adddAllSips(sips);
 						toRepl.append(separator);
 						toRepl.append(s.toSipSQL());
-						if(s.getCreateSipTables()!=null){
-							toReplace.appendCreateSipTables(s.getCreateSipTables());
-						}
+						
 						separator = " UNION ";
 
 				}
@@ -358,6 +358,9 @@ public class SinlgePlanDFLGenerator {
 				}
 				toReplace.setSQL(toRepl.toString());
 				toReplace.setStringSQL();
+				for(String v:createVtables){
+					toReplace.appendCreateSipTables(v);
+				}
 				System.out.println(toRepl.toString());
 				qs.clear();
 				qs.add(toReplace);
