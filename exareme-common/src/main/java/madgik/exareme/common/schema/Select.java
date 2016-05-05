@@ -15,102 +15,115 @@ import java.util.List;
  * @author Christoforos Svingos
  */
 public class Select extends Query {
-    private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 1L;
 
-    private String comments = null;
-    private TableView outputTable = null;
-    private ArrayList<TableView> inputTables = null;
-    private HashMap<String, TableView> inputTablesMap = null;
+	private String comments = null;
+	private TableView outputTable = null;
+	private ArrayList<TableView> inputTables = null;
+	private HashMap<String, TableView> inputTablesMap = null;
 
-    private SQLSelect parsedSqlQuery = null;
-    private List<String> queryStatements = null;
-    private String createIndex = null;
+	private SQLSelect parsedSqlQuery = null;
+	private List<String> queryStatements = null;
+	private String createIndex = null;
 
-    public Select(int id, SQLSelect sqlQuery, TableView outputTable) {
-        super(id, sqlQuery.getSql(), sqlQuery.getComments().toString());
-        this.outputTable = outputTable;
-        this.parsedSqlQuery = sqlQuery;
-        this.comments = parsedSqlQuery.getComments().toString();
+	private String extraCommands = null;
 
-        this.inputTables = new ArrayList<>();
-        this.inputTablesMap = new HashMap<>();
-        this.queryStatements = new ArrayList<>();
-    }
+	public Select(int id, SQLSelect sqlQuery, TableView outputTable) {
+		super(id, sqlQuery.getSql(), sqlQuery.getComments().toString());
+		this.outputTable = outputTable;
+		this.parsedSqlQuery = sqlQuery;
+		this.comments = parsedSqlQuery.getComments().toString();
 
-    public void addInput(TableView input) {
-        inputTables.add(input);
-        inputTablesMap.put(input.getName(), input);
-    }
+		this.inputTables = new ArrayList<>();
+		this.inputTablesMap = new HashMap<>();
+		this.queryStatements = new ArrayList<>();
+	}
 
-    public void addQueryStatement(String query) {
-        this.queryStatements.add(query);
-    }
+	public void addInput(TableView input) {
+		inputTables.add(input);
+		inputTablesMap.put(input.getName(), input);
+	}
 
-    public void clearQueryStatement() {
-        this.queryStatements.clear();
-    }
+	public void addQueryStatement(String query) {
+		this.queryStatements.add(query);
+	}
 
-    public List<String> getQueryStatements() {
-        return this.queryStatements;
-    }
+	public void clearQueryStatement() {
+		this.queryStatements.clear();
+	}
 
-    public String getSelectQueryStatement() {
-        String query;
-        if (this.queryStatements.size() == 0) {
-            query = getQuery();
-        } else {
-            query = this.queryStatements.get(this.queryStatements.size() - 1);
-        }
+	public List<String> getQueryStatements() {
+		return this.queryStatements;
+	}
 
-        return query;
-    }
+	public String getSelectQueryStatement() {
+		String query;
+		if (this.queryStatements.size() == 0) {
+			query = getQuery();
+		} else {
+			query = this.queryStatements.get(this.queryStatements.size() - 1);
+		}
 
-    public TableView getOutputTable() {
-        return outputTable;
-    }
+		return query;
+	}
 
-    public void setOutputTable(TableView outputTable) {
-        this.outputTable = outputTable;
-    }
+	public TableView getOutputTable() {
+		return outputTable;
+	}
 
-    public List<TableView> getInputTables() {
-        return Collections.unmodifiableList(inputTables);
-    }
+	public void setOutputTable(TableView outputTable) {
+		this.outputTable = outputTable;
+	}
 
-    public void clearInputTables() {
-        inputTables.clear();
-        inputTablesMap.clear();
-    }
+	public List<TableView> getInputTables() {
+		return Collections.unmodifiableList(inputTables);
+	}
 
-    public SQLSelect getParsedSqlQuery() {
-        return parsedSqlQuery;
-    }
+	public void clearInputTables() {
+		inputTables.clear();
+		inputTablesMap.clear();
+	}
 
-    @Override public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Database   : " + getDatabaseDir() + "\n");
-        if (outputTable != null) {
-            sb.append("Output     : " + outputTable.toString() + "\n");
-        } else {
-            sb.append("Output     : --\n");
-        }
-        sb.append("Inputs     : " + inputTables.size() + "\n");
-        for (TableView in : inputTables) {
-            sb.append(" -> : " + in.toString() + "\n");
-        }
-        if (comments != null) {
-            sb.append(comments);
-        }
-        sb.append(getQuery() + ";");
+	public SQLSelect getParsedSqlQuery() {
+		return parsedSqlQuery;
+	}
 
-        return sb.toString();
-    }
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Database   : " + getDatabaseDir() + "\n");
+		if (outputTable != null) {
+			sb.append("Output     : " + outputTable.toString() + "\n");
+		} else {
+			sb.append("Output     : --\n");
+		}
+		sb.append("Inputs     : " + inputTables.size() + "\n");
+		for (TableView in : inputTables) {
+			sb.append(" -> : " + in.toString() + "\n");
+		}
+		if (comments != null) {
+			sb.append(comments);
+		}
+		sb.append(getQuery() + ";");
+
+		return sb.toString();
+	}
 
 	public void setIndexCommand(String query) {
-		this.createIndex=query;
+		this.createIndex = query;
 	}
-	
-	public String getIndexCommand(){
+
+	public String getIndexCommand() {
 		return this.createIndex;
+	}
+
+	public void setExtraCommand(String cm) {
+		this.extraCommands = cm;
+
+	}
+
+	public String getExtraCommand() {
+		return extraCommands;
+
 	}
 }

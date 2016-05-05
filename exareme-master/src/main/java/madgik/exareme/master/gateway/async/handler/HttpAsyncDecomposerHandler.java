@@ -481,6 +481,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								resultTblName = subqueries.get(0).getInputTables().get(0).getAlias();
 							} else {
 								HashMap<String, byte[]> hashIDMap = new HashMap<>();
+								Map<String, String> extraCommands=new HashMap<String, String>();
 								for (SQLQuery q : subqueries) {
 									//when using cache
 									//hashIDMap.put(q.getResultTableName(), q.getHashId().asBytes());
@@ -497,6 +498,9 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									if (!q.isTemporary()) {
 										resultTblName = q.getTemporaryTableName();
 									}
+									if(q.getCreateSipTables()!=null){
+										extraCommands.put(q.getTemporaryTableName(), q.getCreateSipTables());
+									}
 									
 								}
 								log.debug("Decomposed Query : " + decomposedQuery);
@@ -505,7 +509,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								
 								//when using cache
 								//AdpDBClientQueryStatus status = dbClient.query("dquery", decomposedQuery, hashIDMap);
-								AdpDBClientQueryStatus status = dbClient.query("dquery", decomposedQuery);
+								AdpDBClientQueryStatus status = dbClient.query("dquery", decomposedQuery, extraCommands);
 								while (status.hasFinished() == false && status.hasError() == false) {
 									if (timeoutMs > 0) {
 										long timePassed = System.currentTimeMillis() - start;

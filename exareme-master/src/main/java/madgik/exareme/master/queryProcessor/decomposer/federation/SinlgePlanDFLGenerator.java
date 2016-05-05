@@ -207,8 +207,9 @@ public class SinlgePlanDFLGenerator {
 		}
 
 		if (useSIP) {
-			boolean makeQueryForEachSip = true;
+			boolean makeQueryForEachSip = false;
 			System.out.println("initial size:" + qs.size());
+			if (makeQueryForEachSip) {
 			Map<String, Set<SQLQuery>> queriesToSip = new HashMap<String, Set<SQLQuery>>();
 			for (int i = 0; i < qs.size() - 1; i++) {
 				SQLQuery q = qs.get(i);
@@ -262,7 +263,7 @@ public class SinlgePlanDFLGenerator {
 				// int noTables = 0;
 				// int lastQ = 0;
 
-				if (makeQueryForEachSip) {
+				
 					for (SQLQuery s : queriesToSip.get(si)) {
 						union.getUnionqueries().remove(s);
 						qs.remove(s);
@@ -276,7 +277,7 @@ public class SinlgePlanDFLGenerator {
 					for (SQLQuery s : queriesToSip.get(si)) {
 						if (s.sipJoinIsLast()) {
 							toRepl.append(separator);
-							toRepl.append(s.toSipSQL(false));
+							toRepl.append(s.toSipSQL());
 							separator = " UNION ALL ";
 							// now setting union all to avoid not necessary
 							// processing
@@ -288,7 +289,7 @@ public class SinlgePlanDFLGenerator {
 					for (SQLQuery s : queriesToSip.get(si)) {
 						if (!s.sipJoinIsLast()) {
 							toRepl.append(separator);
-							toRepl.append(s.toSipSQL(false));
+							toRepl.append(s.toSipSQL());
 							separator = " UNION ALL ";
 							// now setting union all to avoid not necessary
 							// processing
@@ -313,36 +314,48 @@ public class SinlgePlanDFLGenerator {
 
 			}
 			if (!makeQueryForEachSip) {
-
+				Map<String, Boolean> sips=new HashMap<String, Boolean>();
+				for (int i = 0; i < qs.size() - 1; i++) {
+					//check to remove sips that are used only once
+					SQLQuery q = qs.get(i);
+					Set<SipJoin> sis = q.getSipInfo();
+					if (sis != null&&sis.size()>0) {
+						for(SipJoin sj:sis){
+							if(sips.containsKey(sj.getSipName())){
+								sips.put(sj.getSipName(), Boolean.TRUE);
+							}
+							else{
+								sips.put(sj.getSipName(), Boolean.FALSE);
+							}
+						}
+					}
+				}
 				SQLQuery toReplace = new SQLQuery();
 				StringBuffer toRepl = new StringBuffer();
-				toRepl.append("select * from (");
+				
 				String separator = "";
-
+				if(qs.size()>1){
+					toRepl.append("select * from (");
 				for (int k = 0; k < qs.size() - 1; k++) {
 					SQLQuery s = qs.get(k);
-					if (s.sipJoinIsLast()) {
+					s.adddAllSips(sips);
 						toRepl.append(separator);
-						toRepl.append(s.toSipSQL(false));
+						toRepl.append(s.toSipSQL());
+						if(s.getCreateSipTables()!=null){
+							toReplace.appendCreateSipTables(s.getCreateSipTables());
+						}
 						separator = " UNION ";
 
-					}
-
 				}
-				for (int k = 0; k < qs.size() - 1; k++) {
-					SQLQuery s = qs.get(k);
-					if (!s.sipJoinIsLast()) {
-						toRepl.append(separator);
-						toRepl.append(s.toSipSQL(false));
-						separator = " UNION ";
-
-					}
-
-				}
+				
 
 				// toRepl.append(separator);
 				// toRepl.append(mostTables.toSipSQL(true));
-				toRepl.append(")");
+				toRepl.append(")");}
+				else{
+					SQLQuery s = qs.get(0);
+					toRepl.append(s.toSipSQL());
+				}
 				toReplace.setSQL(toRepl.toString());
 				toReplace.setStringSQL();
 				System.out.println(toRepl.toString());

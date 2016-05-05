@@ -210,6 +210,12 @@ public class MadisProcessExecutor {
             script.append("-- Create tables \n");
             script.append(createTables);
             script.append("\n");
+            
+            if(state.getOperator().getQuery().getExtraCommand()!=null){
+            	script.append("-- Extra Commands \n");
+                script.append(state.getOperator().getQuery().getExtraCommand());
+                script.append("\n");
+            }
 
             String query = state.getOperator().getQuery().getSelectQueryStatement();
             log.debug("Query : " + query);

@@ -22,20 +22,20 @@ import madgik.exareme.jdbc.federated.AdpDriver;
 public class QueryTester {
 
 	public static void main(String[] args) throws SQLException, ClassNotFoundException, IOException {
-		String dir="/home/dimitris/npdsql/existLast/";
+		String dir="/home/dimitris/Dropbox/npdsql/existLast/";
 		//String dir="/home/dimitris/sqlitenpd";
 		Map<String, String> queries=new HashMap<String, String>();
 		for(String file:readFilesFromDir(dir)){
 			queries.put(file, readFile(file));
 		}
-		boolean postgres=true;
+		boolean postgres=false;
 		boolean exareme=true;
 		boolean sqlite=false;
 		
 		if(exareme){
 			//Driver test=new AdpDriver();
 			Class.forName("madgik.exareme.jdbc.federated.AdpDriver");
-			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd500/");
+			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd100/");
 			Statement s=connection.createStatement();
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
@@ -157,7 +157,7 @@ public class QueryTester {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("q.sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("12.q.sql.100")) {
     	    	  //if(listOfFiles[i].getCanonicalPath().endsWith("30.q.sql"))
     	    	//	  continue;
     	    	 // if(listOfFiles[i].getCanonicalPath().endsWith("06.q.sql"))

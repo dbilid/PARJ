@@ -7,6 +7,7 @@ import madgik.exareme.common.app.engine.AdpDBQueryListener;
 
 import java.io.InputStream;
 import java.rmi.RemoteException;
+import java.util.Map;
 
 
 /**
@@ -38,6 +39,16 @@ public interface AdpDBClient {
      * @throws RemoteException
      */
     AdpDBClientQueryStatus aquery(String queryID, String queryScript, AdpDBQueryListener listener)
+        throws RemoteException;
+    
+    /**
+     * @param queryID
+     * @param queryScript
+     * @param listener
+     * @return
+     * @throws RemoteException
+     */
+    AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands)
         throws RemoteException;
 
     /**

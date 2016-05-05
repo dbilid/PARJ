@@ -8,6 +8,7 @@ import madgik.exareme.common.app.engine.AdpDBQueryListener;
 import madgik.exareme.common.app.engine.AdpDBStatus;
 import madgik.exareme.common.art.entity.EntityName;
 import madgik.exareme.common.schema.QueryScript;
+import madgik.exareme.common.schema.Select;
 import madgik.exareme.master.client.AdpDBClient;
 import madgik.exareme.master.client.AdpDBClientProperties;
 import madgik.exareme.master.client.AdpDBClientQueryStatus;
@@ -333,4 +334,28 @@ public class RmiAdpDBClient implements AdpDBClient {
     private AdpDBQueryID createNewQueryID() {
         return new AdpDBQueryID(UUID.randomUUID().getLeastSignificantBits());
     }
+
+	@Override
+	public AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands)
+			throws RemoteException {
+		 // parse
+        AdpDBQueryID queryId = createNewQueryID();
+        QueryScript script = parser.parse(queryScript, registry);
+        log.trace("QueryScript parsed.");
+        for(Select s:script.getSelectQueries()){
+        	if(extraCommands.containsKey(s.getOutputTable().getTable().getName())){
+        		s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
+        	}
+        }
+        // optimize
+        AdpDBHistoricalQueryData queryData = null;
+        AdpDBQueryExecutionPlan plan = optimizer
+            .optimize(script, registry, null, queryData, queryId, properties, true  /* schedule */,
+                true  /* validate */);
+        log.trace("Optimized.");
+
+        // execute
+        AdpDBStatus status = executor.executeScript(plan, properties);
+        return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+	}
 }
