@@ -465,7 +465,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							d=null;
 							nse=null;
 							hashes=null;
-							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", false, false, false,
+							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", false, false, true,
 									-1, 10, null);
 							AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
 							Set<String> referencedTables=new HashSet<String>();

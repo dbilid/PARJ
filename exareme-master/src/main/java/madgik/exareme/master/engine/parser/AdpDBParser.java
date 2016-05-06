@@ -271,7 +271,7 @@ public class AdpDBParser {
             }
             log.debug("Create the output table ...");
             String outTableName = q.getOutputTable().getTable().getName();
-            imdb.execute(
+            imdb.executeUpdate(
                 "create table " + outTableName + " as " + q.getSelectQueryStatement() + ";\n");
             TableInfo tableInfo = imdb.getTableInfo(outTableName);
             tables.get(outTableName).setSqlDefinition(tableInfo.getSQLDefinition());
