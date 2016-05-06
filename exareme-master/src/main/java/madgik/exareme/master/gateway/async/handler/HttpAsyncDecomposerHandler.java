@@ -11,6 +11,7 @@ import madgik.exareme.master.connector.AdpDBConnectorFactory;
 import madgik.exareme.master.connector.local.AdpDBQueryExecutorThread;
 import madgik.exareme.master.connector.rmi.AdpDBNetReaderThread;
 import madgik.exareme.utils.association.Pair;
+import madgik.exareme.utils.properties.AdpDBProperties;
 import madgik.exareme.master.engine.AdpDBManager;
 import madgik.exareme.master.engine.AdpDBManagerLocator;
 import madgik.exareme.master.gateway.ExaremeGatewayUtils;
@@ -63,6 +64,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 	private static final Logger log = Logger.getLogger(HttpAsyncDecomposerHandler.class);
 	private static final AdpDBManager manager = AdpDBManagerLocator.getDBManager();
+	private static final boolean useCache=AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true");
 	private static NamesToAliases n2a=new NamesToAliases();
 	public HttpAsyncDecomposerHandler() {
 	}
@@ -484,7 +486,6 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								 HashMap<String, Pair<byte[], String>> hashQueryMap = new HashMap<>();
 								Map<String, String> extraCommands=new HashMap<String, String>();
 								for (SQLQuery q : subqueries) {
-									//when using cache
 									if(a && !q.isTemporary()){
 										continue;
 										//don't add last table
@@ -510,10 +511,16 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								log.debug("Decomposed Query : " + decomposedQuery);
 								log.debug("Result Table : " + resultTblName);
 								log.debug("Executing decomposed query ...");
-								
+								AdpDBClientQueryStatus status=null;
 								//when using cache
+								if(useCache){
+									status = dbClient.query("dquery", decomposedQuery, hashQueryMap, extraCommands);
+								}
+								else{
+									status = dbClient.query("dquery", decomposedQuery, extraCommands);
+								}
 								//AdpDBClientQueryStatus status = dbClient.query("dquery", decomposedQuery, hashIDMap);
-								AdpDBClientQueryStatus status = dbClient.query("dquery", decomposedQuery, hashQueryMap, extraCommands);
+								
 								while (status.hasFinished() == false && status.hasError() == false) {
 									if (timeoutMs > 0) {
 										long timePassed = System.currentTimeMillis() - start;
