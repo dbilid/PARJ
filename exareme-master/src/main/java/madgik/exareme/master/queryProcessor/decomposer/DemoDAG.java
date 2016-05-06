@@ -153,7 +153,7 @@ public class DemoDAG {
 				+ "m2.wellbore_mud_id=g.apaAreaGross_id";
 				
 		
-		getDFLsFromDir("/home/dimitris/npdsql/existential/");
+		getDFLsFromDir("/home/dimitris/Dropbox/npdsql/existLast/");
 		/*NodeHashValues hashes=new NodeHashValues();
 		NodeSelectivityEstimator nse = null;
 		try {
@@ -191,7 +191,7 @@ public class DemoDAG {
 		
 		NodeSelectivityEstimator nse = null;
 		try {
-			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100c/" + "histograms.json");
+			nse = new NodeSelectivityEstimator("/media/dimitris/T/exaremenpd100/" + "histograms.json");
 		} catch (Exception e) {
 			
 		}
@@ -227,7 +227,7 @@ public class DemoDAG {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("10.q.sql")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("12.q.sql.100")) {
     	    	  files.add(listOfFiles[i].getCanonicalPath());
     	      }
     	    }
