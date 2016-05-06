@@ -54,11 +54,11 @@ public class QueryDecomposer {
 	private Map<Node, Double> limits;
 	private boolean addAliases;
 	private boolean importExternal;
-	private boolean useSIP = true;
+	private boolean useSIP = false;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
-	private final boolean useGreedy = true;
+	private final boolean useGreedy = false;
 	private final int mostProminent=DecomposerUtils.MOST_PROMINENT;
 	private boolean onlyLeft = false;
 	private int unionnumber;
@@ -497,8 +497,7 @@ public class QueryDecomposer {
 
 					// rename outputs
 					if (!(s.isSelectAll() && s.getBinaryWhereConditions().isEmpty()
-							&& s.getUnaryWhereConditions().isEmpty() && s.getGroupBy().isEmpty()
-							&& s.getOrderBy().isEmpty() && s.getNestedSelectSubqueries().size() == 1
+							&& s.getUnaryWhereConditions().isEmpty() && s.getNestedSelectSubqueries().size() == 1
 							&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries())) {
 						// rename outputs
 						String alias = s.getNestedSubqueryAlias(nested);

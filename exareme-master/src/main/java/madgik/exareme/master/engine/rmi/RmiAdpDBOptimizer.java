@@ -20,6 +20,7 @@ import madgik.exareme.master.queryProcessor.optimizer.scheduler.OperatorAssignme
 import madgik.exareme.master.registry.Registry;
 import madgik.exareme.worker.art.manager.ArtManager;
 import org.apache.log4j.Logger;
+import madgik.exareme.utils.properties.AdpDBProperties;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -52,62 +53,66 @@ public class RmiAdpDBOptimizer implements AdpDBOptimizer {
     }
 
     static void postProcessGraph(InputData input, StateData state, AdpDBClientProperties props)
-        throws SemanticException {
-        // Remove the replicator operators if they are not needed
-        for (ConcreteOperator cop : state.graph.getOperators()) {
-            AdpDBSelectOperator dbOp = state.dbOps.get(cop.opID);
-            if (dbOp.getType() != AdpDBOperatorType.tableUnionReplicator) {
-                continue;
-            }
-            Collection<Link> outputs = state.graph.getOutputLinks(cop.opID);
-            // Keep the replicator if the result must be saved.
-            if (state.resultTableName != null) {
-                if (dbOp.getOutputTables().contains(state.resultTableName)) {
-                    continue;
-                }
-            }
-            // Keep the table replication if the outputs are more than one.
-            if (outputs.size() > 1) {
-                continue;
-            }
-            // Remove the operator if the input is comming from only one operator and there is no output.
-            if (outputs.isEmpty()) {
-                Collection<Link> inputs = state.graph.getInputLinks(cop.opID);
-                // Remove the replicator operators that are not connected to anyone (this happens when not
-                // all partitions are used).
-                if (inputs.isEmpty()) {
+            throws SemanticException {
+
+            if(AdpDBProperties.getAdpDBProps().getString("db.cache").equals("false")) {
+
+                // Remove the replicator operators if they are not needed
+                for (ConcreteOperator cop : state.graph.getOperators()) {
+                    AdpDBSelectOperator dbOp = state.dbOps.get(cop.opID);
+                    if (dbOp.getType() != AdpDBOperatorType.tableUnionReplicator) {
+                        continue;
+                    }
+                    Collection<Link> outputs = state.graph.getOutputLinks(cop.opID);
+                    // Keep the replicator if the result must be saved.
+                    if (state.resultTableName != null) {
+                        if (dbOp.getOutputTables().contains(state.resultTableName)) {
+                            continue;
+                        }
+                    }
+                    // Keep the table replication if the outputs are more than one.
+                    if (outputs.size() > 1) {
+                        continue;
+                    }
+                    // Remove the operator if the input is comming from only one operator and there is no output.
+                    if (outputs.isEmpty()) {
+                        Collection<Link> inputs = state.graph.getInputLinks(cop.opID);
+                        // Remove the replicator operators that are not connected to anyone (this happens when not
+                        // all partitions are used).
+                        if (inputs.isEmpty()) {
+                            state.graph.removeOperator(cop);
+                        }
+                        if (inputs.size() == 1) {
+                            Link in = inputs.iterator().next();
+                            state.graph.removeLink(in);
+                            state.graph.removeOperator(cop);
+                        }
+                        continue;
+                    }
+                    // NOTE: There is only one output here.
+                    // Remove the link
+                    Link out = outputs.iterator().next();
+                    ConcreteOperator consumer = out.to;
+                    state.graph.removeLink(out);
+                    ArrayList<Link> inputs = new ArrayList<>(state.graph.getInputLinks(cop.opID));
+                    for (Link in : inputs) {
+                        state.graph.removeLink(in);
+                        in.to = consumer;
+                        in.data.setToOpID(consumer.opID);
+                        state.graph.addLink(in);
+                    }
+                    // Update the db operator inputs
+                    AdpDBSelectOperator consumerDbOp = state.dbOps.get(consumer.opID);
+                    // Clear all inputs that are outputs of table union replicator operator
+                    for (String tableName : dbOp.getOutputTables()) {
+                        consumerDbOp.clearInputs(tableName, dbOp);
+                    }
+                    // Add all the inputs of table union replicator operator
+                    consumerDbOp.addToInputsAllInputsOf(dbOp);
                     state.graph.removeOperator(cop);
                 }
-                if (inputs.size() == 1) {
-                    Link in = inputs.iterator().next();
-                    state.graph.removeLink(in);
-                    state.graph.removeOperator(cop);
-                }
-                continue;
             }
-            // NOTE: There is only one output here.
-            // Remove the link
-            Link out = outputs.iterator().next();
-            ConcreteOperator consumer = out.to;
-            state.graph.removeLink(out);
-            ArrayList<Link> inputs = new ArrayList<>(state.graph.getInputLinks(cop.opID));
-            for (Link in : inputs) {
-                state.graph.removeLink(in);
-                in.to = consumer;
-                in.data.setToOpID(consumer.opID);
-                state.graph.addLink(in);
-            }
-            // Update the db operator inputs
-            AdpDBSelectOperator consumerDbOp = state.dbOps.get(consumer.opID);
-            // Clear all inputs that are outputs of table union replicator operator
-            for (String tableName : dbOp.getOutputTables()) {
-                consumerDbOp.clearInputs(tableName, dbOp);
-            }
-            // Add all the inputs of table union replicator operator
-            consumerDbOp.addToInputsAllInputsOf(dbOp);
-            state.graph.removeOperator(cop);
         }
-    }
 
     static void removeInputTableGravity(InputData input, StateData state,
         AdpDBClientProperties props) throws SemanticException {

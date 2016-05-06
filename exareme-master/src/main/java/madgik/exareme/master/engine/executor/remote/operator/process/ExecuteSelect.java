@@ -58,5 +58,6 @@ public class ExecuteSelect extends AbstractMiMo {
         }
         log.info(state.toString());
         exit(0, state.getExitMessage());
+        //exit(0);
     }
 }

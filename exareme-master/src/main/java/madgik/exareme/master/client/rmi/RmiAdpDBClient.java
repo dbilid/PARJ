@@ -29,6 +29,8 @@ import madgik.exareme.worker.art.container.ContainerProxy;
 import madgik.exareme.worker.art.executionPlan.parser.expression.Operator;
 import madgik.exareme.worker.art.executionPlan.parser.expression.PlanExpression;
 import madgik.exareme.worker.art.registry.ArtRegistryLocator;
+import madgik.exareme.utils.association.Pair;
+import madgik.exareme.common.schema.PhysicalTable;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
@@ -38,324 +40,369 @@ import java.util.*;
 import java.util.List;
 
 /**
- * Exareme Database Client.
- * + Thread-safe
+ * Exareme Database Client. + Thread-safe
  * <p/>
- * TODOs
- * - check parser, optimizer, executor for thread-safety (looks ok)
- * - make history as a service (thread-safe)
- * - merge history and registry
- * - impl readTable
+ * TODOs - check parser, optimizer, executor for thread-safety (looks ok) - make
+ * history as a service (thread-safe) - merge history and registry - impl
+ * readTable
  */
 public class RmiAdpDBClient implements AdpDBClient {
-    private static Logger log = Logger.getLogger(RmiAdpDBClient.class);
+	private static Logger log = Logger.getLogger(RmiAdpDBClient.class);
 
-    // Remote
-    private final AdpDBOptimizer optimizer;
-    private final AdpDBExecutor executor;
+	// Remote
+	private final AdpDBOptimizer optimizer;
+	private final AdpDBExecutor executor;
 
-    // Local
-    private AdpDBParser parser;
-    private Registry registry;
+	// Local
+	private AdpDBParser parser;
+	private Registry registry;
 
-    // Properties
-    private AdpDBClientProperties properties;
+	// Properties
+	private AdpDBClientProperties properties;
 
-    public RmiAdpDBClient(AdpDBManager manager, AdpDBClientProperties properties)
-        throws RemoteException {
-        this.optimizer = manager == null ? null : manager.getAdpDBOptimizer();
-        this.executor = manager == null ? null : manager.getAdpDBExecutor();
-        this.properties = properties;
-        this.registry = Registry.getInstance(properties.getDatabase());
-        this.parser = new AdpDBParser(properties);
-    }
+	public RmiAdpDBClient(AdpDBManager manager, AdpDBClientProperties properties) throws RemoteException {
+		this.optimizer = manager == null ? null : manager.getAdpDBOptimizer();
+		this.executor = manager == null ? null : manager.getAdpDBExecutor();
+		this.properties = properties;
+		this.registry = Registry.getInstance(properties.getDatabase());
+		this.parser = new AdpDBParser(properties);
+	}
 
-    @Override public String explain(String queryScript, String exportMode) throws RemoteException {
-        log.trace("Explain...");
-        if (exportMode == null) {
-            return explainJSON(queryScript);
-        }
-        if (exportMode.equalsIgnoreCase("dotty")) {
-            return explainDotty(queryScript);
-        }
-        if (exportMode.equals("JSON")) {
-            return explainJSON(queryScript);
-        }
-        if (exportMode.equals("viz")) {
-            return explainViz(queryScript);
-        }
+	@Override
+	public String explain(String queryScript, String exportMode) throws RemoteException {
+		log.trace("Explain...");
+		if (exportMode == null) {
+			return explainJSON(queryScript);
+		}
+		if (exportMode.equalsIgnoreCase("dotty")) {
+			return explainDotty(queryScript);
+		}
+		if (exportMode.equals("JSON")) {
+			return explainJSON(queryScript);
+		}
+		if (exportMode.equals("viz")) {
+			return explainViz(queryScript);
+		}
 
-        return explainJSON(queryScript);
-    }
+		return explainJSON(queryScript);
+	}
 
-    private String explainViz(String queryScript) throws RemoteException {
-        AdpDBQueryID queryId = createNewQueryID();
-        QueryScript script = parser.parse(queryScript, registry);
-        log.trace("QueryScript parsed.");
+	private String explainViz(String queryScript) throws RemoteException {
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
 
-        // optimize
-        AdpDBHistoricalQueryData queryData = null;
-        AdpDBQueryExecutionPlan plan = optimizer
-            .optimize(script, registry, null, queryData, queryId, properties, true  /* schedule */,
-                true  /* validate */);
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
 
-        PlanExpression execPlan = executor.getExecPlan(plan, properties);
+		PlanExpression execPlan = executor.getExecPlan(plan, properties);
 
-        Integer countrepart = 0;
+		Integer countrepart = 0;
 
+		for (ConcreteOperator op : plan.getGraph().getOperators()) {
+			boolean isrep = true;
+			if (plan.getGraph().getOutputLinks(op.opID).size() == 4) {
+				for (Link link : plan.getGraph().getOutputLinks(op.opID)) {
+					if (plan.getGraph().getInputLinks(link.to.opID).size() < 4) {
+						isrep = false;
+					}
+				}
+				if (isrep) {
+					countrepart++;
+				}
 
+			}
+		}
+		countrepart = countrepart / 4;
+		StringBuilder Json = new StringBuilder();
+		Json.append("<html>\n" + "<head>\n"
+				+ "    <script type=\"text/javascript\" src=\"https://cdnjs.cloudflare.com/ajax/libs/vis/4.8.2/vis.min.js\"></script>\n"
+				+ "    <link href=\"https://cdnjs.cloudflare.com/ajax/libs/vis/4.8.2/vis.min.css\" rel=\"stylesheet\" type=\"text/css\" />\n"
+				+ "\n" + "    <style type=\"text/css\">\n" + "        #mynetwork {\n" + "            width: 1000;\n"
+				+ "            height: 800px;\n" + "            border: 1px solid lightgray;\n" + "        }\n"
+				+ "    </style>\n" + "</head>\n" + "<body>\n" + countrepart.toString() +
 
-        for (ConcreteOperator op : plan.getGraph().getOperators()) {
-            boolean isrep = true;
-            if (plan.getGraph().getOutputLinks(op.opID).size() == 4) {
-                for (Link link : plan.getGraph().getOutputLinks(op.opID)) {
-                    if (plan.getGraph().getInputLinks(link.to.opID).size() < 4) {
-                        isrep = false;
-                    }
-                }
-                if (isrep) {
-                    countrepart++;
-                }
+		"<div id=\"mynetwork\"></div>\n" + "\n" + "<script type=\"text/javascript\">");
 
-            }
-        }
-        countrepart = countrepart / 4;
-        StringBuilder Json = new StringBuilder();
-        Json.append("<html>\n" +
-            "<head>\n" +
-            "    <script type=\"text/javascript\" src=\"https://cdnjs.cloudflare.com/ajax/libs/vis/4.8.2/vis.min.js\"></script>\n"
-            +
-            "    <link href=\"https://cdnjs.cloudflare.com/ajax/libs/vis/4.8.2/vis.min.css\" rel=\"stylesheet\" type=\"text/css\" />\n"
-            +
-            "\n" +
-            "    <style type=\"text/css\">\n" +
-            "        #mynetwork {\n" +
-            "            width: 1000;\n" +
-            "            height: 800px;\n" +
-            "            border: 1px solid lightgray;\n" +
-            "        }\n" +
-            "    </style>\n" +
-            "</head>\n" +
-            "<body>\n" + countrepart.toString() +
+		StringBuilder nodes = new StringBuilder();
+		StringBuilder edges = new StringBuilder();
+		nodes.append(" var nodes = new vis.DataSet([\n");
+		edges.append(" var edges = new vis.DataSet([\n");
+		HashMap<String, Color> contToColor = new HashMap<>();
+		int countcont = execPlan.getContainerList().size();
 
-            "<div id=\"mynetwork\"></div>\n" +
-            "\n" +
-            "<script type=\"text/javascript\">");
+		for (madgik.exareme.worker.art.executionPlan.parser.expression.Container cont : execPlan.getContainerList()) {
+			Random rand;
+			float r, g, b;
+			Color randomColor;
+			rand = new Random();
+			r = rand.nextFloat();
+			g = rand.nextFloat();
+			b = rand.nextFloat();
+			randomColor = new Color(r, g, b);
+			contToColor.put(cont.name, randomColor);
+		}
+		Color randomColor;
+		int id = 1;
+		Map<String, Integer> opidToOp = new HashMap<>();
+		for (Operator op : execPlan.getOperatorList()) {
+			if (id > 1) {
+				nodes.append(",");
+			}
+			randomColor = contToColor.get(op.containerName);
+			nodes.append("\n{id: ").append(id)
+					.append(", label: \'").append(op.operatorName).append("\'").append(",color: ").append("\'rgb("
+							+ randomColor.getRed() + "," + randomColor.getGreen() + "," + randomColor.getBlue() + ")\'")
+					.append("}");
 
+			opidToOp.put(op.operatorName, id);
+			id++;
+		}
 
+		int count = 0;
+		for (ConcreteOperator op : plan.getGraph().getOperators()) {
+			if (plan.getGraph().getOutputLinks(op.opID).size() == 4) {
+				countrepart++;
+			}
+			for (Link link : plan.getGraph().getOutputLinks(op.opID)) {
 
-        StringBuilder nodes = new StringBuilder();
-        StringBuilder edges = new StringBuilder();
-        nodes.append(" var nodes = new vis.DataSet([\n");
-        edges.append(" var edges = new vis.DataSet([\n");
-        HashMap<String, Color> contToColor = new HashMap<>();
-        int countcont = execPlan.getContainerList().size();
+				// for(Link link :links){
+				if (count > 0) {
+					edges.append(",");
+				}
+				String to = plan.getGraph().getOperator(link.to.opID).getName();
+				String from = plan.getGraph().getOperator(link.from.opID).getName();
+				;
+				edges.append("\n{from: ").append(opidToOp.get(from)).append(", to: ").append(opidToOp.get(to))
+						.append("}");
+				count++;
+				// }
 
-        for (madgik.exareme.worker.art.executionPlan.parser.expression.Container cont : execPlan
-            .getContainerList()) {
-            Random rand;
-            float r, g, b;
-            Color randomColor;
-            rand = new Random();
-            r = rand.nextFloat();
-            g = rand.nextFloat();
-            b = rand.nextFloat();
-            randomColor = new Color(r, g, b);
-            contToColor.put(cont.name, randomColor);
-        }
-        Color randomColor;
-        int id = 1;
-        Map<String, Integer> opidToOp = new HashMap<>();
-        for (Operator op : execPlan.getOperatorList()) {
-            if (id > 1) {
-                nodes.append(",");
-            }
-            randomColor = contToColor.get(op.containerName);
-            nodes.append("\n{id: ").append(id).append(", label: \'").append(op.operatorName)
-                .append("\'").append(",color: ").append(
-                "\'rgb(" + randomColor.getRed() + "," + randomColor.getGreen() + "," + randomColor
-                    .getBlue() + ")\'").append("}");
+			}
+		}
 
-            opidToOp.put(op.operatorName, id);
-            id++;
-        }
+		nodes.append("]);\n");
+		edges.append(" ]);\n");
 
+		Json.append(nodes.toString()).append(edges.toString());
 
+		Json.append("var container = document.getElementById(\'mynetwork\');")
+				.append("var data = {\n" + "        nodes: nodes,\n" + "        edges: edges\n" + "    };\n"
+						+ "    var options = {\n" + " layout: { " + "hierarchical: {" + "   sortMethod: \"directed\" "
+						+ "}" + "      }," + "        edges:{\n" + "        arrows: {\n"
+						+ "          to:     {enabled: true, scaleFactor:1},\n" + "        }\n" + "    }\n"
+						+ "    };\n")
+				.append("var network = new vis.Network(container, data, options);\n");
 
-        int count = 0;
-        for (ConcreteOperator op : plan.getGraph().getOperators()) {
-            if (plan.getGraph().getOutputLinks(op.opID).size() == 4) {
-                countrepart++;
-            }
-            for (Link link : plan.getGraph().getOutputLinks(op.opID)) {
+		Json.append("</script>\n" + "   \n" + "</body>\n" + "</html>");
+		return Json.toString();
 
-                // for(Link link :links){
-                if (count > 0) {
-                    edges.append(",");
-                }
-                String to = plan.getGraph().getOperator(link.to.opID).getName();
-                String from = plan.getGraph().getOperator(link.from.opID).getName();
-                ;
-                edges.append("\n{from: ").append(opidToOp.get(from)).append(", to: ")
-                    .append(opidToOp.get(to)).append("}");
-                count++;
-                //  }
+	}
 
-            }
-        }
+	private String explainJSON(String queryScript) throws RemoteException {
+		log.trace("JSON...");
+		// parse
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
 
-        nodes.append("]);\n");
-        edges.append(" ]);\n");
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
+		log.trace("Optimized.");
 
-        Json.append(nodes.toString()).append(edges.toString());
+		return executor.getJSONPlan(plan, properties);
 
-        Json.append("var container = document.getElementById(\'mynetwork\');")
-            .append("var data = {\n" +
-                "        nodes: nodes,\n" +
-                "        edges: edges\n" +
-                "    };\n" +
-                "    var options = {\n" +
-                " layout: { " +
-                "hierarchical: {" +
-                "   sortMethod: \"directed\" " +
-                "}" +
-                "      }," +
-                "        edges:{\n" +
-                "        arrows: {\n" +
-                "          to:     {enabled: true, scaleFactor:1},\n" +
-                "        }\n" +
-                "    }\n" +
-                "    };\n").append("var network = new vis.Network(container, data, options);\n");
+	}
 
-        Json.append("</script>\n" +
-            "   \n" +
-            "</body>\n" +
-            "</html>");
-        return Json.toString();
+	private String explainDotty(String queryScript) throws RemoteException {
+		log.trace("Dotty...");
+		// parse
+		AdpDBQueryID queryID = createNewQueryID();
+		QueryScript qScript = parser.parse(queryScript, registry);
 
-    }
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(qScript, registry, null, queryData, queryID, properties,
+				true /* schedule */, true /* validate */);
 
-    private String explainJSON(String queryScript) throws RemoteException {
-        log.trace("JSON...");
-        // parse
-        AdpDBQueryID queryId = createNewQueryID();
-        QueryScript script = parser.parse(queryScript, registry);
-        log.trace("QueryScript parsed.");
+		return ExportToDotty.exportToDotty(plan.getGraph());
+	}
 
-        // optimize
-        AdpDBHistoricalQueryData queryData = null;
-        AdpDBQueryExecutionPlan plan = optimizer
-            .optimize(script, registry, null, queryData, queryId, properties, true  /* schedule */,
-                true  /* validate */);
-        log.trace("Optimized.");
+	@Override
+	public InputStream readTable(String tableName) throws RemoteException {
+		log.debug("readTable");
+		HashMap<String, Object> additionalProps = new HashMap<String, Object>();
+		additionalProps.put("time", -1);
+		additionalProps.put("errors", new ArrayList<Object>());
+		AdpDBConnector adpDBConnector = AdpDBConnectorFactory.createAdpDBConnector();
+		log.debug("new connector");
+		return adpDBConnector.readTable(tableName, additionalProps, properties);
+	}
 
+	@Override
+	public AdpDBClientQueryStatus query(String queryID, String queryScript) throws RemoteException {
 
+		// parse
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
 
-        return executor.getJSONPlan(plan, properties);
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
+		log.trace("Optimized.");
 
-    }
+		// execute
+		AdpDBStatus status = executor.executeScript(plan, properties);
+		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+	}
 
-    private String explainDotty(String queryScript) throws RemoteException {
-        log.trace("Dotty...");
-        // parse
-        AdpDBQueryID queryID = createNewQueryID();
-        QueryScript qScript = parser.parse(queryScript, registry);
+	@Override
+	public AdpDBClientQueryStatus aquery(String queryID, String queryScript, AdpDBQueryListener listener)
+			throws RemoteException {
+		AdpDBClientQueryStatus queryStatus = query(queryID, queryScript);
+		executor.registerListener(listener, queryStatus.getQueryID());
+		return queryStatus;
+	}
 
-        // optimize
-        AdpDBHistoricalQueryData queryData = null;
-        AdpDBQueryExecutionPlan plan = optimizer
-            .optimize(qScript, registry, null, queryData, queryID, properties, true  /* schedule */,
-                true  /* validate */);
+	private List<EntityName> checkContainers() throws RemoteException {
+		// TODO can this check moved to engine ?
+		log.trace("Checking containers status...");
+		List<EntityName> faultyContainers = new ArrayList<>();
+		ContainerProxy containers[] = ArtRegistryLocator.getArtRegistryProxy().getContainers();
+		for (int i = 0; i < containers.length; ++i) {
+			ContainerProxy container = containers[i];
+			try {
+				log.trace("Container status: " + (container.connect().execJobs(new ContainerJobs()) != null));
+			} catch (Exception e) {
+				log.error(e);
+				log.debug("Removing container: " + container.getEntityName());
+				faultyContainers.add(container.getEntityName());
+				ArtRegistryLocator.getArtRegistryProxy().removeContainer(container.getEntityName());
+			}
+		}
 
-        return ExportToDotty.exportToDotty(plan.getGraph());
-    }
+		return faultyContainers.isEmpty() ? null : faultyContainers;
 
-    @Override public InputStream readTable(String tableName) throws RemoteException {
-        log.debug("readTable");
-        HashMap<String, Object> additionalProps = new HashMap<String, Object>();
-        additionalProps.put("time", -1);
-        additionalProps.put("errors", new ArrayList<Object>());
-        AdpDBConnector adpDBConnector = AdpDBConnectorFactory.createAdpDBConnector();
-        log.debug("new connector");
-        return adpDBConnector.readTable(tableName, additionalProps, properties);
-    }
+	}
 
+	private AdpDBQueryID createNewQueryID() {
+		return new AdpDBQueryID(UUID.randomUUID().getLeastSignificantBits());
+	}
 
-    @Override public AdpDBClientQueryStatus query(String queryID, String queryScript)
-        throws RemoteException {
+	@Override
+	public AdpDBClientQueryStatus query(String queryID, String queryScript,
+			HashMap<String, Pair<byte[], String>> hashQueryMap) throws RemoteException {
 
-        // parse
-        AdpDBQueryID queryId = createNewQueryID();
-        QueryScript script = parser.parse(queryScript, registry);
-        log.trace("QueryScript parsed.");
+		// parse
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
 
-        // optimize
-        AdpDBHistoricalQueryData queryData = null;
-        AdpDBQueryExecutionPlan plan = optimizer
-            .optimize(script, registry, null, queryData, queryId, properties, true  /* schedule */,
-                true  /* validate */);
-        log.trace("Optimized.");
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
 
-        // execute
-        AdpDBStatus status = executor.executeScript(plan, properties);
-        return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
-    }
+		// ArrayList<PhysicalTable> results = plan.getState().results;
+		// int hashID;
+		// Loop on pernament tables
+		// for(PhysicalTable result : results){
+		// System.out.println("name of pernament result
+		// "+result.getTable().getName());
+		// hashID = hashIDMap.get(result.getTable().getName());
+		// System.out.println("hashID is "+hashID);
+		// result.getTable().setHashID(hashID);
+		//
+		// }
 
-    @Override public AdpDBClientQueryStatus aquery(String queryID, String queryScript,
-        AdpDBQueryListener listener) throws RemoteException {
-        AdpDBClientQueryStatus queryStatus = query(queryID, queryScript);
-        executor.registerListener(listener, queryStatus.getQueryID());
-        return queryStatus;
-    }
+		Collection<PhysicalTable> ptables = plan.getScript().getTables();
+		Pair<byte[], String> sqlInfo;
+		for (PhysicalTable table : ptables) {
+			sqlInfo = hashQueryMap.get(table.getTable().getName());
+			table.getTable().setHashID(sqlInfo.getA());
+			table.addPartitionColumn(sqlInfo.getB());
+		}
 
-    private List<EntityName> checkContainers() throws RemoteException {
-        // TODO can this check moved to engine ?
-        log.trace("Checking containers status...");
-        List<EntityName> faultyContainers = new ArrayList<>();
-        ContainerProxy containers[] = ArtRegistryLocator.getArtRegistryProxy().getContainers();
-        for (int i = 0; i < containers.length; ++i) {
-            ContainerProxy container = containers[i];
-            try {
-                log.trace("Container status: " + (container.connect().execJobs(new ContainerJobs())
-                    != null));
-            } catch (Exception e) {
-                log.error(e);
-                log.debug("Removing container: " + container.getEntityName());
-                faultyContainers.add(container.getEntityName());
-                ArtRegistryLocator.getArtRegistryProxy().removeContainer(container.getEntityName());
-            }
-        }
+		log.trace("Optimized.");
 
-        return faultyContainers.isEmpty() ? null : faultyContainers;
-
-
-    }
-
-    private AdpDBQueryID createNewQueryID() {
-        return new AdpDBQueryID(UUID.randomUUID().getLeastSignificantBits());
-    }
+		// execute
+		AdpDBStatus status = executor.executeScript(plan, properties);
+		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+	}
 
 	@Override
 	public AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands)
 			throws RemoteException {
-		 // parse
-        AdpDBQueryID queryId = createNewQueryID();
-        QueryScript script = parser.parse(queryScript, registry);
-        log.trace("QueryScript parsed.");
-        for(Select s:script.getSelectQueries()){
-        	if(extraCommands.containsKey(s.getOutputTable().getTable().getName())){
-        		s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
-        	}
-        }
-        // optimize
-        AdpDBHistoricalQueryData queryData = null;
-        AdpDBQueryExecutionPlan plan = optimizer
-            .optimize(script, registry, null, queryData, queryId, properties, true  /* schedule */,
-                true  /* validate */);
-        log.trace("Optimized.");
+		// parse
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
+		for (Select s : script.getSelectQueries()) {
+			if (extraCommands.containsKey(s.getOutputTable().getTable().getName())) {
+				s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
+			}
+		}
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
+		log.trace("Optimized.");
 
-        // execute
-        AdpDBStatus status = executor.executeScript(plan, properties);
-        return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		// execute
+		AdpDBStatus status = executor.executeScript(plan, properties);
+		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+	}
+
+	@Override
+	public AdpDBClientQueryStatus query(String queryID, String queryScript,
+			HashMap<String, Pair<byte[], String>> hashQueryMap, Map<String, String> extraCommands)
+					throws RemoteException {
+		// parse
+				AdpDBQueryID queryId = createNewQueryID();
+				QueryScript script = parser.parse(queryScript, registry);
+				log.trace("QueryScript parsed.");
+
+				for (Select s : script.getSelectQueries()) {
+					if (extraCommands.containsKey(s.getOutputTable().getTable().getName())) {
+						s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
+					}
+				}
+				
+				// optimize
+				AdpDBHistoricalQueryData queryData = null;
+				AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+						true /* schedule */, true /* validate */);
+
+				// ArrayList<PhysicalTable> results = plan.getState().results;
+				// int hashID;
+				// Loop on pernament tables
+				// for(PhysicalTable result : results){
+				// System.out.println("name of pernament result
+				// "+result.getTable().getName());
+				// hashID = hashIDMap.get(result.getTable().getName());
+				// System.out.println("hashID is "+hashID);
+				// result.getTable().setHashID(hashID);
+				//
+				// }
+
+				Collection<PhysicalTable> ptables = plan.getScript().getTables();
+				Pair<byte[], String> sqlInfo;
+				for (PhysicalTable table : ptables) {
+					sqlInfo = hashQueryMap.get(table.getTable().getName());
+					table.getTable().setHashID(sqlInfo.getA());
+					table.addPartitionColumn(sqlInfo.getB());
+				}
+
+				log.trace("Optimized.");
+
+				// execute
+				AdpDBStatus status = executor.executeScript(plan, properties);
+				return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
 	}
 }

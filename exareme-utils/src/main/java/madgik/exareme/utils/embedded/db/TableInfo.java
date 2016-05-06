@@ -9,24 +9,51 @@ import java.io.Serializable;
  * @author herald
  */
 public class TableInfo implements Serializable {
-  private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-  private String tableName = null;
-  private String sqlDefinition = null;
+    private String tableName = null;
+    private String sqlDefinition = null;
+    private String sqlQuery;
+    private Integer sizeInBytes = null;
+    private String location = null;
 
-  public TableInfo(String tableName) {
-    this.tableName = tableName;
-  }
+    public TableInfo(String tableName) {
+        this.tableName = tableName;
+    }
 
-  public String getTableName() {
-    return tableName;
-  }
+    public String getTableName() {
+        return tableName;
+    }
 
-  public void setSqlDefinition(String sqlDefinition) {
-    this.sqlDefinition = sqlDefinition;
-  }
+    public void setSqlDefinition(String sqlDefinition) {
+        this.sqlDefinition = sqlDefinition;
+    }
 
-  public String getSQLDefinition() {
-    return sqlDefinition;
-  }
+    public void setSizeInBytes(Integer size) {
+        this.sizeInBytes = size;
+    }
+
+    public void setSqlQuery(String query) {
+        this.sqlQuery = query;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getSQLDefinition() {
+        return sqlDefinition;
+    }
+
+    public int getSizeInBytes() {
+        return sizeInBytes;
+    }
+
+    public String getSqlQuery() {
+        return this.sqlQuery;
+    }
+
+    public String getLocation() {
+        return location;
+    }
 }

@@ -13,9 +13,17 @@ public class Table implements Serializable {
     private static final long serialVersionUID = 1L;
     private String name = null;
     private String sqlDefinition = null;
+    private String sqlQuery = null;
+    private byte[] hashID;
     private boolean temp = false;
+    private int totalSize = 0;
+    private int pin = 0;
+    private String last_access;
+    private int numOfAccess;
+    private String storageTime;
+    private double benefit;
 
-    // The level of a table view is the
+ // The level of a table view is the
     private int level = -1;
 
     public Table(String name) {
@@ -29,6 +37,42 @@ public class Table implements Serializable {
 
     public String getName() {
         return name;
+    }
+
+    public void setSize(int size) {
+        totalSize = size;
+    }
+
+    public void setHashID(byte[] hashID) {
+        this.hashID = hashID;
+    }
+
+    public void setSqlQuery(String query) {
+        sqlQuery = query;
+    }
+
+    public void setLastAccess(String access) {
+        last_access = access;
+    }
+
+    public void setStorageTime(String access) {
+        storageTime = access;
+    }
+
+    public void setNumOfAccess(int access) {
+        numOfAccess = access;
+    }
+
+    public void setBenefit(double benefit) {
+        this.benefit = benefit;
+    }
+
+    public int getSize() {
+        return totalSize;
+    }
+
+    public String getSqlQuery() {
+        return sqlQuery;
     }
 
     public String getSqlDefinition() {
@@ -59,7 +103,36 @@ public class Table implements Serializable {
         this.level = level;
     }
 
-    @Override public String toString() {
+    public byte[] getHashID() {
+        return hashID;
+    }
+
+    public void setPin(int pin) {
+        this.pin = pin;
+    }
+
+    public int getPin() {
+        return pin;
+    }
+
+    public int getNumOfAccess() {
+        return numOfAccess;
+    }
+
+    public String getLastAccess() {
+        return last_access;
+    }
+
+    public String getStorageTime() {
+        return storageTime;
+    }
+
+    public double getBenefit() {
+        return benefit;
+    }
+
+    @Override
+    public String toString() {
         return name + (temp ? " temp" : "");
     }
 }

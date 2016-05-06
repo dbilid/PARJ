@@ -16,6 +16,7 @@ public class Partition implements Serializable {
     private int pNum = 0;
     private Set<String> locations = null;
     private Set<String> partitionColumns = null;
+    private int sizeInBytes = 0;
 
     public Partition(String table, int pNum) {
         this.table = table;
@@ -46,5 +47,13 @@ public class Partition implements Serializable {
 
     public List<String> getPartitionColumns() {
         return Collections.unmodifiableList(new ArrayList<String>(partitionColumns));
+    }
+    
+    public void setSize(int size) {
+        sizeInBytes = size;
+    }
+
+    public int getSize() {
+        return sizeInBytes;
     }
 }

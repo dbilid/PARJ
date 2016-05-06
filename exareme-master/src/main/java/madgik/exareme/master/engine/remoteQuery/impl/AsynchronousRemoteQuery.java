@@ -352,7 +352,7 @@ public final class AsynchronousRemoteQuery implements RemoteQuery, RemoteQueryIn
             if (locationOfCachedResults != null) {
                 inCache = true;
                 if (staleLimit == null
-                    || Date.getDifferenceInSec(locationOfCachedResults.storageTime) < staleLimit) {
+                    || Date.getDifferenceInSec(locationOfCachedResults.storageTime, false) < staleLimit) {
                     readFromCache = true;
                 }
             }

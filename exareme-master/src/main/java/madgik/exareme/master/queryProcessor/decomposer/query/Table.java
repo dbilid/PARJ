@@ -102,7 +102,10 @@ public class Table {
             return false;
         }
         Table otherT = (Table) other;
-        if (this.getAlias() == null) {
+        if (this.getName() == null && otherT.getName() == null) {
+        	            return this.getAlias().equals(otherT.getAlias());
+        	        }
+        if (this.getAlias() == null&&otherT.getAlias() == null) {
             return this.getName().equals(otherT.getName());
         }
         return (this.getName().equals(otherT.getName()) && this.getAlias()
