@@ -59,10 +59,11 @@ public class QueryDecomposer {
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 	private final boolean useGreedy = false;
-	private final int mostProminent=DecomposerUtils.MOST_PROMINENT;
+	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
+	private NodeCostEstimator nce;
 
 	public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
 		this(initial, ".", 1, null);
@@ -73,13 +74,12 @@ public class QueryDecomposer {
 		this.initialQuery = initial;
 		this.noOfparts = noOfPartitions;
 		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
-		// when using cache
-		/*
-		 * for(PhysicalTable
-		 * pt:Registry.getInstance(database).getPhysicalTables()){
-		 * registry.put(HashCode.fromBytes(pt.getTable().getHashID()),
-		 * pt.getTable()); }
-		 */
+		for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
+			byte[] hash=pt.getTable().getHashID();
+			if(hash!=null){
+				registry.put(HashCode.fromBytes(pt.getTable().getHashID()), pt.getTable());
+			}
+		}
 
 		try {
 			// read dbinfo from properties file
@@ -144,6 +144,8 @@ public class QueryDecomposer {
 		if (useSIP) {
 			sipInfo = new SipStructure();
 		}
+		
+		nce=new NodeCostEstimator(this.noOfparts);
 	}
 
 	public List<SQLQuery> getSubqueries() throws Exception {
@@ -256,12 +258,12 @@ public class QueryDecomposer {
 
 	public List<SQLQuery> getPlan() {
 		// String dot0 = root.dotPrint();
-		// StringBuilder a = root.dotPrint();
-		// System.out.println(a.toString());
+
 		if (projectRefCols) {
 			createProjections(root);
 		}
-
+		// StringBuilder a = root.dotPrint();
+		// System.out.println(a.toString());
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
@@ -1034,8 +1036,8 @@ public class QueryDecomposer {
 						// newsip.add(join.getChildAt(0));
 						// newsip.add(join.getChildAt(1));
 						// sipToUnions.get(unionnumber).add(newsip);
-					} else if(join.getOpCode()==Node.JOIN){
-						//System.out.println("yes");
+					} else if (join.getOpCode() == Node.JOIN) {
+						// System.out.println("yes");
 						NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) join.getObject();
 						Node joinTable2 = join.getChildAt(0);
 						for (int chNo2 = 0; chNo2 < joinTable2.getChildren().size(); chNo2++) {
@@ -1233,7 +1235,7 @@ public class QueryDecomposer {
 		SinglePlan resultPlan = new SinglePlan(Integer.MAX_VALUE);
 		double repartitionCost = 0;
 		if (c != null) {
-			repartitionCost = NodeCostEstimator.estimateRepartition(e, c);
+			repartitionCost = nce.estimateRepartition(e, c);
 		}
 		/*
 		 * PartitionCols e2partCols = new PartitionCols(); Node np = new
@@ -1250,7 +1252,7 @@ public class QueryDecomposer {
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 			SinglePlan e2Plan = new SinglePlan(Integer.MAX_VALUE);
-			Double opCost = NodeCostEstimator.getCostForOperator(o);
+			Double opCost = nce.getCostForOperator(o);
 			if (o.getOpCode() == Node.JOIN) {
 				NonUnaryWhereCondition join = (NonUnaryWhereCondition) o.getObject();
 				e2RecordCloned.mergePartitionRecords(join);
@@ -1296,7 +1298,7 @@ public class QueryDecomposer {
 					Column c2 = getPartitionRequired(a, o, i);
 					Double c2RepCost = 0.0;
 					if (c2 != null) {
-						NodeCostEstimator.estimateRepartition(e2, c2);
+						nce.estimateRepartition(e2, c2);
 					}
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
@@ -1425,6 +1427,14 @@ public class QueryDecomposer {
 
 	private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
 			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
+		
+		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
+			SinglePlan r = new SinglePlan(0);
+
+			memo.put(e, r, true, true, false);
+
+			return r;
+		}
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
@@ -1437,7 +1447,7 @@ public class QueryDecomposer {
 		SinglePlan resultPlan = null;
 		double repartitionCost = 0;
 		if (c != null) {
-			repartitionCost = NodeCostEstimator.estimateRepartition(e, c);
+			repartitionCost = nce.estimateRepartition(e, c);
 		}
 
 		/*
@@ -1456,7 +1466,7 @@ public class QueryDecomposer {
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 
-			Double opCost = NodeCostEstimator.getCostForOperator(o);
+			Double opCost = nce.getCostForOperator(o);
 			SinglePlan e2Plan = null;
 			// this must go after algorithmic implementation
 			double newLimit = limit - opCost;
@@ -1506,7 +1516,7 @@ public class QueryDecomposer {
 					Column c2 = getPartitionRequired(a, o, i);
 					Double c2RepCost = 0.0;
 					if (c2 != null) {
-						c2RepCost = NodeCostEstimator.estimateRepartition(e2, c2);
+						c2RepCost = nce.estimateRepartition(e2, c2);
 					}
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
@@ -1668,7 +1678,7 @@ public class QueryDecomposer {
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
 			// check on c!
-			resultPlan = new SinglePlan(NodeCostEstimator.getReadCost(e), null);
+			resultPlan = new SinglePlan(nce.getReadCost(e), null);
 		} else if (memo.containsMemoKey(ec)) {
 			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
 			if (!useGreedy) {
@@ -1679,7 +1689,7 @@ public class QueryDecomposer {
 				cmv.addUsed(used);
 				// }
 
-				if (NodeCostEstimator.isProfitableToMat(e, cmv.getUsed() + 1, resultPlan.getCost())) {
+				if (nce.isProfitableToMat(e, cmv.getUsed() + 1, resultPlan.getCost())) {
 					memo.removeUsageFromChildren(ec, cmv.getUsed(), unionnumber);
 					cmv.setMaterialized(true);
 					cmv.setMatUnion(unionnumber);
@@ -1694,7 +1704,7 @@ public class QueryDecomposer {
 					e.setMaterialised(true);
 					// greedyToMat.put(e, resultPlan.getCost() +
 					// NodeCostEstimator.getWriteCost(e) * 0.0);
-					resultPlan.setCost(NodeCostEstimator.getReadCost(e));
+					resultPlan.setCost(nce.getReadCost(e));
 				}
 			}
 		} else {
@@ -1703,8 +1713,8 @@ public class QueryDecomposer {
 			if (greedyToMat.containsKey(e) && e.getFirstParent().getOpCode() != Node.UNION) {
 				cmv.setMaterialized(true);
 				e.setMaterialised(true);
-				greedyToMat.put(e, resultPlan.getCost() + NodeCostEstimator.getWriteCost(e) * 2);
-				resultPlan.setCost(NodeCostEstimator.getReadCost(e));
+				greedyToMat.put(e, resultPlan.getCost() + nce.getWriteCost(e) * 2);
+				resultPlan.setCost(nce.getReadCost(e));
 			}
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
@@ -1738,7 +1748,7 @@ public class QueryDecomposer {
 		for (int k = 0; k < e.getChildren().size(); k++) {
 			Node o = e.getChildAt(k);
 			SinglePlan e2Plan = new SinglePlan(Double.MAX_VALUE);
-			Double opCost = NodeCostEstimator.getCostForOperator(o);
+			Double opCost = nce.getCostForOperator(o);
 			boolean fed = false;
 			boolean mat = false;
 			// this must go after algorithmic implementation
@@ -2060,7 +2070,7 @@ public class QueryDecomposer {
 		SinglePlan resultPlan = null;
 		double repartitionCost = 0;
 		if (c != null) {
-			repartitionCost = NodeCostEstimator.estimateRepartition(e, c);
+			repartitionCost = nce.estimateRepartition(e, c);
 		}
 		/*
 		 * PartitionCols e2partCols = new PartitionCols(); Node np = new
@@ -2077,7 +2087,7 @@ public class QueryDecomposer {
 			EquivalentColumnClasses e2RecordCloned = partitionRecord.shallowCopy();
 			Node o = e.getChildAt(k);
 
-			Double opCost = NodeCostEstimator.getCostForOperator(o);
+			Double opCost = nce.getCostForOperator(o);
 			SinglePlan e2Plan = null;
 			// this must go after algorithmic implementation
 			double newLimit = limit - opCost;
@@ -2121,7 +2131,7 @@ public class QueryDecomposer {
 					Column c2 = getPartitionRequired(a, o, i);
 					Double c2RepCost = 0.0;
 					if (c2 != null) {
-						c2RepCost = NodeCostEstimator.estimateRepartition(e2, c2);
+						c2RepCost = nce.estimateRepartition(e2, c2);
 					}
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {

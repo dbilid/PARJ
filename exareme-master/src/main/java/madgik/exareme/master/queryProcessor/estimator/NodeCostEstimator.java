@@ -23,8 +23,9 @@ public class NodeCostEstimator {
 
     private static final org.apache.log4j.Logger log =
         org.apache.log4j.Logger.getLogger(NodeCostEstimator.class);
+    private int partitionNo;
 
-    public static Double getCostForOperator(Node o) {
+    public Double getCostForOperator(Node o) {
         if (o.getOpCode() == Node.JOIN) {
         	if(o.getChildren().size()==1){
         		return 0.0;
@@ -70,7 +71,7 @@ public class NodeCostEstimator {
             return 0.0;
         }
     }
-    private static Double estimateBaseProjection(Node o) {
+    private Double estimateBaseProjection(Node o) {
     	double a=indexCostCreation(o.getChildAt(0));
     	return (o.getChildAt(0).getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
 	}
@@ -78,21 +79,24 @@ public class NodeCostEstimator {
 
     /*constructor*/
     public NodeCostEstimator() {
-        //this.selEstimator = new NodeSelectivityEstimator(schema);
+    	partitionNo=8;
     }
 
-    /*interface methods*/
-    public static double estimateBase(Node n) {
+    public NodeCostEstimator(int noOfparts) {
+    	partitionNo=noOfparts;
+	}
+	/*interface methods*/
+    public double estimateBase(Node n) {
 
         return 0;
     }
 
-    public static double estimateProjection(Node n) {
+    public double estimateProjection(Node n) {
 
         return 0;
     }
 
-    public static double estimateFilter(Node n) {
+    public double estimateFilter(Node n) {
     	//if it's not on base relation return 0
     	if(n.getChildAt(0).getChildAt(0).getOpCode()!=Node.BASEPROJECT){
     		return 0;
@@ -127,10 +131,10 @@ public class NodeCostEstimator {
         
     }
 
-    public static double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
+    public double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
         throws Exception {
-    	if(right.getDescendantBaseTables().size()>1){
-    		//bushy join
+    	if(this.partitionNo==1&&right.getDescendantBaseTables().size()>1){
+    		//TODO do not consider bushy joins in centralised and not federated execution
     		return 1000000.0;
     	}
 
@@ -151,7 +155,7 @@ public class NodeCostEstimator {
         return responseTime;
     }
 
-    public static double estimateRepartition(Node n, Column partitioningCol) {
+    public double estimateRepartition(Node n, Column partitioningCol) {
         //this.planInfo.put(n.getHashId(), new NodeInfo());
         //this.selEstimator.estimateRepartition(n, partitioningCol, child);
 
@@ -178,12 +182,12 @@ public class NodeCostEstimator {
 
     }
 
-    public static double estimateReplication(double data, int replicas) {
+    public double estimateReplication(double data, int replicas) {
         return ((data / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME) * replicas + replicas * (data
             / NETWORK_RATE);
     }
 
-    public static double estimateUnion(Node n) {
+    public double estimateUnion(Node n) {
         //this.planInfo.put(n.getHashId(), new NodeInfo());
         //this.selEstimator.estimateUnion(n);
 
@@ -204,22 +208,22 @@ public class NodeCostEstimator {
 
     /*private-helper methods*/
     //estimation model      
-    private static double repartition(double relSize, int fromNumOfPartitions,
+    private double repartition(double relSize, int fromNumOfPartitions,
         int toNumOfPartitions) {
         return (relSize * (1 / fromNumOfPartitions)) / (NETWORK_RATE / fromNumOfPartitions);
     }
 
-    private static double localUnionTime(double dataPortion) {
+    private double localUnionTime(double dataPortion) {
         return (dataPortion / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
     }
 
     //TODO: relSize as argument?? 10 mb/sec => 1 tuple->8bytes(for numeric) thus: (10*2^20)/8 tuples/sec = 1310720 tuples/sec thus for 1 tuple : 0.000000763 sec
-    private static double localHashingTime(double relTuples, double relSize) {
+    private double localHashingTime(double relTuples, double relSize) {
         return relTuples
             * 0.000034;        //time for a tuple hushing: 0.000034 sec (disk io + cpu time included)
     }
 
-    private static double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
+    private double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
         double rightRelTuples, double rightRelSize) {
     	if(leftRelTuples<1||rightRelTuples<1){
     		return 0.0;
@@ -254,7 +258,7 @@ public class NodeCostEstimator {
         return joinOpCost;
     }
 
-	public static boolean isProfitableToMat(Node e, int used, double cost) {
+	public boolean isProfitableToMat(Node e, int used, double cost) {
 		if(used>1){
 			
 			double size=e.getNodeInfo().outputRelSize();
@@ -268,7 +272,7 @@ public class NodeCostEstimator {
 		return false;
 	}
 
-	public static double getWriteCost(Node e) {
+	public double getWriteCost(Node e) {
 		try{
 		double size=e.getNodeInfo().outputRelSize();
 		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME_SCAN;
@@ -279,7 +283,7 @@ public class NodeCostEstimator {
 		}
 	}
 
-	public static double getReadCost(Node e) {
+	public double getReadCost(Node e) {
 		try{
 		double size=e.getNodeInfo().outputRelSize();
 		return (size / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME_SCAN;
@@ -290,7 +294,7 @@ public class NodeCostEstimator {
 		}
 	}
 	
-	private static double indexCostCreation(Node e){
+	private double indexCostCreation(Node e){
 		try{
 		double size=e.getNodeInfo().outputRelSize();
 		double card=e.getNodeInfo().getNumberOfTuples();

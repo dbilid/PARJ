@@ -8,6 +8,8 @@ import com.foundationdb.sql.parser.*;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
+import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
+import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
 import madgik.exareme.master.queryProcessor.decomposer.query.QueryUtils;
@@ -16,7 +18,9 @@ import madgik.exareme.master.queryProcessor.decomposer.query.Table;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -27,18 +31,26 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
     private boolean stop = false;
     private NodeHashValues hashes;
+    private NamesToAliases n2a;
 
     public SQLQueryVisitor(SQLQuery query, NodeHashValues h) {
         super(query);
         hashes=h;
     }
 
-    @Override public Visitable visit(Visitable node) throws StandardException {
+    public SQLQueryVisitor(SQLQuery query, NodeHashValues h, NamesToAliases n2a) {
+    	super(query);
+        hashes=h;
+        this.n2a=n2a;
+	}
+
+	@Override public Visitable visit(Visitable node) throws StandardException {
 
 
         if (node instanceof JoinNode) {
             if (query.getJoinNode() == null) {
-            	query.setJoinNode(getJoinNode((JoinNode) node));
+            	Map<String, Integer> counts = new HashMap<String, Integer>();
+            	query.setJoinNode(getJoinNode((JoinNode) node, counts, new HashMap<String, String>()));
                 //decomposeJoinNode((JoinNode) node);
                 //WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
                 //node.accept(whereVisitor);
@@ -96,7 +108,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
                         SQLQuery nestedSelectSubquery = new SQLQuery();
                         //query.readDBInfo();
-                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery, hashes);
+                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery, hashes, n2a);
                         nestedSelectNode.accept(subqueryVisitor);
 
                         this.query.addNestedSelectSubquery(nestedSelectSubquery, alias);
@@ -120,7 +132,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
         return node;
     }
 
-    private Node getJoinNode(JoinNode node) {
+    private Node getJoinNode(JoinNode node, Map<String, Integer> counts, Map<String, String> correspondingAliases) {
 		Node j=new Node(Node.AND, Node.JOIN);
 		if(node instanceof HalfOuterJoinNode){
 			HalfOuterJoinNode outer=(HalfOuterJoinNode)node;
@@ -134,10 +146,20 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		ResultSetNode left=node.getLogicalLeftResultSet();
 		if(left instanceof FromBaseTable){
 			FromBaseTable bt=(FromBaseTable)left;
-			Table t=new Table(bt.getOrigTableName().getTableName(), bt.getExposedName());
+			String originalAlias=bt.getExposedName();
+			String tblName=bt.getOrigTableName().getTableName();
+			String newAlias=originalAlias;
+			if (counts.containsKey(tblName)) {
+				counts.put(tblName, counts.get(tblName) + 1);
+				newAlias=n2a.getGlobalAliasForBaseTable(tblName, counts.get(tblName));
+			} else {
+				counts.put(tblName, 0);
+				newAlias=n2a.getGlobalAliasForBaseTable(tblName, 0);
+			}
+			Table t=new Table(tblName, newAlias);
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());
-
+			correspondingAliases.put(originalAlias, newAlias);
 			table.setObject(t);
 			if (!hashes.containsKey(table.getHashId())) {
 
@@ -151,7 +173,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(left instanceof JoinNode){
-			Node n=getJoinNode((JoinNode)left);
+			Node n=getJoinNode((JoinNode)left, counts, correspondingAliases);
 			j.addChild(n);
 			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
@@ -162,10 +184,20 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		ResultSetNode right=node.getLogicalRightResultSet();
 		if(right instanceof FromBaseTable){
 			FromBaseTable bt=(FromBaseTable)right;
-			Table t=new Table(bt.getOrigTableName().getTableName(), bt.getExposedName());
+			String originalAlias=bt.getExposedName();
+			String tblName=bt.getOrigTableName().getTableName();
+			String newAlias=originalAlias;
+			if (counts.containsKey(tblName)) {
+				counts.put(tblName, counts.get(tblName) + 1);
+				newAlias=n2a.getGlobalAliasForBaseTable(tblName, counts.get(tblName));
+			} else {
+				counts.put(tblName, 0);
+				newAlias=n2a.getGlobalAliasForBaseTable(tblName, 0);
+			}
+			Table t=new Table(tblName, newAlias);
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());
-
+			correspondingAliases.put(originalAlias, newAlias);
 			table.setObject(t);
 			if (!hashes.containsKey(table.getHashId())) {
 
@@ -179,7 +211,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(right instanceof JoinNode){
-			Node n=getJoinNode((JoinNode)right);
+			Node n=getJoinNode((JoinNode)right, counts, correspondingAliases);
 			j.addChild(n);
 			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
@@ -187,7 +219,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			System.err.println("error in join, unknown child type");
 		}
 		//List<Operand> joinConditions=new ArrayList<Operand>();
-		j.setObject(QueryUtils.getOperandFromNode(node.getJoinClause()));
+		Operand op=QueryUtils.getOperandFromNode(node.getJoinClause());
+		for(Column c:op.getAllColumnRefs()){
+			op.changeColumn(c, new Column(correspondingAliases.get(c.getAlias()), c.getColumnName()));
+		}
+		j.setObject(op);
+		
 		
 		
 		Node parent = new Node(Node.OR);
@@ -222,8 +259,8 @@ public class SQLQueryVisitor extends AbstractVisitor {
         SQLQuery leftSubquery = new SQLQuery();
         SQLQuery rightSubquery = new SQLQuery();
         //query.readDBInfo();
-        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery, hashes);
-        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery, hashes);
+        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery, hashes, n2a);
 
         if (uNode.getResultColumns() != null) {
             //uNode.getResultColumns().accept(leftVisitor);
@@ -234,7 +271,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getLeftResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getLeftResultSet());
             } else if (uNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
                 uNode.getLeftResultSet().accept(v);
                 this.query.getUnionqueries().add(leftSubquery);
             } else {
@@ -247,7 +284,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getRightResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getRightResultSet());
             } else if (uNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
                 uNode.getRightResultSet().accept(v);
                 this.query.getUnionqueries().add(rightSubquery);
             } else {
@@ -275,12 +312,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             // for now we only consider that the join operators are base tables or nested joins
             if (jNode.getLeftResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getLeftResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
                 fs.getSubquery().accept(v);
                 this.query.setLeftJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
                 jNode.getLeftResultSet().accept(v);
                 //leftSubquery.setSelectAll(true);
             } else if (jNode.getLeftResultSet() instanceof FromBaseTable) {
@@ -325,12 +362,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             //for now we only consider that the join operators are base tables or nested joins
             if (jNode.getRightResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getRightResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
                 fs.getSubquery().accept(v);
                 this.query.setRightJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
                 jNode.getRightResultSet().accept(v);
                 //rightSubquery.setSelectAll(true);
             } else if (jNode.getRightResultSet() instanceof FromBaseTable) {

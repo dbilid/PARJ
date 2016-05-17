@@ -79,9 +79,9 @@ public class DBInfoWriterDB {
                         "postgres " + "h:" + host + " port:" + port + " u:" + params[3] + " p:"
                             + params[4] + " db:" + db;
                 }
-                statement.executeUpdate("DELETE FROM endpoint WHERE id = '" + params[0] + "';");
+                statement.executeUpdate("DELETE FROM endpoint WHERE id = '" + params[0].toUpperCase() + "';");
                 statement.executeUpdate(
-                    "INSERT INTO endpoint VALUES ('" + params[0] + "','" + params[1] + "','"
+                    "INSERT INTO endpoint VALUES ('" + params[0].toUpperCase() + "','" + params[1] + "','"
                         + params[2] + "','" + params[3] + "','" + params[4] + "','" + madisString
                         + "','" + params[5] + "');");
                 statement.close();

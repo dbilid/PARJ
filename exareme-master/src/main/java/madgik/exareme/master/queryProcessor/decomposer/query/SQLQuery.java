@@ -233,7 +233,7 @@ public class SQLQuery {
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
 				output.append(" on ");
 				output.append(joinOperands.get(joinOp).toString());
-				output.append(")");
+				//output.append(")");
 
 			}
 			/*
@@ -2429,5 +2429,10 @@ public class SQLQuery {
 		}
 
 	}
+
+	public List<Operand> getJoinOperands() {
+		return joinOperands;
+	}
+	
 
 }

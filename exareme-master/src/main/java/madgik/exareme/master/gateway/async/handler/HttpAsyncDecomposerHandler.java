@@ -15,6 +15,7 @@ import madgik.exareme.utils.properties.AdpDBProperties;
 import madgik.exareme.master.engine.AdpDBManager;
 import madgik.exareme.master.engine.AdpDBManagerLocator;
 import madgik.exareme.master.gateway.ExaremeGatewayUtils;
+import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.ExternalAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
@@ -322,7 +323,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							log.debug("Parsing SQL Query ...");
 							NodeHashValues hashes=new NodeHashValues();
 							hashes.setSelectivityEstimator(nse);
-							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes);
+							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes, n2a);
 							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
 							d.setN2a(n2a);
 							log.debug("SQL Query Decomposing ...");
@@ -372,8 +373,8 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 						}
 
-					} else if (query.startsWith("analyzeTable")) {
-						String[] t = query.replace("analyzeTable ", "").split(" ");
+					} else if (query.startsWith("analyze table")) {
+						String[] t = query.replace("analyze table ", "").split(" ");
 						if (t.length == 0) {
 							log.warn("Cannot analyze table, no columns given");
 							InputStreamEntity se = new InputStreamEntity(createOKResultStream(), -1,
@@ -381,6 +382,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 							httpResponse.setEntity(se);
 						} else {
+							Connection conn=null;
 							try {
 								String path = dbname;
 								if (!path.endsWith("/")) {
@@ -391,26 +393,33 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								String tablename = t[0];
 								Table tab = new Table(tablename, tablename);
 								String endpointID = tab.getDBName();
-								String localTblName = tablename.replace(endpointID + "_", "");
+								String localTblName = tablename.substring(endpointID.length()+1);
 								DB db = DBInfoReaderDB.dbInfo.getDB(endpointID);
 
 								Set<String> attrs = new HashSet<String>();
 								for (int i = 1; i < t.length; i++) {
 									attrs.add(t[i]);
 								}
-
-								OptiqueAnalyzer fa = new OptiqueAnalyzer(dbname, db);
+								Class.forName(db.getDriver());
+								conn=DriverManager.getConnection(db.getURL(), db.getUser(), db.getPass());
+								ExternalAnalyzer fa = new ExternalAnalyzer(dbname, conn, db.getSchema());
+								
 								Schema sch = fa.analyzeAttrs(localTblName, attrs);
 								// change table name back to adding DB id
+								log.debug("Saving stats to file");
 								sch.getTableIndex().put(tablename, sch.getTableIndex().get(localTblName));
 								sch.getTableIndex().remove(localTblName);
 								StatUtils.addSchemaToFile(path + "histograms.json", sch);
 								InputStreamEntity se = new InputStreamEntity(createOKResultStream(), -1,
 										ContentType.TEXT_PLAIN);
+								conn.close();
 								log.debug("Sending OK : " + se.toString());
 								httpResponse.setEntity(se);
 							} catch (Exception e) {
 								log.error(e);
+								if(conn!=null){
+									conn.close();
+								}
 								httpResponse.setStatusCode(500);
 								httpResponse.setEntity(new StringEntity(e.getMessage(), ContentType.TEXT_PLAIN));
 							}
@@ -447,7 +456,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							log.debug("Parsing SQL Query ...");
 							NodeHashValues hashes=new NodeHashValues();
 							hashes.setSelectivityEstimator(nse);
-							squery = SQLQueryParser.parse(query, hashes);
+							squery = SQLQueryParser.parse(query, hashes, n2a);
 							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
 							if(DecomposerUtils.WRITE_ALIASES){
 							n2a=DBInfoReaderDB.readAliases(path);}
@@ -497,7 +506,11 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									if(q.getPartitionColumn()!=null){
 										ptnCol=q.getPartitionColumn().toString();
 									}
+									try{
 									hashQueryMap.put(q.getResultTableName(), new Pair(q.getHashId().asBytes(), ptnCol));
+									}catch(NullPointerException we){
+										System.out.print("sss");
+									}
 									String dSQL = q.toDistSQL();
 									decomposedQuery += dSQL + "\n\n";
 									if (!q.isTemporary()) {

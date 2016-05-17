@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.sqlite.javax.SQLiteConnectionPoolDataSource;
 
+import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.ExternalAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
@@ -31,8 +32,9 @@ public class PostgresImporter {
 		boolean importtables=false;
 		boolean analyze=false;
 		boolean analyzeSQLITE=false;
-		boolean vacuum = true;
-		String path="/media/dimitris/T/exaremenpd500/";
+		boolean analyzeExternal=true;
+		boolean vacuum = false;
+		String path="/media/dimitris/T/statstest/";
 		DB dbinfo=new DB("ex");
 		dbinfo.setSchema("public");
 		dbinfo.setDriver("org.postgresql.Driver");
@@ -50,9 +52,9 @@ public class PostgresImporter {
 		ResultSet rs = md.getTables(null, "public", "%", new String[] {"TABLE"});
 		while (rs.next()) {
 			String tablename=rs.getString(3);
-			//if(tablename.compareTo("field_reserves")<0){
-			//	continue;
-			//}
+			if(tablename.compareTo("baaa")>0){
+				continue;
+			}
 			//if(!tablename.equalsIgnoreCase("wellbore_development_all")&&!tablename.equalsIgnoreCase("wellbore_exploration_all")&&!tablename.equalsIgnoreCase("wellbore_core")){
 			//	continue;
 			//}
@@ -93,6 +95,14 @@ public class PostgresImporter {
 
 					OptiqueAnalyzer fa = new OptiqueAnalyzer(path, dbinfo);
 					fa.setUseDataImporter(true);
+					System.out.println("analyzing: "+tablename);
+					Schema sch = fa.analyzeAttrs(tablename, attrs);
+					// change table name back to adding DB id
+					
+					StatUtils.addSchemaToFile(path + "histograms.json", sch);
+	            }
+	            if(analyzeExternal){
+	            	ExternalAnalyzer fa = new ExternalAnalyzer(path, conn,  "npd_vig_scale100");
 					System.out.println("analyzing: "+tablename);
 					Schema sch = fa.analyzeAttrs(tablename, attrs);
 					// change table name back to adding DB id
