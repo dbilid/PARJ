@@ -350,8 +350,9 @@ public class MadisProcessExecutor {
 				log.error("Error while storage client try to disconnect!");
 				throw new RemoteException();
 			}
-
+			//if (AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true")) {
 			execResult.getTableInfo().setSqlQuery(inputQuery);
+			//}
 			return execResult;
 		} catch (Exception e) {
 			throw new ServerException("Cannot execute madis", e);

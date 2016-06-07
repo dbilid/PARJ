@@ -4,6 +4,8 @@
 package madgik.exareme.utils.embedded.process;
 
 import madgik.exareme.utils.embedded.utils.SqlParseUtils;
+import madgik.exareme.utils.properties.AdpProperties;
+
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
@@ -17,8 +19,11 @@ import java.io.InputStreamReader;
  */
 public class MadisProcess {
     private static final Logger log = Logger.getLogger(MadisProcess.class);
-    private static final String python = System.getProperty("EXAREME_PYTHON");
-    private static final String madis = System.getProperty("EXAREME_MADIS");
+
+    private static final String python =
+            AdpProperties.getSystemProperties().getString("EXAREME_PYTHON");
+        private static final String madis =
+            AdpProperties.getSystemProperties().getString("EXAREME_MADIS");
     private String dbFile = null;
     private Process proc = null;
     private BufferedReader input = null;
@@ -56,10 +61,10 @@ public class MadisProcess {
         log.debug("Starting process ..." + dbFile + python + madisPath);
         ProcessBuilder pb;
         if (dbFile == null) {
-            pb = new ProcessBuilder("stdbuf", "-oL", "python", madisPath);
+            pb = new ProcessBuilder("stdbuf", "-oL", python, madisPath);
 //            pb = new ProcessBuilder(python, madisPath);
         } else {
-            pb = new ProcessBuilder("stdbuf", "-oL", "python", madisPath, dbFile);
+            pb = new ProcessBuilder("stdbuf", "-oL", python, madisPath, dbFile);
 //            pb = new ProcessBuilder(python, madisPath, dbFile);
         }
         pb.directory(new File("."));

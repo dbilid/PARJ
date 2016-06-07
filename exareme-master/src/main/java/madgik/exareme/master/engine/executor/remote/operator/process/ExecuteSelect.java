@@ -15,49 +15,45 @@ import org.apache.log4j.Logger;
  */
 public class ExecuteSelect extends AbstractMiMo {
 
-    private static Logger log = Logger.getLogger(ExecuteSelect.class);
+	private static Logger log = Logger.getLogger(ExecuteSelect.class);
 
-    @Override public void run() throws Exception {
-        log.trace("Parse DB Operator ...");
-        AdpDBSelectOperator dbOp =
-            Base64Util.decodeBase64(super.getParameterManager().getQueryString());
+	@Override
+	public void run() throws Exception {
+		log.trace("Parse DB Operator ...");
+		AdpDBSelectOperator dbOp = Base64Util.decodeBase64(super.getParameterManager().getQueryString());
 
-        String operatorName = super.getSessionManager().getOperatorName();
-        log.debug("Operator Name : " + operatorName);
-        dbOp.printStatistics(operatorName);
+		String operatorName = super.getSessionManager().getOperatorName();
+		log.debug("Operator Name : " + operatorName);
+		dbOp.printStatistics(operatorName);
 
-        log.trace("Create state ...");
-        ExecuteQueryState state =
-            new ExecuteQueryState(dbOp, getDiskManager(), getProcessManager(), false);
+		log.trace("Create state ...");
+		ExecuteQueryState state = new ExecuteQueryState(dbOp, getDiskManager(), getProcessManager(), false);
 
-        log.debug("Read inputs ...");
-        state.readInputs(super.getAdaptorManager());
+		log.debug("Read inputs ...");
+		state.readInputs(super.getAdaptorManager());
 
-        super.getAdaptorManager().closeAllInputs();
+		super.getAdaptorManager().closeAllInputs();
 
-        log.debug("Execute query ...");
-        state.executeSelect();
+		log.debug("Execute query ...");
+		state.executeSelect();
 
-        log.debug("Write output ...");
-        if (super.getAdaptorManager().getOutputCount() > 0) {
-            state.writeOutputs(super.getAdaptorManager());
-        }
+		log.debug("Write output ...");
+		if (super.getAdaptorManager().getOutputCount() > 0) {
+			state.writeOutputs(super.getAdaptorManager());
+		}
 
-        super.getAdaptorManager().closeAllOutputs();
+		super.getAdaptorManager().closeAllOutputs();
 
-        if (super.getAdaptorManager().getOutputCount() == 0) {
-            log.debug("Save the non-temporary tables ...");
-            Table outputTable = dbOp.getQuery().getOutputTable().getTable();
-            if (outputTable.isTemp() == false) {
-                log.debug("Saving output table (" + outputTable.getName() + ") ...");
-                state.saveOutputTable();
-            }
-        } else {
-            log.debug("Skip saving tables (" + dbOp.getQuery().getOutputTable().getTable().getName()
-                + ") ... ");
-        }
-        log.info(state.toString());
-        exit(0, state.getExitMessage());
-        //exit(0);
-    }
+		if (super.getAdaptorManager().getOutputCount() == 0) {
+			log.debug("Save the non-temporary tables ...");
+			Table outputTable = dbOp.getQuery().getOutputTable().getTable();
+			if (outputTable.isTemp() == false) {
+				log.debug("Saving output table (" + outputTable.getName() + ") ...");
+				state.saveOutputTable();
+			}
+		} else {
+			log.debug("Skip saving tables (" + dbOp.getQuery().getOutputTable().getTable().getName() + ") ... ");
+		}
+		exit(0, state.getExitMessage());
+	}
 }

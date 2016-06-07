@@ -107,6 +107,7 @@ public class ExternalStat implements StatExtractor {
 		while (resultColumns.next()) {
 
 			String columnName = StringEscapeUtils.escapeJava(resultColumns.getString(4));
+			try{
 			String colNamePattern = columnName;
 			if (con.getClass().getName().contains("postgresql")) {
 				colNamePattern = "\"" + columnName + "\"";
@@ -185,7 +186,11 @@ public class ExternalStat implements StatExtractor {
 			}
 			Column c = new Column(columnName, columnType, columnSize, diffVals, minVal, maxVal, diffValFreqMap);
 			columnMap.put(columnName, c);
-
+			}
+				catch(Exception ex){
+					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
+				}
+			
 		}
 
 		Table t = new Table(tblName, columnCount, toupleSize, columnMap, count, pkey);
@@ -199,17 +204,19 @@ public class ExternalStat implements StatExtractor {
 	}
 
 	private int computeDiffVals(String tableNamePattern, String colNamePattern, int columnType) throws SQLException {
-		String query = "select count(*) as freq from (select distinct "+ colNamePattern + " from "+ tableNamePattern +" where "+colNamePattern+" is not null) A";
-				Statement stmt = con.createStatement();
-				if(columnType==Types.BLOB){
-					query = "select count(*) as freq from (select "+ colNamePattern + " from "+ tableNamePattern +" where "+colNamePattern+" is not null) A";
-				}
-				log.debug("executing distinct values query:" + query);
+		String query = "select count(*) as freq from (select distinct " + colNamePattern + " from " + tableNamePattern
+				+ " where " + colNamePattern + " is not null) A";
+		Statement stmt = con.createStatement();
+		if (columnType == Types.BLOB) {
+			query = "select count(*) as freq from (select " + colNamePattern + " from " + tableNamePattern + " where "
+					+ colNamePattern + " is not null) A";
+		}
+		log.debug("executing distinct values query:" + query);
 		ResultSet rs = stmt.executeQuery(query);
-		int result=0;
+		int result = 0;
 		while (rs.next()) {
-			 result=rs.getInt("freq");
-			
+			result = rs.getInt("freq");
+
 		}
 
 		rs.close();
@@ -283,7 +290,8 @@ public class ExternalStat implements StatExtractor {
 		return diffValCount;
 	}
 
-	private Map<String, Integer> computeDistinctValuesFrequency(String table_sample, String columnName) throws Exception {
+	private Map<String, Integer> computeDistinctValuesFrequency(String table_sample, String columnName)
+			throws Exception {
 		Map<String, Integer> freqs = new HashMap<String, Integer>();
 
 		String query = "select " + columnName + " as val, count(*) as freq from " + table_sample + " where "
@@ -293,9 +301,9 @@ public class ExternalStat implements StatExtractor {
 		ResultSet rs = stmt.executeQuery(query);
 
 		while (rs.next()) {
-			
-				freqs.put(rs.getString("val"), rs.getInt("freq"));
-			
+
+			freqs.put(rs.getString("val"), rs.getInt("freq"));
+
 		}
 
 		rs.close();

@@ -233,7 +233,7 @@ public class SQLQuery {
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
 				output.append(" on ");
 				output.append(joinOperands.get(joinOp).toString());
-				//output.append(")");
+				// output.append(")");
 
 			}
 			/*
@@ -533,10 +533,6 @@ public class SQLQuery {
 
 	public void setTemporary(boolean b) {
 		this.temporary = b;
-	}
-
-	public void setFederated(boolean b) {
-		this.setIsFederated(b);
 	}
 
 	public void setMadisFunctionString(String s) {
@@ -897,8 +893,8 @@ public class SQLQuery {
 	 * @param isFederated
 	 *            the isFederated to set
 	 */
-	public void setIsFederated(boolean isFederated) {
-		this.isFederated = isFederated;
+	public void setFederated(boolean federated) {
+		this.isFederated = federated;
 	}
 
 	/**
@@ -1272,6 +1268,14 @@ public class SQLQuery {
 		for (Operand op : conditions) {
 			if (op instanceof BinaryOperand) {
 				BinaryOperand bo = (BinaryOperand) op;
+				if (bo.getOperator().equalsIgnoreCase("and")) {
+					List<Operand> nested = new ArrayList<Operand>();
+					nested.add(bo.getLeftOp());
+					nested.add(bo.getRightOp());
+					createNormalizedQueryForConditions(nested);
+					continue;
+				}
+
 				normalized.binaryWhereConditions
 						.add(new NonUnaryWhereCondition(bo.getLeftOp(), bo.getRightOp(), bo.getOperator()));
 			} else if (op instanceof NonUnaryWhereCondition) {
@@ -1801,7 +1805,7 @@ public class SQLQuery {
 	public void refactorForFederation() {
 		if (!this.getInputTables().isEmpty()) {
 			String dbID = this.getInputTables().get(0).getDBName();
-
+			log.debug("dbid:" + dbID);
 			if (dbID == null) {
 				// not federated
 				return;
@@ -1818,7 +1822,7 @@ public class SQLQuery {
 				this.inputTables.remove(i);
 				this.inputTables.add(i, replace);
 			}
-			this.setIsFederated(true);
+			this.setFederated(true);
 			this.setMadisFunctionString(DBInfoReaderDB.dbInfo.getDB(dbID).getMadisString());
 		}
 
@@ -2433,6 +2437,5 @@ public class SQLQuery {
 	public List<Operand> getJoinOperands() {
 		return joinOperands;
 	}
-	
 
 }

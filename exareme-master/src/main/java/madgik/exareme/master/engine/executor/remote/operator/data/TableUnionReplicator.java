@@ -76,8 +76,8 @@ public class TableUnionReplicator extends AbstractMiMo {
         log.debug("Finished writing tables!");
         super.getAdaptorManager().closeAllOutputs();
 
-        if(AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true")) {
-
+        //if(AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true")) {
+        if(dbOp.useCache()){
             if (dbOp.getType() == AdpDBOperatorType.tableUnionReplicator) {
                 Table outputTable = dbOp.getQuery().getOutputTable().getTable();
                 state.getExitMessage().outTableInfo.setLocation(NetUtil.getIPv4());

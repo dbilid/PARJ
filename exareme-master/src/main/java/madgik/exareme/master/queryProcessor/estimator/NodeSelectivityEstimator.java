@@ -81,8 +81,8 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			}
 		}
 		 }catch(Exception ex){
-			 System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
-			 log.error("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
+			// System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
+			log.error("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
 		 }
 
 	}

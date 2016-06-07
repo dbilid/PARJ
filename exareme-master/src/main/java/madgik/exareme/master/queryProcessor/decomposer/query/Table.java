@@ -68,8 +68,11 @@ public class Table {
     		log.debug("null table name:"+this.toString());
     		return null;
     	}
+    	log.debug("searching for endpoint with id:"+getName().toUpperCase());
         for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
+        	log.debug("next endpoint has id:"+id);
             if (getName().toUpperCase().startsWith(id.toUpperCase() + "_")) {
+            	log.debug("found!");
                 return id;
             }
         }

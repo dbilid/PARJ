@@ -16,11 +16,13 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.log4j.Logger;
 
 /**
  * @author herald
  */
 public class AdpEmbeddedResultSet implements ResultSet {
+	private static final Logger log = Logger.getLogger(AdpEmbeddedResultSet.class);
   private final QueryResultStream inputStream;
   private final AdpEmbeddedStatement statement;
   private final Gson jsonParser;
@@ -42,8 +44,10 @@ public class AdpEmbeddedResultSet implements ResultSet {
     this.currentRecord = new ArrayList<Object>();
     this.currentNumberOfRecordColumns = -1;
     // Get the metadata
+    String schemaStr ="";
     try {
-      String schemaStr = inputStream.getSchema();
+      schemaStr = inputStream.getSchema();
+      
       // Check for errors
       error = jsonParser.fromJson(schemaStr, error.getClass());
       checkForError();
@@ -51,7 +55,8 @@ public class AdpEmbeddedResultSet implements ResultSet {
       schema = jsonParser.fromJson(schemaStr, schema.getClass());
       this.rsMetadata = new AdpEmbeddedResultSetMetaData(this, schema.get("schema"));
     } catch (Exception e) {
-      throw new SQLException(e.getMessage());
+    	log.error("Cannot read schema: "+schemaStr);
+    	throw new SQLException(e.getMessage());
     }
   }
 

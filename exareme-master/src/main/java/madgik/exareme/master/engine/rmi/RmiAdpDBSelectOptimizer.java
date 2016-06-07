@@ -248,41 +248,41 @@ public class RmiAdpDBSelectOptimizer {
 			throws RemoteException {
 		if (props.isTreeEnabled()) {
 			log.debug("Creating tree schedule ...");
-			processLeafQuery(inData.script.getTreeLeafQuery(), inData, state);
-			processInternalQuery(inData.script.getTreeInternalQuery(), inData, state);
-			processRootQuery(inData.script.getTreeRootQuery(), inData, state);
+			processLeafQuery(inData.script.getTreeLeafQuery(), inData, state, props);
+			processInternalQuery(inData.script.getTreeInternalQuery(), inData, state, props);
+			processRootQuery(inData.script.getTreeRootQuery(), inData, state, props);
 		} else {
 			log.debug("Creating graph schedule ...");
 			for (Select q : inData.script.getSelectQueries()) {
-				processQuery(q, inData, state);
+				processQuery(q, inData, state, props);
 			}
 		}
 		bindLocationOFResultTables(inData, state);
 
 	}
 
-	private void processQuery(Select query, InputData input, StateData state) throws RemoteException {
+	private void processQuery(Select query, InputData input, StateData state, AdpDBClientProperties props) throws RemoteException {
 		ProcessQueryState queryState = new ProcessQueryState();
-		prepareInput(query, queryState, input, state);
-		applyInputPattern(query, queryState, input, state);
-		applyOutputPattern(query, queryState, input, state);
+		prepareInput(query, queryState, input, state, props);
+		applyInputPattern(query, queryState, input, state, props);
+		applyOutputPattern(query, queryState, input, state, props);
 	}
 
-	private void processLeafQuery(Select query, InputData input, StateData state) throws RemoteException {
+	private void processLeafQuery(Select query, InputData input, StateData state, AdpDBClientProperties props) throws RemoteException {
 		// Direct is mandatory here!
 		// TODO(herald): this might be OK with cartesian as well.
 		Check.True(query.getParsedSqlQuery().getInputDataPattern() == DataPattern.direct_product,
 				"The leaf pattern should be direct product");
-		processQuery(query, input, state);
+		processQuery(query, input, state, props);
 	}
 
-	private void processInternalQuery(Select query, InputData input, StateData state) throws RemoteException {
+	private void processInternalQuery(Select query, InputData input, StateData state, AdpDBClientProperties props) throws RemoteException {
 		// This might have more than one levels! For noe assume is only 1.
-		processQuery(query, input, state);
+		processQuery(query, input, state, props);
 	}
 
-	private void processRootQuery(Select query, InputData input, StateData state) throws RemoteException {
-		processQuery(query, input, state);
+	private void processRootQuery(Select query, InputData input, StateData state, AdpDBClientProperties props) throws RemoteException {
+		processQuery(query, input, state, props);
 	}
 
 	private void createDataTransferQueries(Select transferQ, TableView inTableView, PhysicalTable pTable)
@@ -340,7 +340,7 @@ public class RmiAdpDBSelectOptimizer {
 		state.containerTablePartCounts[minContainer]++;
 	}
 
-	private void prepareInput(Select query, ProcessQueryState queryState, InputData input, StateData state)
+	private void prepareInput(Select query, ProcessQueryState queryState, InputData input, StateData state, AdpDBClientProperties props)
 			throws RemoteException {
 		DataPattern inputPattern = query.getParsedSqlQuery().getInputDataPattern();
 		TableView outTableView = query.getOutputTable();
@@ -388,7 +388,7 @@ public class RmiAdpDBSelectOptimizer {
 					outputs[p] = reader;
 					Select transferQ = SerializationUtil.deepCopy(query);
 					createDataTransferQueries(transferQ, inTableView, pTable);
-					AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.tableInput, transferQ, p);
+					AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.tableInput, transferQ, p, props.isCachedEnable());
 					log.debug("--DEBUG : " + reader.opID + " / " + reader.operatorName);
 					ListUtil.setItem(state.dbOps, reader.opID, dbOp);
 					dbOp.addOutput(pTable.getName(), p);
@@ -406,7 +406,7 @@ public class RmiAdpDBSelectOptimizer {
 		}
 	}
 
-	private void applyInputPattern(Select query, ProcessQueryState queryState, InputData input, StateData state)
+	private void applyInputPattern(Select query, ProcessQueryState queryState, InputData input, StateData state , AdpDBClientProperties props)
 			throws RemoteException {
 
 		TableView outTableView = query.getOutputTable();
@@ -498,7 +498,7 @@ public class RmiAdpDBSelectOptimizer {
 				ConcreteOperator runQuery = ConcreteGraphFactory.createRunQuery(outTableView.getName() + "_" + oPart);
 				state.graph.addOperator(runQuery);
 				queryState.outputTable.addPartition(new Partition(queryState.outputTable.getName(), oPart));
-				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart);
+				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart, props.isCachedEnable());
 				ListUtil.setItem(state.dbOps, runQuery.opID, dbOp);
 				dbOp.addOutput(queryState.outputTable.getName(), oPart);
 				if (inputPattern == DataPattern.external) {
@@ -573,7 +573,7 @@ public class RmiAdpDBSelectOptimizer {
 				ConcreteOperator runQuery = ConcreteGraphFactory.createRunQuery(outTableView.getName() + "_" + oPart);
 				state.graph.addOperator(runQuery);
 				queryState.outputTable.addPartition(new Partition(queryState.outputTable.getName(), oPart));
-				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart);
+				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart, props.isCachedEnable());
 				ListUtil.setItem(state.dbOps, runQuery.opID, dbOp);
 				dbOp.addOutput(queryState.outputTable.getName(), oPart);
 
@@ -606,7 +606,7 @@ public class RmiAdpDBSelectOptimizer {
 				ConcreteOperator runQuery = ConcreteGraphFactory.createRunQuery(outTableView.getName() + "_" + oPart);
 				state.graph.addOperator(runQuery);
 				queryState.outputTable.addPartition(new Partition(queryState.outputTable.getName(), oPart));
-				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart);
+				AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.runQuery, query, oPart, props.isCachedEnable());
 				ListUtil.setItem(state.dbOps, runQuery.opID, dbOp);
 				dbOp.addOutput(queryState.outputTable.getName(), oPart);
 
@@ -635,7 +635,7 @@ public class RmiAdpDBSelectOptimizer {
 		}
 	}
 
-	private void applyOutputPattern(Select query, ProcessQueryState queryState, InputData input, StateData state)
+	private void applyOutputPattern(Select query, ProcessQueryState queryState, InputData input, StateData state, AdpDBClientProperties props)
 			throws RemoteException {
 
 		TableView outTableView = query.getOutputTable();
@@ -703,7 +703,7 @@ public class RmiAdpDBSelectOptimizer {
 			unionQ.setQuery("select * from " + queryState.outputTable.getName());
 			unionQ.getOutputTable().setNumOfPartitions(1);
 
-			AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.tableUnionReplicator, unionQ, oPart);
+			AdpDBSelectOperator dbOp = new AdpDBSelectOperator(AdpDBOperatorType.tableUnionReplicator, unionQ, oPart, props.isCachedEnable());
 
 			ListUtil.setItem(state.dbOps, gatherData.opID, dbOp);
 			dbOp.addOutput(queryState.outputTable.getName(), oPart);

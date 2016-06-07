@@ -371,7 +371,7 @@ public class SinlgePlanDFLGenerator {
 
 		boolean mergeUnions = true;
 		SQLQuery last = qs.get(qs.size() - 1);
-		if (mergeUnions && last.getUnionqueries().size() > 50) {
+		if (mergeUnions && last.getUnionqueries().size() > 10) {
 			
 			SQLQuery current = new SQLQuery();
 			//random hash, to fix 
@@ -383,7 +383,7 @@ public class SinlgePlanDFLGenerator {
 			last.getUnionqueries().add(current);
 			qs.add(qs.size() - 1, current);
 			for (int i = 0; i < allUnions.size(); i++) {
-				if (i % 50 == 49) {
+				if (i % 10 == 9) {
 					current = new SQLQuery();
 					current.setIsUnionAll(true);
 					current.setHasUnionRootNode(last.isHasUnionRootNode());
@@ -624,8 +624,8 @@ public class SinlgePlanDFLGenerator {
 			if (e.getParents().isEmpty()) {
 				current.setHashId(e.getHashId());
 			}
-			boolean existsPartitioned = false;
-			boolean existsNonPartitioned = false;
+			//boolean existsPartitioned = false;
+			//boolean existsNonPartitioned = false;
 			for (int l = 0; l < op.getChildren().size(); l++) {
 				SQLQuery u = new SQLQuery();
 
@@ -662,11 +662,15 @@ public class SinlgePlanDFLGenerator {
 					// u.addInputTable(new Table(tableInCache, tableInCache));
 				}
 				unions.add(u);
-				if (u.getPartition() != null) {
+				/*if (u.getPartition() != null) {
 					existsPartitioned = true;
+					System.out.println("exists partitioned!");
+					System.out.println(u.getTemporaryTableName()+":"+u.getPartition().toString());
 				} else {
+					System.out.println("exists non partitioned!");
+					System.out.println(u.getTemporaryTableName());
 					existsNonPartitioned = true;
-				}
+				}*/
 			}
 			if (unions.size() > 1) {
 				tempResult.add(current);
@@ -679,16 +683,25 @@ public class SinlgePlanDFLGenerator {
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
-				if (existsNonPartitioned && existsPartitioned) {
+				//if (existsNonPartitioned && existsPartitioned) {
 					// make all unions have the same number of partitions
-					for (SQLQuery u : unions) {
-						if (u.getPartition() == null) {
-							Column pt = new Column(u.getOutputs().get(0).getOutputName(),
-									u.getOutputs().get(0).getOutputName());
+				if (op.getOpCode() == Node.UNION){
+					SQLQuery first=unions.get(0);
+					String ptCol="c1";
+					for(Output a:first.getOutputs()){
+						if(!a.getObject().getAllColumnRefs().isEmpty()){
+							ptCol=a.getOutputName();
+							break;
+						}
+					}
+					
+					Column pt=new Column(ptCol, ptCol);
+					first.setRepartition(pt, partitionNo);
+					first.setPartition(pt);
+					for (int un=1;un<unions.size();un++) {
+						SQLQuery u=unions.get(un);
 							u.setRepartition(pt, partitionNo);
 							u.setPartition(pt);
-						}
-
 					}
 				}
 			} else {

@@ -24,6 +24,7 @@ public class DataImporter implements Runnable {
 	private boolean addToRegistry;
 	private String fedSQLTrue;
 	private String fedSQLFalse;
+	Map<String, String> correspondingOutputs;
 	
 	private static final Logger log = Logger.getLogger(DataImporter.class);
 
@@ -32,12 +33,17 @@ public class DataImporter implements Runnable {
 		this.s = q;
 		this.dbPath = db;
 		this.addToRegistry=false;
+		if (this.db.getDriver().contains("OracleDriver")) {
+			correspondingOutputs=s.renameOracleOutputs();
+		}
 		fedSQLTrue=s.getExecutionStringInFederatedSource(true);
 		fedSQLFalse=s.getExecutionStringInFederatedSource(false);
+		
 	}
 
 	@Override
 	public void run() {
+		int columnsNumber=0;
 		//DB db = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 		StringBuilder createTableSQL = new StringBuilder();
 		if (db == null) {
@@ -56,10 +62,8 @@ public class DataImporter implements Runnable {
 
 		String conString = db.getURL();
 		
-		Map<String, String> correspondingOutputs=new HashMap<String, String>();
-		if (db.getDriver().contains("OracleDriver")) {
-			correspondingOutputs=s.renameOracleOutputs();
-		}
+		
+		
 
 		//fedSQL = s.getExecutionStringInFederatedSource(true);
 		log.debug("importing:" + fedSQLTrue);
@@ -67,10 +71,10 @@ public class DataImporter implements Runnable {
 		Statement statement = null;
 		ResultSet resultSet = null;
 		long start = -1;
-		long count = 0;
+		int count = 0;
 		Connection sqliteConnection = null;
 		PreparedStatement sqliteStatement = null;
-		String importString="";
+		String importString="import/";
 		String part=".db";
 		if(addToRegistry){
 			importString="";
@@ -78,6 +82,7 @@ public class DataImporter implements Runnable {
 		}
 
 		try {
+			
 			sqliteConnection = DriverManager.getConnection("jdbc:sqlite:"
 					+ dbPath + importString + s.getTemporaryTableName() + part);
 			// statement.setQueryTimeout(30);
@@ -111,14 +116,14 @@ public class DataImporter implements Runnable {
 					&& DecomposerUtils.USE_POSTGRES_COPY) {
 				SQLiteWriter swriter=new SQLiteWriter(sqliteConnection, DecomposerUtils.NO_OF_RECORDS, fedSQLFalse, statement, sql, createTableSQL);
 				CopyManager copyManager = new CopyManager((BaseConnection) connection);
-	            count=copyManager.copyOut("COPY ("+fedSQLTrue+") TO STDOUT WITH DELIMITER '#'", swriter);
+	            count=(int)copyManager.copyOut("COPY ("+fedSQLTrue+") TO STDOUT WITH DELIMITER '#'", swriter);
 	            swriter.close();
 			} else {
 
 				resultSet = statement.executeQuery(fedSQLTrue);
 
 				ResultSetMetaData rsmd = resultSet.getMetaData();
-				int columnsNumber = rsmd.getColumnCount();
+				columnsNumber = rsmd.getColumnCount();
 				String comma = "";
 				String questionmark = "?";
 				for (int i = 1; i <= columnsNumber; i++) {
@@ -217,14 +222,19 @@ public class DataImporter implements Runnable {
 			//TableInfo ti=new TableInfo(s.getTemporaryTableName());
 			//ti.setSqlDefinition(createTableSQL.toString());
 			table.setTemp(false);
-			/*if use cache
 			table.setSqlQuery(s.toDistSQL());
-			table.setSize(4096);
-			table.setHashID(s.getHashId().asBytes());*/
+			table.setSize(count*columnsNumber*4);//to be fixed
+			if(s.getHashId()==null){
+				log.error("null hash ID for query "+fedSQLTrue);
+				table.setHashID(null);
+			}
+			else{
+				table.setHashID(s.getHashId().asBytes());
+			}
 			PhysicalTable pt=new PhysicalTable(table);
 			Partition partition0 = new Partition(s.getTemporaryTableName(), 0);
-			partition0.addLocation("127.0.0.1");
-            //partition0.addLocation(ArtRegistryLocator.getLocalRmiRegistryEntityName().getIP());
+			//partition0.addLocation("127.0.0.1");
+            partition0.addLocation(ArtRegistryLocator.getLocalRmiRegistryEntityName().getIP());
             //partition0.addPartitionColumn("");
 			pt.addPartition(partition0);
 			reg.addPhysicalTable(pt);

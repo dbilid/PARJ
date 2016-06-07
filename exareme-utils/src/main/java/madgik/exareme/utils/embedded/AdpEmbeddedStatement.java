@@ -49,8 +49,8 @@ public class AdpEmbeddedStatement implements Statement {
   public AdpEmbeddedResultSet executeQuery(String sql) throws SQLException {
     try {
       sql = sql.trim().endsWith(";") ? sql : sql + ";";
-      int semicolonOccurences = SqlParseUtils.countOfqueries(sql);
-
+      //int semicolonOccurences = SqlParseUtils.countOfqueries(sql);
+      log.debug("sending schema:"+sql);
       QueryResultStream result = process.execQuery(sql);
       return new AdpEmbeddedResultSet(result, this);
     } catch (IOException e) {

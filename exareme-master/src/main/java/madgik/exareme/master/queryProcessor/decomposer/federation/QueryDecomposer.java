@@ -10,10 +10,8 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.dag.PartitionCols;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
-import madgik.exareme.master.queryProcessor.decomposer.util.Pair;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 import madgik.exareme.master.queryProcessor.estimator.NodeCostEstimator;
-import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
 import madgik.exareme.master.registry.Registry;
 import madgik.exareme.utils.properties.AdpDBProperties;
 
@@ -64,6 +62,7 @@ public class QueryDecomposer {
 	private int unionnumber;
 	SipToUnions sipToUnions;
 	private NodeCostEstimator nce;
+	private long startTime;
 
 	public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
 		this(initial, ".", 1, null);
@@ -75,8 +74,8 @@ public class QueryDecomposer {
 		this.noOfparts = noOfPartitions;
 		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
 		for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
-			byte[] hash=pt.getTable().getHashID();
-			if(hash!=null){
+			byte[] hash = pt.getTable().getHashID();
+			if (hash != null) {
 				registry.put(HashCode.fromBytes(pt.getTable().getHashID()), pt.getTable());
 			}
 		}
@@ -144,8 +143,8 @@ public class QueryDecomposer {
 		if (useSIP) {
 			sipInfo = new SipStructure();
 		}
-		
-		nce=new NodeCostEstimator(this.noOfparts);
+
+		nce = new NodeCostEstimator(this.noOfparts);
 	}
 
 	public List<SQLQuery> getSubqueries() throws Exception {
@@ -191,8 +190,10 @@ public class QueryDecomposer {
 		// root.setIsCentralised(union.isCentralised());
 		// root.setPartitionedOn(union.isPartitionedOn());
 		List<SQLQuery> res = getPlan();
+		log.debug("Plan generated");
 		for (int i = 0; i < res.size(); i++) {
 			SQLQuery s = res.get(i);
+			log.debug("refactoring " + s.getTemporaryTableName() + " for federation...");
 			s.refactorForFederation();
 			if (i == res.size() - 1) {
 				s.setTemporary(false);
@@ -226,7 +227,9 @@ public class QueryDecomposer {
 			for (int i = 0; i < res.size(); i++) {
 				SQLQuery s = res.get(i);
 				if (s.isFederated()) {
-					boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
+					// boolean addToregistry = noOfparts == 1 &&
+					// DecomposerUtils.ADD_TO_REGISTRY;
+					boolean addToregistry = DecomposerUtils.ADD_TO_REGISTRY;
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 					StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
@@ -261,6 +264,7 @@ public class QueryDecomposer {
 
 		if (projectRefCols) {
 			createProjections(root);
+			log.debug("Base projections created");
 		}
 		// StringBuilder a = root.dotPrint();
 		// System.out.println(a.toString());
@@ -268,7 +272,9 @@ public class QueryDecomposer {
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
 		sipToUnions.put(unionnumber, new HashSet<SipNode>());
+		startTime=System.currentTimeMillis();
 		expandDAG(root);
+		log.debug("DAG expanded");
 		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
 		// System.out.println("noOfnode:"+root.count(0));
 		if (this.useSIP) {
@@ -591,7 +597,8 @@ public class QueryDecomposer {
 		for (int i = 0; i < eq.getChildren().size(); i++) {
 			// System.out.println(eq.getChildren().size());
 			Node op = eq.getChildAt(i);
-			if (!op.isExpanded()) {
+			
+			if (!op.isExpanded()&&System.currentTimeMillis()-startTime<2000) {
 				for (int x = 0; x < op.getChildren().size(); x++) {
 					Node inpEq = op.getChildAt(x);
 					// System.out.println(eq.getObject());
@@ -1427,13 +1434,19 @@ public class QueryDecomposer {
 
 	private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
 			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
-		
+
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			SinglePlan r = new SinglePlan(0);
+			madgik.exareme.common.schema.Table t = registry.get(e.getHashId());
+			String col = Registry.getInstance(db).getPartitionColumn(t.getName());
+			int ptns = Registry.getInstance(db).getNumOfPartitions(t.getName());
+			
+			if (c.getName().equals(col)&&ptns==noOfparts) {
+				SinglePlan r = new SinglePlan(0);
 
-			memo.put(e, r, true, true, false);
+				memo.put(e, r, true, true, false);
 
-			return r;
+				return r;
+			}
 		}
 
 		if (!e.getObject().toString().startsWith("table")) {
