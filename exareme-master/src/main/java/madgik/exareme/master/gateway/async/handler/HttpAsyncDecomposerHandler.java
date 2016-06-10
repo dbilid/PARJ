@@ -392,6 +392,9 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 								DBInfoReaderDB.read(path);
 								String tablename = t[0];
+								if(tablename.startsWith("adp.")){
+									tablename=tablename.substring(4);
+								}
 								Table tab = new Table(tablename, tablename);
 
 								if (StatUtils.schemaContainsTable(path + "histograms.json", tablename)) {

@@ -56,8 +56,9 @@ public class QueryDecomposer {
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
-	private final boolean useGreedy = false;
 	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
+	private final boolean useGreedy = DecomposerUtils.USE_GREEDY;
+	private long exapandDagTime= DecomposerUtils.EXPAND_DAG_TIME;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
@@ -253,7 +254,7 @@ public class QueryDecomposer {
 				}
 			}
 			es.shutdown();
-			boolean finished = es.awaitTermination(30, TimeUnit.MINUTES);
+			boolean finished = es.awaitTermination(60, TimeUnit.MINUTES);
 
 		}
 		return res;
@@ -266,7 +267,7 @@ public class QueryDecomposer {
 			createProjections(root);
 			log.debug("Base projections created");
 		}
-		// StringBuilder a = root.dotPrint();
+		// StringBuilder a = root.dotPrint(new HashSet<Node>());
 		// System.out.println(a.toString());
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
@@ -280,9 +281,10 @@ public class QueryDecomposer {
 		if (this.useSIP) {
 			sipInfo.removeNotNeededSIPs();
 		}
-		// StringBuilder a2 = root.dotPrint();
+		//Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
+		// StringBuilder a2 = root.dotPrint(new HashSet<Node>());
 		// System.out.println(a2.toString());
-		// System.out.println(root.dotPrint());
+		 //System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
 			Node limit = new Node(Node.AND, Node.LIMIT);
@@ -411,7 +413,7 @@ public class QueryDecomposer {
 			}
 		} else {
 			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
-					new ArrayList<MemoKey>(), memo);
+					new HashSet<MemoKey>(), memo);
 		}
 
 		// Plan best = addRepartitionAndComputeBestPlan(root, cost, memo, cel,
@@ -528,22 +530,32 @@ public class QueryDecomposer {
 					 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
 					 * addNotNulls); d.addCQToDAG(union, hashes); }
 					 */
-					List<List<String>> aliases = nested.getListOfAliases(n2a, true);
+					//List<List<String>> aliases = nested.getListOfAliases(n2a, true);
 					// for(List<String>
 					// aliases:initialQuery.getListOfAliases(n2a)){
-					List<String> firstAliases = aliases.get(0);
-					nested.renameTables(firstAliases);
+					List<String> firstAliases = new ArrayList<String>();
+					for(int i=0;i<nested.getInputTables().size();i++){
+						firstAliases.add("nestedalias"+i);
+					}
+					//nested.renameTables(firstAliases);
 					ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, centralizedExecution,
 							addNotNulls);
 					Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
 					// String u=union.dotPrint();
-					if (addAliases) {
+					/*if (addAliases) {
 						for (int i = 1; i < aliases.size(); i++) {
 							List<String> nextAliases = aliases.get(i);
 							topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases, nextAliases, hashes));
 						}
+					}*/
+					HashCode hc=nestedNode.getHashId();
+					if(hashes.containsKey(hc)){
+						nestedNode.removeAllChildren();
+						nestedNode=hashes.get(hc);
 					}
-
+					else{
+						hashes.put(hc, nestedNode);
+					}
 					nested.putNestedNode(nestedNode);
 					// nestedNode.removeAllChildren();
 
@@ -598,7 +610,7 @@ public class QueryDecomposer {
 			// System.out.println(eq.getChildren().size());
 			Node op = eq.getChildAt(i);
 			
-			if (!op.isExpanded()&&System.currentTimeMillis()-startTime<2000) {
+			if (!op.isExpanded()&&System.currentTimeMillis()-startTime<exapandDagTime) {
 				for (int x = 0; x < op.getChildren().size(); x++) {
 					Node inpEq = op.getChildAt(x);
 					// System.out.println(eq.getObject());
@@ -1207,7 +1219,7 @@ public class QueryDecomposer {
 	int pruned = 0;
 
 	private SinglePlan getBestPlan(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
+			EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 		MemoKey ec = new MemoKey(e, c);
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
@@ -1230,7 +1242,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan searchForBestPlan(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
+			EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
@@ -1279,7 +1291,7 @@ public class QueryDecomposer {
 				PartitionCols returnedPt = null;
 				algRecordCloned = e2RecordCloned.shallowCopy();
 				algLimit = limit;
-				List<MemoKey> toMatAlg = new ArrayList<MemoKey>();
+				Set<MemoKey> toMatAlg = new HashSet<MemoKey>();
 
 				SinglePlan algPlan = new SinglePlan(opCost);
 				algPlan.setChoice(k);
@@ -1401,7 +1413,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan getBestPlanPruned(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
+			EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 		if (limits.containsKey(e)) {
 			if (limits.get(e) > limit - repCost) {
 				return null;
@@ -1433,7 +1445,7 @@ public class QueryDecomposer {
 	}
 
 	private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
-			EquivalentColumnClasses partitionRecord, List<MemoKey> toMaterialize, Memo memo) {
+			EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
 			madgik.exareme.common.schema.Table t = registry.get(e.getHashId());
@@ -1504,7 +1516,7 @@ public class QueryDecomposer {
 				PartitionCols returnedPt = null;
 				algRecordCloned = e2RecordCloned.shallowCopy();
 				algLimit = newLimit;
-				List<MemoKey> toMatAlg = new ArrayList<MemoKey>();
+				Set<MemoKey> toMatAlg = new HashSet<MemoKey>();
 				if (a == Node.NESTED) {
 					// nested is always materialized
 					toMatAlg.add(new MemoKey(e, c));
@@ -1615,10 +1627,10 @@ public class QueryDecomposer {
 					}
 
 					// mark as materialised the result of federated execution
-					// if(a==Node.PROJECT &&
-					// ((Table)e2.getObject()).isFederated()&&e.getParents().size()>1){
-					// toMatAlg.add(new MemoKey(e, c));
-					// }
+					 if(a==Node.BASEPROJECT &&
+					 ((Table)e2.getObject()).isFederated()){
+					toMatAlg.add(new MemoKey(e, c));
+					 }
 
 					// double e2PlanCost = algPlan.getCost();
 					if (c != null) {
@@ -1911,7 +1923,7 @@ public class QueryDecomposer {
 					return null;
 				}
 			}
-		} else if (o.getOpCode() == Node.LEFTJOIN) {
+		} else if (o.getOpCode() == Node.LEFTJOIN ||o.getOpCode() == Node.JOINKEY) {
 			if (o.getChildren().size() == 1) {
 				// filter join
 				return null;
@@ -1953,7 +1965,20 @@ public class QueryDecomposer {
 			} else {
 				return false;
 			}
-		} else {
+		} else if (o.getOpCode() == Node.JOINKEY || o.getOpCode()==Node.LEFTJOIN) {
+			if(!(o.getObject() instanceof BinaryOperand)){
+				return true;
+			}
+			BinaryOperand bo=(BinaryOperand) o.getObject();
+			if(QueryUtils.getJoinColumnFromOperand(bo, 0)==null ||QueryUtils.getJoinColumnFromOperand(bo, 1)==null){
+				return true;
+			}
+			else if(QueryUtils.getJoinColumnFromOperand(bo, 0).equals(c)||QueryUtils.getJoinColumnFromOperand(bo, 1).equals(c)){
+				return false;
+			}
+			else return true;
+		}
+		else {
 			return false;
 		}
 	}
@@ -2284,6 +2309,7 @@ public class QueryDecomposer {
 	}
 
 	public String getDotPrint() {
-		return root.dotPrint().toString();
+		Set<Node> visited=new HashSet<Node>();
+		return root.dotPrint(visited).toString();
 	}
 }

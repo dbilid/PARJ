@@ -5,9 +5,11 @@ package madgik.exareme.master.queryProcessor.decomposer.query.visitors;
 
 import com.foundationdb.sql.StandardException;
 import com.foundationdb.sql.parser.*;
+import com.google.common.hash.HashCode;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
+import madgik.exareme.master.queryProcessor.decomposer.federation.ConjunctiveQueryDecomposer;
 import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
@@ -132,8 +134,8 @@ public class SQLQueryVisitor extends AbstractVisitor {
         return node;
     }
 
-    private Node getJoinNode(JoinNode node, Map<String, Integer> counts, Map<String, String> correspondingAliases) {
-		Node j=new Node(Node.AND, Node.JOIN);
+    private Node getJoinNode(JoinNode node, Map<String, Integer> counts, Map<String, String> correspondingAliases) throws StandardException {
+		Node j=new Node(Node.AND, Node.JOINKEY);
 		if(node instanceof HalfOuterJoinNode){
 			HalfOuterJoinNode outer=(HalfOuterJoinNode)node;
 			if(outer.isRightOuterJoin()){
@@ -177,6 +179,54 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addChild(n);
 			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
+		else if(left instanceof FromSubquery){
+			FromSubquery fs = (FromSubquery) left;
+			SQLQuery leftSubquery=new SQLQuery();
+            SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+            fs.getSubquery().accept(v);
+            if(leftSubquery.getInputTables().size()==1){
+            	leftSubquery.addColumnAliases();
+            }
+           // List<List<String>> aliases = leftSubquery.getListOfAliases(n2a, true);
+			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
+			//List<String> firstAliases = aliases.get(0);
+			correspondingAliases.put(fs.getExposedName(), fs.getExposedName());
+			
+		//	leftSubquery.renameTables(firstAliases);
+			
+			
+			Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
+			Node nestedNode = new Node(Node.OR);
+			nestedNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
+			nestedNode.addChild(nestedNodeOr);
+			nestedNodeOr.setObject(fs.getExposedName());
+			nestedNode.addDescendantBaseTable(fs.getExposedName());
+			/*
+			 * for (List<String> aliases : nested.getListOfAliases(n2a))
+			 * { nested.renameTables(aliases);
+			 * ConjunctiveQueryDecomposer d = new
+			 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
+			 * addNotNulls); d.addCQToDAG(union, hashes); }
+			 */
+			// for(List<String>
+			// aliases:initialQuery.getListOfAliases(n2a)){
+			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(leftSubquery, false,
+					true);
+			Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
+			
+			HashCode hc=nestedNode.getHashId();
+			if(hashes.containsKey(hc)){
+				nestedNode.removeAllChildren();
+				nestedNode=hashes.get(hc);
+			}
+			else{
+				hashes.put(hc, nestedNode);
+			}
+			
+			j.addChild(nestedNode);
+			nestedNode.addAllDescendantBaseTables(topSubquery.getDescendantBaseTables());
+			j.addAllDescendantBaseTables(topSubquery.getDescendantBaseTables());
+		}
 		else{
 			System.err.println("error in join, unknown child type");
 		}
@@ -215,6 +265,54 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addChild(n);
 			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
 		}
+		else if(right instanceof FromSubquery){
+			FromSubquery fs = (FromSubquery) right;
+			SQLQuery rightSubquery=new SQLQuery();
+            SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+            fs.getSubquery().accept(v);
+            if(rightSubquery.getInputTables().size()==1){
+            	rightSubquery.addColumnAliases();
+            }
+            //List<List<String>> aliases = rightSubquery.getListOfAliases(n2a, true);
+			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
+			//List<String> firstAliases = aliases.get(0);
+			correspondingAliases.put(fs.getExposedName(), fs.getExposedName());
+			
+			//rightSubquery.renameTables(firstAliases);
+			
+			
+			Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
+			Node nestedNode = new Node(Node.OR);
+			nestedNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
+			nestedNode.addChild(nestedNodeOr);
+			nestedNodeOr.setObject(fs.getExposedName());
+			nestedNode.addDescendantBaseTable(fs.getExposedName());
+			/*
+			 * for (List<String> aliases : nested.getListOfAliases(n2a))
+			 * { nested.renameTables(aliases);
+			 * ConjunctiveQueryDecomposer d = new
+			 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
+			 * addNotNulls); d.addCQToDAG(union, hashes); }
+			 */
+			// for(List<String>
+			// aliases:initialQuery.getListOfAliases(n2a)){
+			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(rightSubquery, false,
+					true);
+			Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
+			
+			HashCode hc=nestedNode.getHashId();
+			if(hashes.containsKey(hc)){
+				nestedNode.removeAllChildren();
+				nestedNode=hashes.get(hc);
+			}
+			else{
+				hashes.put(hc, nestedNode);
+			}
+			
+			j.addChild(nestedNode);
+			nestedNode.addAllDescendantBaseTables(topSubquery.getDescendantBaseTables());
+			j.addAllDescendantBaseTables(topSubquery.getDescendantBaseTables());
+		}
 		else{
 			System.err.println("error in join, unknown child type");
 		}
@@ -223,6 +321,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		for(Column c:op.getAllColumnRefs()){
 			op.changeColumn(c, new Column(correspondingAliases.get(c.getAlias()), c.getColumnName()));
 		}
+		QueryUtils.reorderBinaryConditions(op, j.getChildAt(0).getDescendantBaseTables(), j.getChildAt(1).getDescendantBaseTables());
 		j.setObject(op);
 		
 		

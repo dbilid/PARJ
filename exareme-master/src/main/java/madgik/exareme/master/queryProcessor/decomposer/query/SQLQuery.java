@@ -136,7 +136,7 @@ public class SQLQuery {
 			return output.toString();
 		}
 
-		if (getPartitionColumn() != null) {
+		if (repartitionColumn != null) {
 			output.append(" to ");
 			output.append(String.valueOf(this.getNoOfPartitions()));
 			output.append(" on ");
@@ -229,10 +229,12 @@ public class SQLQuery {
 			} else {
 				output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
 			}
-
+			output.append(" on ");
+			separator="";
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
-				output.append(" on ");
+				output.append(separator);
 				output.append(joinOperands.get(joinOp).toString());
+				separator=" and ";
 				// output.append(")");
 
 			}
@@ -569,6 +571,9 @@ public class SQLQuery {
 		}
 		for (UnaryWhereCondition wc : this.getUnaryWhereConditions()) {
 			result.add(wc.getAllColumnRefs().get(0));
+		}
+		if(repartitionColumn!=null){
+			result.add(repartitionColumn);
 		}
 		return result;
 	}
@@ -1106,7 +1111,7 @@ public class SQLQuery {
 				} catch (CloneNotSupportedException ex) {
 					log.error(ex.getMessage());
 				}
-				SQLQuery next = createNormalizedQueryForConditions(cloned);
+				SQLQuery next = createNormalizedQueryForConditions(cloned, new SQLQuery());
 				unions.add(next);
 			}
 			// this.setUnionAlias(this.getResultTableName());
@@ -1263,8 +1268,8 @@ public class SQLQuery {
 	 * to be used when normalizing queries. deep cloning of input tables and
 	 * unary where conditions. Different table name. shallow cloning of outputs
 	 */
-	public SQLQuery createNormalizedQueryForConditions(List<Operand> conditions) {
-		SQLQuery normalized = new SQLQuery();
+	public SQLQuery createNormalizedQueryForConditions(List<Operand> conditions, SQLQuery normalized) {
+		//SQLQuery normalized = new SQLQuery();
 		for (Operand op : conditions) {
 			if (op instanceof BinaryOperand) {
 				BinaryOperand bo = (BinaryOperand) op;
@@ -1272,7 +1277,7 @@ public class SQLQuery {
 					List<Operand> nested = new ArrayList<Operand>();
 					nested.add(bo.getLeftOp());
 					nested.add(bo.getRightOp());
-					createNormalizedQueryForConditions(nested);
+					createNormalizedQueryForConditions(nested, normalized);
 					continue;
 				}
 
@@ -1328,7 +1333,7 @@ public class SQLQuery {
 					for (NonUnaryWhereCondition nuwc : bwcs) {
 						ops.add(nuwc);
 					}
-					normalized.nestedSelectSubqueries.put(nested.createNormalizedQueryForConditions(ops),
+					normalized.nestedSelectSubqueries.put(nested.createNormalizedQueryForConditions(ops, new SQLQuery()),
 							this.nestedSelectSubqueries.get(nested));
 				}
 			}
@@ -1810,11 +1815,13 @@ public class SQLQuery {
 				// not federated
 				return;
 			}
-			String schema = DBInfoReaderDB.dbInfo.getDB(dbID).getSchema();
+			
 			for (int i = 0; i < this.getInputTables().size(); i++) {
 				Table t = this.getInputTables().get(i);
 				Table replace = new Table();
-				replace.setName(t.getName().substring(dbID.length() + 1));
+				String db = t.getDBName();
+				String schema = DBInfoReaderDB.dbInfo.getDB(db).getSchema();
+				replace.setName(t.getName().substring(db.length() + 1));
 				replace.setAlias(t.getAlias());
 				if (!replace.getName().startsWith(schema + ".")) {
 					replace.setName(schema + "." + replace.getName());
@@ -2436,6 +2443,17 @@ public class SQLQuery {
 
 	public List<Operand> getJoinOperands() {
 		return joinOperands;
+	}
+
+	public void addColumnAliases() {
+		//when we have only 1 input table, make sure all columns have table aliases
+		String alias=this.getInputTables().get(0).getAlias();
+		for(Column c:this.getAllColumns()){
+			if(c.getAlias()==null){
+				c.setAlias(alias);
+			}
+		}
+		
 	}
 
 }

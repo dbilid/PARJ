@@ -176,17 +176,28 @@ public class SinlgePlanDFLGenerator {
 		}
 
 		if (DecomposerUtils.REMOVE_OUTPUTS) {
-			for (int i = 0; i < qs.size() - 1; i++) {
+			log.debug("Removing Outputs...");
+			if ( qs.size() > 1) {
+				List<SQLQuery> unions=qs.get(qs.size()-1).getUnionqueries();
+			for (int i = qs.size() - 2; i > -1; i--) {
+				
 				SQLQuery q = qs.get(i);
-				if (q.isNested() && qs.size() > 1) {
+				if(unions.contains(q)){
+					continue;
+				}
 					List<Column> outputs = new ArrayList<Column>();
 					for (Output o : q.getOutputs()) {
 						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
 					}
-					for (int j = i + 1; j < qs.size(); j++) {
+					for (int j = qs.size() - 1; j > i; j--) {
 						List<Column> cols = qs.get(j).getAllColumns();
 						for (Column c2 : cols) {
+							if(c2.getBaseTable()!=null){
 							outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
+							}
+							else{
+								outputs.remove(c2);
+							}
 						}
 						if (outputs.isEmpty()) {
 							break;
@@ -372,9 +383,9 @@ public class SinlgePlanDFLGenerator {
 		boolean mergeUnions = true;
 		SQLQuery last = qs.get(qs.size() - 1);
 		if (mergeUnions && last.getUnionqueries().size() > 10) {
-			
+
 			SQLQuery current = new SQLQuery();
-			//random hash, to fix 
+			// random hash, to fix
 			current.setHashId(Hashing.sha1().hashBytes(current.getTemporaryTableName().getBytes()));
 			current.setIsUnionAll(true);
 			current.setHasUnionRootNode(last.isHasUnionRootNode());
@@ -387,7 +398,7 @@ public class SinlgePlanDFLGenerator {
 					current = new SQLQuery();
 					current.setIsUnionAll(true);
 					current.setHasUnionRootNode(last.isHasUnionRootNode());
-					//random hash, to fix 
+					// random hash, to fix
 					current.setHashId(Hashing.sha1().hashBytes(current.getTemporaryTableName().getBytes()));
 					qs.add(qs.size() - 1, current);
 					last.getUnionqueries().add(current);
@@ -476,10 +487,10 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(t);
 			visited.put(k, current);
 
-			//if (memo.getMemoValue(k).isMaterialised()) {
-				//current.setMaterialised(true);
-				//current.setHashId(e.getHashId());
-			//}
+			// if (memo.getMemoValue(k).isMaterialised()) {
+			// current.setMaterialised(true);
+			// current.setHashId(e.getHashId());
+			// }
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
 		}
@@ -589,7 +600,6 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			
 			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
@@ -624,8 +634,8 @@ public class SinlgePlanDFLGenerator {
 			if (e.getParents().isEmpty()) {
 				current.setHashId(e.getHashId());
 			}
-			//boolean existsPartitioned = false;
-			//boolean existsNonPartitioned = false;
+			// boolean existsPartitioned = false;
+			// boolean existsNonPartitioned = false;
 			for (int l = 0; l < op.getChildren().size(); l++) {
 				SQLQuery u = new SQLQuery();
 
@@ -662,15 +672,15 @@ public class SinlgePlanDFLGenerator {
 					// u.addInputTable(new Table(tableInCache, tableInCache));
 				}
 				unions.add(u);
-				/*if (u.getPartition() != null) {
-					existsPartitioned = true;
-					System.out.println("exists partitioned!");
-					System.out.println(u.getTemporaryTableName()+":"+u.getPartition().toString());
-				} else {
-					System.out.println("exists non partitioned!");
-					System.out.println(u.getTemporaryTableName());
-					existsNonPartitioned = true;
-				}*/
+				/*
+				 * if (u.getPartition() != null) { existsPartitioned = true;
+				 * System.out.println("exists partitioned!");
+				 * System.out.println(u.getTemporaryTableName()+":"+u.
+				 * getPartition().toString()); } else { System.out.println(
+				 * "exists non partitioned!");
+				 * System.out.println(u.getTemporaryTableName());
+				 * existsNonPartitioned = true; }
+				 */
 			}
 			if (unions.size() > 1) {
 				tempResult.add(current);
@@ -683,25 +693,25 @@ public class SinlgePlanDFLGenerator {
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
-				//if (existsNonPartitioned && existsPartitioned) {
-					// make all unions have the same number of partitions
-				if (op.getOpCode() == Node.UNION){
-					SQLQuery first=unions.get(0);
-					String ptCol="c1";
-					for(Output a:first.getOutputs()){
-						if(!a.getObject().getAllColumnRefs().isEmpty()){
-							ptCol=a.getOutputName();
+				// if (existsNonPartitioned && existsPartitioned) {
+				// make all unions have the same number of partitions
+				if (op.getOpCode() == Node.UNION) {
+					SQLQuery first = unions.get(0);
+					String ptCol = "c1";
+					for (Output a : first.getOutputs()) {
+						if (!a.getObject().getAllColumnRefs().isEmpty()) {
+							ptCol = a.getOutputName();
 							break;
 						}
 					}
-					
-					Column pt=new Column(ptCol, ptCol);
+
+					Column pt = new Column(ptCol, ptCol);
 					first.setRepartition(pt, partitionNo);
 					first.setPartition(pt);
-					for (int un=1;un<unions.size();un++) {
-						SQLQuery u=unions.get(un);
-							u.setRepartition(pt, partitionNo);
-							u.setPartition(pt);
+					for (int un = 1; un < unions.size(); un++) {
+						SQLQuery u = unions.get(un);
+						u.setRepartition(pt, partitionNo);
+						u.setPartition(pt);
 					}
 				}
 			} else {
@@ -785,10 +795,13 @@ public class SinlgePlanDFLGenerator {
 			current.setNested(true);
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 
-		} else if (op.getOpCode() == Node.LEFTJOIN) {
+		} else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
 			Operand leftJoinOp = (Operand) op.getObject();
 			current.addJoinOperand(leftJoinOp);
 			current.setJoinType("left outer join");
+			if (op.getOpCode() == Node.JOINKEY) {
+				current.setJoinType("join");
+			}
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
@@ -811,15 +824,17 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 			}
-			
-			for(Operand o:current.getJoinOperands()){
-				for(Column c:o.getAllColumnRefs()){
-					o.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
-							c.getName(), c.getAlias()));
+
+			for (Operand o : current.getJoinOperands()) {
+				for (Column c : o.getAllColumnRefs()) {
+					String base=tempResult.getQueryForBaseTable(c.getAlias());
+					if(base!=null){
+						o.changeColumn(c,
+								new Column(base, c.getName(), c.getAlias()));
+					}
 				}
 			}
 
-			
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
@@ -1490,10 +1505,13 @@ public class SinlgePlanDFLGenerator {
 
 		}
 
-		else if (op.getOpCode() == Node.LEFTJOIN) {
+		else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
 			Operand leftJoinOp = (Operand) op.getObject();
 			current.addJoinOperand(leftJoinOp);
 			current.setJoinType("left outer join");
+			if (op.getOpCode() == Node.JOINKEY) {
+				current.setJoinType("join");
+			}
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
@@ -1518,10 +1536,10 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			for(Operand o:current.getJoinOperands()){
-				for(Column c:o.getAllColumnRefs()){
-					o.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
-							c.getName(), c.getAlias()));
+			for (Operand o : current.getJoinOperands()) {
+				for (Column c : o.getAllColumnRefs()) {
+					o.changeColumn(c,
+							new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 				}
 			}
 			// }
@@ -1591,12 +1609,12 @@ public class SinlgePlanDFLGenerator {
 
 	private void addOutputs(SQLQuery current, String inputName, ResultList list) {
 		SQLQuery q = list.get(inputName);
-		log.debug("adding Output to:" + current.getTemporaryTableName());
+		//log.debug("adding Output to:" + current.getTemporaryTableName());
 
 		if (q != null) {
-			log.debug("from q:" + q.getTemporaryTableName());
+			//log.debug("from q:" + q.getTemporaryTableName());
 			for (Output o : q.getOutputs()) {
-				log.debug("out alias:" + o.getOutputName());
+				//log.debug("out alias:" + o.getOutputName());
 				if (!current.getOutputAliases().contains(o.getOutputName())) {
 					current.addOutput(inputName, o.getOutputName());
 				}
@@ -1687,8 +1705,8 @@ public class SinlgePlanDFLGenerator {
 			visited.put(k, current);
 
 			if (memo.getMemoValue(k).isMaterialised()) {
-				//current.setMaterialised(true);
-				//current.setHashId(e.getHashId());
+				// current.setMaterialised(true);
+				// current.setHashId(e.getHashId());
 			}
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
@@ -1980,11 +1998,13 @@ public class SinlgePlanDFLGenerator {
 				// final limit of a table tha exists in cache
 				tempResult.add(current);
 			}
-		}
-		else if (op.getOpCode() == Node.LEFTJOIN) {
+		} else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
 			Operand leftJoinOp = (Operand) op.getObject();
 			current.addJoinOperand(leftJoinOp);
 			current.setJoinType("left outer join");
+			if (op.getOpCode() == Node.JOINKEY) {
+				current.setJoinType("join");
+			}
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
@@ -2008,16 +2028,17 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 
-			for(Operand o:current.getJoinOperands()){
-				for(Column c:o.getAllColumnRefs()){
-					o.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
-							c.getName(), c.getAlias()));
+			for (Operand o : current.getJoinOperands()) {
+				for (Column c : o.getAllColumnRefs()) {
+					o.changeColumn(c,
+							new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(), c.getAlias()));
 				}
 			}
-		}
-		else if (op.getOpCode() == Node.NESTED) {
+		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
 			current.setNested(true);
+			// tempResult.trackBaseTableFromQuery(op.getDescendantBaseTables().iterator().next(),
+			// current.getTemporaryTableName());
 			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
@@ -2058,7 +2079,7 @@ public class SinlgePlanDFLGenerator {
 			if (dbID == null) {
 				dbID = tableEndpoint;
 			} else {
-				if (!dbID.equals(tableEndpoint)) {
+				if (!DBInfoReaderDB.isOnSameDB(dbID, tableEndpoint)) {
 					return false;
 				}
 			}

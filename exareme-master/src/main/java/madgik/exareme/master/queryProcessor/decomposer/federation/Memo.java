@@ -11,6 +11,7 @@ import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author dimitris
@@ -29,7 +30,7 @@ public class Memo {
         return memo.containsKey(ec);
     }
 
-    public void put(Node e, SinglePlan resultPlan, Column c, double repCost, PartitionCols l, List<MemoKey> toMaterialize) {
+    public void put(Node e, SinglePlan resultPlan, Column c, double repCost, PartitionCols l, Set<MemoKey> toMaterialize) {
         MemoKey k = new MemoKey(e, c);
         PartitionedMemoValue v = new PartitionedMemoValue(resultPlan, repCost);
         v.setDlvdPart(l);

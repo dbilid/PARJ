@@ -34,8 +34,8 @@ public class NodeCostEstimator {
                 NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o.getObject();
                 return estimateJoin(nuwc, o.getChildAt(0), o.getChildAt(1));
             } catch (Exception ex) {
-                log.debug("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
-                //System.out.println("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
+                log.error("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
+                System.out.println("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
                 return 1.0;
             }
         } else if (o.getOpCode() == Node.UNION) {
@@ -72,7 +72,7 @@ public class NodeCostEstimator {
         }
     }
     private Double estimateBaseProjection(Node o) {
-    	double a=indexCostCreation(o.getChildAt(0));
+    	//double a=indexCostCreation(o.getChildAt(0));
     	return (o.getChildAt(0).getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
 	}
 	//private final NodeSelectivityEstimator selEstimator;
@@ -98,9 +98,11 @@ public class NodeCostEstimator {
 
     public double estimateFilter(Node n) {
     	//if it's not on base relation return 0
-    	if(n.getChildAt(0).getChildAt(0).getOpCode()!=Node.BASEPROJECT){
+    	if(!(n.getChildAt(0).getChildren().isEmpty()||
+    			n.getChildAt(0).getChildAt(0).getOpCode()==Node.BASEPROJECT)){
     		return 0;
     	}
+    	
     	else{
     		boolean indexUsage=false;
     		Selection p=(Selection)n.getObject();
@@ -123,7 +125,10 @@ public class NodeCostEstimator {
     		}
     		else{
     			//cost is all the no of pages in the relation
-    			Node base=n.getChildAt(0).getChildAt(0).getChildAt(0);
+    			Node base=n.getChildAt(0);
+    			if(!n.getChildAt(0).getChildren().isEmpty()){
+    				base=n.getChildAt(0).getChildAt(0).getChildAt(0);
+    			}
     			return (base.getNodeInfo().outputRelSize() / Metadata.PAGE_SIZE) * Metadata.PAGE_IO_TIME;
     			
     		}
@@ -175,7 +180,7 @@ public class NodeCostEstimator {
             return responseTime;
 
         } catch (Exception ex) {
-            log.debug("Cannot get cost for repartition op " + partitioningCol.getName() + ". Assuming dummy cost");
+            log.error("Cannot get cost for repartition op " + partitioningCol.getName() + ". Assuming dummy cost");
             return 1.5;
 
         }

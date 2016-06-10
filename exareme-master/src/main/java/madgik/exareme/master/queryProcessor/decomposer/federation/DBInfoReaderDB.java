@@ -97,5 +97,9 @@ public class DBInfoReaderDB {
         }
         return n2a;
     }
+
+	public static boolean isOnSameDB(String dbID, String tableEndpoint) {
+		return dbInfo.getDB(dbID).getMadisString().equalsIgnoreCase(dbInfo.getDB(tableEndpoint).getMadisString());
+	}
 }
 

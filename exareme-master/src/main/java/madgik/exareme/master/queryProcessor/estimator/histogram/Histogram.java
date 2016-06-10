@@ -282,23 +282,37 @@ public final class Histogram {
     }
 
     private void limitHistogram(double left, double right) {
-        shrinkHistogramLeft(left);
-        shrinkHistogramRight(right);
+    	if(Math.abs(left-right)/Math.abs(left)<0.00000001){
+    		//it the same value
+    		equal(left);
+    	}
+    	else{
+    		shrinkHistogramLeft(left);
+            shrinkHistogramRight(right);
+    	}
+        
+        
 
     }
 
     private double computeRightSemiBucketDiffVals(double value) {
         checkNotNull(this.bucketIndex.floorKey(value), "floor");
         checkNotNull(this.bucketIndex.ceilingKey(value), "ceiling");
+        
 
         double fk = this.bucketIndex.floorKey(value);
         double ck = this.bucketIndex.ceilingKey(value);
+        
+      
+        
         return ((ck - value) / (ck - fk)) * this.bucketIndex.get(fk).getDiffValues();
     }
 
     private double computeLeftSemiBucketDiffVals(double value) {
         double fk = this.bucketIndex.floorKey(value);
         double ck = this.bucketIndex.ceilingKey(value);
+        
+        
         return ((value - fk) / (ck - fk)) * this.bucketIndex.get(fk).getDiffValues();
     }
 

@@ -40,6 +40,8 @@ public class DecomposerUtils {
 	public static final boolean WRITE_ALIASES;
 	public static final double DISK_SCAN;
 	public static final int MOST_PROMINENT;
+	public static final boolean USE_GREEDY;
+	public static final long EXPAND_DAG_TIME;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -49,6 +51,8 @@ public class DecomposerUtils {
         ANALYZER_LOG_LEVEL = properties.getString("analyzer.logLevel");
         Logger.getLogger("madgik.exareme.master.queryProcessor.analyzer")
             .setLevel(Level.toLevel(ANALYZER_LOG_LEVEL));
+        Logger.getLogger("madgik.exareme.master.queryProcessor.estimator")
+        .setLevel(Level.toLevel(ANALYZER_LOG_LEVEL));
 
         CENTRALIZED = properties.getBoolean("centralized");
         MULTI = properties.getBoolean("multi");
@@ -75,6 +79,8 @@ public class DecomposerUtils {
         WRITE_ALIASES=properties.getBoolean("write.aliases");
         DISK_SCAN=properties.getFloat("disk.scan");
         MOST_PROMINENT=properties.getInt("most.prominent");
+        USE_GREEDY=properties.getBoolean("use.greedy");
+        EXPAND_DAG_TIME=properties.getLong("expand.dag.time");
         
         log.trace("Decomposer Properties Loaded.");
     }

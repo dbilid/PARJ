@@ -59,7 +59,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	@Override
 	public void makeEstimationForNode(Node n) {
-		 try{
+		
 		if (!n.getObject().toString().startsWith("table")) {
 			estimateBase(n);
 		} else {
@@ -79,11 +79,11 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			} else if (o.getOpCode() == Node.UNION) {
 				estimateUnion(n);
 			}
+			else if (o.getOpCode() == Node.NESTED){
+				n.setNodeInfo(o.getChildAt(0).getNodeInfo());
+			}
 		}
-		 }catch(Exception ex){
-			// System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
-			log.error("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
-		 }
+		
 
 	}
 
@@ -198,7 +198,6 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo newR=new RelInfo(rRel);
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
-
 		if(newR.getNumberOfTuples()<0.5 || lRel.getNumberOfTuples()<0.5){
 			resultHistogram.convertToTransparentHistogram();
 		}
@@ -245,8 +244,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l.getName()).getHistogram();
 		
+		if (rRel.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
+			resultHistogram.convertToTransparentHistogram();
+		} else {
+			resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
+		}
 
-		resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
+		//resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
 

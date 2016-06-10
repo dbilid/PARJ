@@ -43,6 +43,8 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	public static final int BASEPROJECT = 16;
 	public static final int LEFTJOIN = 17;
 	public static final int RIGHTJOIN = 18;
+	public static final int JOINKEY = 19;
+	public static final int CENTRALIZEDJOIN = 13;
 	// private boolean isBaseTable;
 	private int type;
 	private int prunningCounter;
@@ -244,11 +246,11 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		this.setHashNeedsRecomputing();
 	}
 
-	public StringBuilder dotPrint() {
+	public StringBuilder dotPrint(Set<Node> visited) {
 		StringBuilder result = new StringBuilder();
 		HashSet<String> shapes = new HashSet<String>();
 		LinkedList<Node> queue = new LinkedList<Node>();
-
+		
 		queue.offer(this); // Place start node in queue
 		shapes.add(this.dotShape());
 		while (!queue.isEmpty()) {
@@ -257,6 +259,10 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			if (!v.getChildren().isEmpty()) {
 				for (int i = 0; i < v.getChildren().size(); i++) {
 					Node c = v.getChildren().get(i);
+					if(visited.contains(c)){
+						continue;
+					}
+					//visited.add(c);
 					queue.add(c);
 					shapes.add(c.dotShape());
 					result.append(v.dotString());
@@ -705,7 +711,21 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			int[] result = new int[1];
 			// result[0]=RIGHTBROADCASTJOIN;
 			// result[1]=LEFTBROADCASTJOIN;
-			result[0] = REPARTITIONJOIN;
+			boolean centralised=true;
+			if(this.children.size()==2){
+				for(Node c:children){
+				if(c.nodeInfo!=null && c.nodeInfo.getNumberOfTuples()*c.getNodeInfo().getTupleLength()>300000){
+					centralised=false;
+					break;
+				}
+			}
+			}
+			
+			if(!centralised){
+				result[0] = REPARTITIONJOIN;
+			}else{
+				result[0] = CENTRALIZEDJOIN;
+			}
 			return result;
 		} else {
 			int[] result = new int[1];
@@ -715,9 +735,6 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	}
 
 	public NodeInfo getNodeInfo() {
-		if(this.getObject().toString().startsWith("table70 ")&&nodeInfo!=null){
-			System.out.println(nodeInfo.getResultRel().getAttrIndex().get("wlbNpdidWellbore"));
-		}
 		return nodeInfo;
 		
 	}

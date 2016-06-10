@@ -20,6 +20,7 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
 	 */
 	private static final long serialVersionUID = -1463579163197580938L;
 	private NodeSelectivityEstimator nse;
+	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(NodeHashValues.class);
 
     public void setSelectivityEstimator(NodeSelectivityEstimator nse) {
         this.nse = nse;
@@ -37,7 +38,13 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
 
     @Override public Node put(HashCode key, Node value) {
         if (nse != null && value.getType() == Node.OR && value.getNodeInfo() == null) {
+        	try{
             nse.makeEstimationForNode(value);
+        	 }catch(Exception ex){
+        		nse=null;
+     			// System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
+     			log.error("cannot compute selectivity for node "+value.getObject().toString()+":"+ ex.getMessage());
+     		 }
         }
         return super
             .put(key, value); //To change body of generated methods, choose Tools | Templates.
