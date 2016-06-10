@@ -235,16 +235,15 @@ public class QueryUtils {
 		if (o instanceof BinaryOperand) {
 
 			BinaryOperand bo = (BinaryOperand) o;
-			if (bo.getOperator().equals("=")) {
+			if (bo.getOperator().equals("=") && bo.getLeftOp().getAllColumnRefs().size() > 0
+					&& bo.getRightOp().getAllColumnRefs().size() > 0) {
 				if (i == 0) {
-					if (bo.getLeftOp().getAllColumnRefs().size() > 0) {
-						return bo.getLeftOp().getAllColumnRefs().get(0);
-					}
+					return bo.getLeftOp().getAllColumnRefs().get(0);
+
 				}
 				if (i == 1) {
-					if (bo.getRightOp().getAllColumnRefs().size() > 0) {
-						return bo.getRightOp().getAllColumnRefs().get(0);
-					}
+					return bo.getRightOp().getAllColumnRefs().get(0);
+
 				}
 			} else if (bo.getOperator().equalsIgnoreCase("and")) {
 				Column c2 = getJoinColumnFromOperand(bo.getLeftOp(), i);
@@ -258,5 +257,28 @@ public class QueryUtils {
 			}
 		}
 		return null;
+	}
+
+	public static void reorderBinaryConditions(Operand op, Set<String> left,
+			Set<String> right) {
+		if(op instanceof BinaryOperand){
+			BinaryOperand bo=(BinaryOperand)op;
+			if(bo.getOperator().equalsIgnoreCase("and")){
+				reorderBinaryConditions(bo.getLeftOp(), left, right);
+				reorderBinaryConditions(bo.getRightOp(), left, right);
+			}
+			else{
+				Operand lo=bo.getLeftOp();
+				Operand ro=bo.getRightOp();
+				if(lo.getAllColumnRefs().size()>0 &&ro.getAllColumnRefs().size()>0){
+					if(!left.contains(lo.getAllColumnRefs().get(0).getAlias())){
+						//reorder
+						bo.setLeftOp(ro);
+						bo.setRightOp(lo);
+					}
+				}
+			}
+		}
+		
 	}
 }
