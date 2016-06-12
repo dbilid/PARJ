@@ -267,8 +267,8 @@ public class QueryDecomposer {
 			createProjections(root);
 			log.debug("Base projections created");
 		}
-		// StringBuilder a = root.dotPrint(new HashSet<Node>());
-		// System.out.println(a.toString());
+		//StringBuilder a = root.dotPrint(new HashSet<Node>());
+	// System.out.println(a.toString());
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
@@ -633,6 +633,7 @@ public class QueryDecomposer {
 						newBwc.setOperator("=");
 						newBwc.setLeftOp(bwc.getRightOp());
 						newBwc.setRightOp(bwc.getLeftOp());
+						newBwc.addRangeFilters(bwc);
 						commutativity.setObject(newBwc);
 						if (op.getChildren().size() > 1) {
 							commutativity.addChild(op.getChildAt(1));
@@ -707,6 +708,7 @@ public class QueryDecomposer {
 										 */
 										newBwc.setRightOp(bwc.getRightOp());
 										newBwc.setLeftOp(bwc.getLeftOp());
+										newBwc.addRangeFilters(bwc);
 										associativity.setObject(newBwc);
 										associativity.addChild(op.getChildAt(0));
 
@@ -775,6 +777,7 @@ public class QueryDecomposer {
 											newBwc2.setRightOp(bwc2.getLeftOp());
 											newBwc2.setLeftOp(bwc2.getRightOp());
 										}
+										newBwc2.addRangeFilters(bwc2);
 										// newBwc2.setLeftOp(bwc.getRightOp());
 										associativityTop.setObject(newBwc2);
 										associativityTop.addChild(table);
@@ -913,6 +916,7 @@ public class QueryDecomposer {
 
 										newBwc.setRightOp(bwc.getRightOp());
 										newBwc.setLeftOp(bwc.getLeftOp());
+										newBwc.addRangeFilters(bwc);
 										associativity.setObject(newBwc);
 
 										if (comesFromLeftOp) {
@@ -972,6 +976,7 @@ public class QueryDecomposer {
 										// newBwc2.setLeftOp(bwc.getRightOp());
 										associativityTop.setObject(newBwc2);
 										associativityTop.addChild(table);
+										newBwc2.addRangeFilters(bwc2);
 										associativityTop.setExpanded(true);
 
 										// System.out.println(associativityTop.getObject().toString());

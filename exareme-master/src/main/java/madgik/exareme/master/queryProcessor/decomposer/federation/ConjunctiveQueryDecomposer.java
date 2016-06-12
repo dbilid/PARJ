@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-
 //import di.madgik.statistics.planner.JoinExecutionAdvice;
 //import di.madgik.statistics.planner.StarPlanner;
 import org.apache.log4j.Logger;
@@ -37,12 +36,13 @@ public class ConjunctiveQueryDecomposer {
 	private ColumnsToTableNames<String> c2t;
 	private ColumnsToTableNames<Node> c2n;
 	private ArrayList<SQLQuery> result;
+	private boolean checkForRangeJoins = true;
 	// private boolean singleTable = false;
 	private ArrayList<SQLQuery> nestedSubqueries;
 	HashSet<Join> lj;
 	private boolean centralizedExecution;
-	private static final boolean useGreedy=true;
-	private static int counter=0;
+	private static final boolean useGreedy = DecomposerUtils.USE_GREEDY;
+	private static int counter = 0;
 	// private boolean mergeSelections;
 	// private static int counter=0;
 	private static final Logger log = Logger
@@ -110,14 +110,14 @@ public class ConjunctiveQueryDecomposer {
 	}
 
 	public Node addCQToDAG(Node root, NodeHashValues hashes) {
-		
-		if(initialQuery.getJoinNode()!=null){
+
+		if (initialQuery.getJoinNode() != null) {
 			Node tempParent = makeNodeFinal(initialQuery.getJoinNode(), hashes);
 			root.addChild(tempParent);
-			if(useGreedy){
+			if (useGreedy) {
 				tempParent.addUnionToDesc(counter);
 			}
-			//String a=tempParent.dotPrint();
+			// String a=tempParent.dotPrint();
 			return tempParent;
 		}
 
@@ -128,39 +128,40 @@ public class ConjunctiveQueryDecomposer {
 		// else we have only one DB, for each table make a subquery
 		// else {
 		Node last = null;
-		
-		boolean checkToRemoveReduntantJoins=false;
-		if(checkToRemoveReduntantJoins&&root.getOpCode()==Node.UNION){
-			Map<String, Boolean> tbleHashOnlyOneCol=new HashMap<String, Boolean>();
-			for(Column c:initialQuery.getAllColumns()){
-				if(tbleHashOnlyOneCol.containsKey(c.getAlias())){
+
+		boolean checkToRemoveReduntantJoins = false;
+		if (checkToRemoveReduntantJoins && root.getOpCode() == Node.UNION) {
+			Map<String, Boolean> tbleHashOnlyOneCol = new HashMap<String, Boolean>();
+			for (Column c : initialQuery.getAllColumns()) {
+				if (tbleHashOnlyOneCol.containsKey(c.getAlias())) {
 					tbleHashOnlyOneCol.put(c.getAlias(), false);
-				}
-				else{
+				} else {
 					tbleHashOnlyOneCol.put(c.getAlias(), true);
 				}
 			}
-			for(String s:tbleHashOnlyOneCol.keySet()){
-				if(tbleHashOnlyOneCol.get(s)){
-					for(NonUnaryWhereCondition join:initialQuery.getBinaryWhereConditions()){
-						if(join.getLeftOp() instanceof Column && join.getRightOp() instanceof Column && join.getOperator().equals("=")){
-							Column left=(Column)join.getLeftOp() ;
-							Column right=(Column)join.getRightOp() ;
-							if(left.getName().equals(right.getName())){
-							if(left.getAlias().equals(s)){
-								
-							}
-							if(right.getAlias().equals(s)){
-								
+			for (String s : tbleHashOnlyOneCol.keySet()) {
+				if (tbleHashOnlyOneCol.get(s)) {
+					for (NonUnaryWhereCondition join : initialQuery
+							.getBinaryWhereConditions()) {
+						if (join.getLeftOp() instanceof Column
+								&& join.getRightOp() instanceof Column
+								&& join.getOperator().equals("=")) {
+							Column left = (Column) join.getLeftOp();
+							Column right = (Column) join.getRightOp();
+							if (left.getName().equals(right.getName())) {
+								if (left.getAlias().equals(s)) {
+
+								}
+								if (right.getAlias().equals(s)) {
+
+								}
 							}
 						}
 					}
 				}
 			}
 		}
-		}
-		
-		
+
 		for (Table t : this.initialQuery.getInputTables()) {
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());
@@ -332,12 +333,67 @@ public class ConjunctiveQueryDecomposer {
 				}
 				Node tempParent = makeNodeFinal(last, hashes);
 				root.addChild(tempParent);
-				if(useGreedy){
+				if (useGreedy) {
 					tempParent.addUnionToDesc(counter);
 				}
 				return tempParent;
 			}
 
+		}
+
+		if (this.checkForRangeJoins) {
+			Map<Set<String>, Set<NonUnaryWhereCondition>> joinsForTablesWithInequality = new HashMap<Set<String>, Set<NonUnaryWhereCondition>>();
+			for (NonUnaryWhereCondition bwc : this.remainingWhereConditions) {
+				if (bwc.getOperator().contains(">")
+						|| bwc.getOperator().contains("<")) {
+					Set<String> ts = new HashSet<String>(2);
+					ts.add(bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
+					ts.add(bwc.getRightOp().getAllColumnRefs().get(0)
+							.getAlias());
+					if (!joinsForTablesWithInequality.containsKey(ts)) {
+						joinsForTablesWithInequality.put(ts,
+								new HashSet<NonUnaryWhereCondition>());
+					}
+					joinsForTablesWithInequality.get(ts).add(bwc);
+				}
+			}
+			for (Set<NonUnaryWhereCondition> filters : joinsForTablesWithInequality
+					.values()) {
+				for (NonUnaryWhereCondition f : filters) {
+					remainingWhereConditions.remove(f);
+				}
+			}
+			if (!joinsForTablesWithInequality.isEmpty()) {
+				for (NonUnaryWhereCondition bwc : this.remainingWhereConditions) {
+					if (bwc.getOperator().equals("=")) {
+						Set<String> ts = new HashSet<String>(2);
+						ts.add(bwc.getLeftOp().getAllColumnRefs().get(0)
+								.getAlias());
+						ts.add(bwc.getRightOp().getAllColumnRefs().get(0)
+								.getAlias());
+						if (joinsForTablesWithInequality.containsKey(ts)) {
+							bwc.createFilterJoins();
+							for (NonUnaryWhereCondition rangeJoinsForTable : joinsForTablesWithInequality
+									.get(ts)) {
+								bwc.addFilterJoin(rangeJoinsForTable);
+							}
+							joinsForTablesWithInequality.remove(ts);
+						}
+
+					}
+				}
+			}
+			if (!joinsForTablesWithInequality.isEmpty()) {
+				for (Set<NonUnaryWhereCondition> filters : joinsForTablesWithInequality
+						.values()) {
+					for (NonUnaryWhereCondition f : filters) {
+						remainingWhereConditions.add(f);
+					}
+				}
+
+				log.error("Query contains range join:"
+						+ remainingWhereConditions.toString());
+			}
 		}
 
 		while (!this.remainingWhereConditions.isEmpty()) {
@@ -365,7 +421,7 @@ public class ConjunctiveQueryDecomposer {
 				log.error(bwc.toString() + ":operand not Column");
 
 			}
-			HashCode hc=join.getHashId();
+			HashCode hc = join.getHashId();
 			if (!hashes.containsKey(hc)) {
 				hashes.put(join.getHashId(), join);
 			} else {
@@ -378,7 +434,7 @@ public class ConjunctiveQueryDecomposer {
 			table.setObject(t);
 			table.addChild(join);
 			// table.setIsCentralised(tableIsCentralised);
-			hc=table.getHashId();
+			hc = table.getHashId();
 			if (!hashes.containsKey(hc)) {
 				hashes.put(table.getHashId(), table);
 				table.addAllDescendantBaseTables(join.getDescendantBaseTables());
@@ -411,7 +467,7 @@ public class ConjunctiveQueryDecomposer {
 				} else {
 					Node tempParent = makeNodeFinal(table, hashes);
 					root.addChild(tempParent);
-					if(useGreedy){
+					if (useGreedy) {
 						tempParent.addUnionToDesc(counter);
 					}
 					return tempParent;
@@ -1089,7 +1145,7 @@ public class ConjunctiveQueryDecomposer {
 				}
 				tempParent = table;
 			} else {
-				//log.error("ORDER BY not supported!");
+				// log.error("ORDER BY not supported!");
 			}
 		}
 		if (!this.initialQuery.isSelectAll()) {

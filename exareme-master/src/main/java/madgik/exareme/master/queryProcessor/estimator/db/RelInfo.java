@@ -50,7 +50,20 @@ public class RelInfo {
         }
     }
 
-    /*getters and seters*/
+    public RelInfo(RelInfo rel, String tableAlias) {
+    	this.relName = rel.getRelName();
+        this.numberOfTuples = rel.getNumberOfTuples();
+        this.tupleLength = rel.getTupleLength();
+        this.numberOfPartitions = rel.getNumberOfPartitions();
+        this.attrIndex = new HashMap<String, AttrInfo>();
+        this.hashAttr = new HashSet<String>(rel.getHashAttr());
+
+        for (Map.Entry<String, AttrInfo> e : rel.getAttrIndex().entrySet()) {
+            this.attrIndex.put(tableAlias+"."+e.getKey(), new AttrInfo(e.getValue()));
+        }
+	}
+
+	/*getters and seters*/
     public String getRelName() {
         return relName;
     }

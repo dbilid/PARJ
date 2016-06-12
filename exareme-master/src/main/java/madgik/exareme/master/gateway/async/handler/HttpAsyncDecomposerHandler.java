@@ -521,7 +521,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 										hashQueryMap.put(q.getResultTableName(),
 												new Pair(q.getHashId().asBytes(), ptnCol));
 									} catch (NullPointerException we) {
-										System.out.print("sss");
+										log.error("null hash id");
 									}
 									String dSQL = q.toDistSQL();
 									decomposedQuery += dSQL + "\n\n";

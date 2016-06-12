@@ -8,6 +8,10 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
+
+import org.jfree.util.Log;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -16,6 +20,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class Histogram {
     public static final double MAX_HISTOGRAM_VALUE = 0.0;
     public static final double MIN_HISTOGRAM_VALUE = 0.0;
+	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(Histogram.class);
+
 
     private NavigableMap<Double, Bucket> bucketIndex;
 
@@ -437,6 +443,7 @@ public final class Histogram {
 
             double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency();
             if(Double.isInfinite(resultFreq)){
+            	log.error("Result Frequency is Infinite");
             	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
             }
 
@@ -660,9 +667,26 @@ public final class Histogram {
             double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
             double minCombiningBucketVal = combiningBucketId;
             double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
-        	double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            
+            //0.7 ftw! to change later!
+            //double resultFreq=combiningBucket.getFrequency();
+          //  double nodv = combiningBucket.getDiffValues()*0.1;
+          //  if(combiningBucket.getDiffValues()>combinerBucket.getDiffValues()){
+         //   	resultFreq=combinerBucket.getFrequency();
+            //    nodv = combinerBucket.getDiffValues()*0.1;
+           // }
+            double combinerSubBucketDiffVals =
+                    (maxCombiningBucketVal - minCombiningBucketVal) / (maxCombinerBucketVal
+                        - minCombinerBucketVal) * combinerBucket.getDiffValues();
 
-            double nodv = combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues()/(combinerBucket.getFrequency()*combinerBucket.getDiffValues()/(maxCombinerBucketVal-minCombinerBucketVal)):combinerBucket.getDiffValues()/(combiningBucket.getFrequency()*combiningBucket.getDiffValues()/(maxCombiningBucketVal-minCombiningBucketVal));
+
+                double nodv = combiningBucket.getDiffValues();
+
+                if (nodv > combinerSubBucketDiffVals)
+                    nodv = combinerSubBucketDiffVals;
+            double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+
+            //double nodv = combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues()/(combinerBucket.getFrequency()*combinerBucket.getDiffValues()/(maxCombinerBucketVal-minCombinerBucketVal)):combinerBucket.getDiffValues()/(combiningBucket.getFrequency()*combiningBucket.getDiffValues()/(maxCombiningBucketVal-minCombiningBucketVal));
 
 
             combiningBucket.setDiffValues(nodv);

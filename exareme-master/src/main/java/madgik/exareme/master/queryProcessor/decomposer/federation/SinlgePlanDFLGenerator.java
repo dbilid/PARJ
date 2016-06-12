@@ -382,7 +382,7 @@ public class SinlgePlanDFLGenerator {
 
 		boolean mergeUnions = true;
 		SQLQuery last = qs.get(qs.size() - 1);
-		if (mergeUnions && last.getUnionqueries().size() > 10) {
+		if (mergeUnions && last.getUnionqueries().size() > 50) {
 
 			SQLQuery current = new SQLQuery();
 			// random hash, to fix
@@ -394,7 +394,7 @@ public class SinlgePlanDFLGenerator {
 			last.getUnionqueries().add(current);
 			qs.add(qs.size() - 1, current);
 			for (int i = 0; i < allUnions.size(); i++) {
-				if (i % 10 == 9) {
+				if (i % 50 == 49) {
 					current = new SQLQuery();
 					current.setIsUnionAll(true);
 					current.setHasUnionRootNode(last.isHasUnionRootNode());
@@ -1653,6 +1653,7 @@ public class SinlgePlanDFLGenerator {
 			HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) {
 
 		SQLQuery current = tempResult.getCurrent();
+
 		MemoValue v = memo.getMemoValue(k);
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
@@ -1796,6 +1797,7 @@ public class SinlgePlanDFLGenerator {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
 			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
 					nuwc.getOperator());
+			nuwcCloned.addRangeFilters(nuwc);
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
@@ -1823,16 +1825,17 @@ public class SinlgePlanDFLGenerator {
 			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
-					for (Operand o : bwc.getOperands()) {
+					for(Column c:bwc.getAllColumnRefs()){
+					//for (Operand o : bwc.getOperands()) {
 
-						List<Column> cs = o.getAllColumnRefs();
-						if (!cs.isEmpty()) {
+						//List<Column> cs = o.getAllColumnRefs();
+						//if (!cs.isEmpty()) {
 							// not constant
-							Column c = cs.get(0);
+							//Column c = cs.get(0);
 							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
 								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
 										c.getName(), c.getAlias()));
-							}
+							//}
 						}
 
 					}
@@ -1954,6 +1957,7 @@ public class SinlgePlanDFLGenerator {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
 					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
 							nuwc.getOperator());
+					nuwcCloned.addRangeFilters(nuwc);
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
 							nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),

@@ -142,6 +142,9 @@ public class NodeCostEstimator {
     		//TODO do not consider bushy joins in centralised and not federated execution
     		return 1000000.0;
     	}
+    	else if(right.getDescendantBaseTables().size()>1&&!right.isMaterialised()){
+    		return 1000000.0;
+    	}
 
 
         double leftRelTuples = left.getNodeInfo().getNumberOfTuples();
