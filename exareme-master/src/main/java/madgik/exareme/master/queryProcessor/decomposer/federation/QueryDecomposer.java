@@ -1469,7 +1469,8 @@ public class QueryDecomposer {
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
 			SinglePlan r = new SinglePlan(0);
-			memo.put(e, r, c, repCost, true, null);
+			memo.put(e, r, c, repCost, false, null);
+			toMaterialize.add(new MemoKey(e, c));
 			partitionRecord.setLastPartitioned(null);
 			return r;
 		}
@@ -1515,18 +1516,14 @@ public class QueryDecomposer {
 			for (int m = 0; m < o.getAlgorithmicImplementations().length; m++) {
 
 				int a = o.getAlgorithmicImplementations()[m];
-
+				
 				int retainsPartition = -1;
 				retainsPartition = getRetainsPartition(a);
 				PartitionCols returnedPt = null;
 				algRecordCloned = e2RecordCloned.shallowCopy();
 				algLimit = newLimit;
 				Set<MemoKey> toMatAlg = new HashSet<MemoKey>();
-				if (a == Node.NESTED) {
-					// nested is always materialized
-					toMatAlg.add(new MemoKey(e, c));
-					// algPlan.increaseCost(cost mat e)
-				}
+				
 				SinglePlan algPlan = new SinglePlan(opCost);
 				algPlan.setChoice(k);
 				if (c != null && guaranteesResultPtnedOn(a, o, c)) {
@@ -1630,12 +1627,15 @@ public class QueryDecomposer {
 							algPlan.increaseCost(c2RepCost);
 						}
 					}
+					
 
 					// mark as materialised the result of federated execution
 					 if(a==Node.BASEPROJECT &&
 					 ((Table)e2.getObject()).isFederated()){
 					toMatAlg.add(new MemoKey(e, c));
 					 }
+					 
+					 
 
 					// double e2PlanCost = algPlan.getCost();
 					if (c != null) {
@@ -1661,6 +1661,13 @@ public class QueryDecomposer {
 					// toMatE2.clear();
 					toMatE2.addAll(toMatAlg);
 					e2RecordCloned = algRecordCloned;
+				}
+				if (a == Node.NESTED) {
+					//children must not me materialized
+					toMatE2.clear();
+					// nested is always materialized
+					toMatE2.add(new MemoKey(e, c));
+					
 				}
 			}
 			if (resultPlan == null || e2Plan.getCost() < resultPlan.getCost()) {

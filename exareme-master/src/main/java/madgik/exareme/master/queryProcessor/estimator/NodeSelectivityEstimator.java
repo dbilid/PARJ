@@ -83,7 +83,15 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				estimateUnion(n);
 			}
 			else if (o.getOpCode() == Node.NESTED){
-				n.setNodeInfo(o.getChildAt(0).getNodeInfo());
+				NodeInfo nested = new NodeInfo();
+				String nestedAlias = n.getDescendantBaseTables().iterator().next();
+				RelInfo rel = o.getChildAt(0).getNodeInfo().getResultRel();
+				// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
+				RelInfo resultRel = new RelInfo(rel, nestedAlias, true);
+				nested.setNumberOfTuples(rel.getNumberOfTuples());
+				nested.setTupleLength(rel.getTupleLength());
+				nested.setResultRel(resultRel);
+				n.setNodeInfo(nested);
 			}
 		}
 		
@@ -348,7 +356,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
 
 		// System.out.println(rel);
-		RelInfo resultRel = new RelInfo(rel, tableAlias);
+		RelInfo resultRel = new RelInfo(rel, tableAlias, false);
 		/*Map<String, AttrInfo> aliasAtts=new HashMap<String, AttrInfo>(); 
 		for(String colname:resultRel.getAttrIndex().keySet()){
 			aliasAtts.put(tableAlias+"."+colname, resultRel.getAttrIndex().get(colname));

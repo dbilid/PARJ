@@ -711,15 +711,15 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			int[] result = new int[1];
 			// result[0]=RIGHTBROADCASTJOIN;
 			// result[1]=LEFTBROADCASTJOIN;
-			boolean centralised=true;
-			if(this.children.size()==2){
+			boolean centralised=false;
+			/*if(this.children.size()==2){
 				for(Node c:children){
 				if(c.nodeInfo!=null && c.nodeInfo.getNumberOfTuples()*c.getNodeInfo().getTupleLength()>300000){
 					centralised=false;
 					break;
 				}
 			}
-			}
+			}*/
 			
 			if(!centralised){
 				result[0] = REPARTITIONJOIN;

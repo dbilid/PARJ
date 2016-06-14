@@ -140,7 +140,12 @@ public class AdpDBConnectorUtil {
             inputStream.close();
             socketBuffer.close();
         } catch (IOException e) {
-            throw new RemoteException("Cannot read table", e);
+        	if(e.getMessage().equals("Pipe Closed")){
+        		log.error("Remote Connection was closed while sending result table");
+        	}
+        	else{
+        		throw new RemoteException("Cannot read table", e);
+        	}
         }
         while (sessionManager.hasFinished() == false && sessionManager.hasError() == false) {
             try {

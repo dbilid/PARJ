@@ -382,7 +382,7 @@ public class SinlgePlanDFLGenerator {
 
 		boolean mergeUnions = true;
 		SQLQuery last = qs.get(qs.size() - 1);
-		if (mergeUnions && last.getUnionqueries().size() > 50) {
+		if (mergeUnions && last.getUnionqueries().size() > 20) {
 
 			SQLQuery current = new SQLQuery();
 			// random hash, to fix
@@ -394,7 +394,7 @@ public class SinlgePlanDFLGenerator {
 			last.getUnionqueries().add(current);
 			qs.add(qs.size() - 1, current);
 			for (int i = 0; i < allUnions.size(); i++) {
-				if (i % 50 == 49) {
+				if (i % 20 == 19) {
 					current = new SQLQuery();
 					current.setIsUnionAll(true);
 					current.setHasUnionRootNode(last.isHasUnionRootNode());
@@ -913,7 +913,7 @@ public class SinlgePlanDFLGenerator {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
 			if (t.isFederated()) {
-				visited.put(k, current);
+				//visited.put(k, current);
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 					current.setHashId(e.getHashId());
@@ -1703,12 +1703,12 @@ public class SinlgePlanDFLGenerator {
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
-			visited.put(k, current);
+			//visited.put(k, current);
 
-			if (memo.getMemoValue(k).isMaterialised()) {
+			//if (memo.getMemoValue(k).isMaterialised()) {
 				// current.setMaterialised(true);
 				// current.setHashId(e.getHashId());
-			}
+			//}
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
 		}
