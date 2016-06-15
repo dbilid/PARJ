@@ -82,5 +82,9 @@ public class NamesToAliases {
 		}
 		return null;
 	}
+
+	public boolean contailsAliasForBaseTable(String t) {
+		return this.map.containsKey(t);
+	}
 	
 }

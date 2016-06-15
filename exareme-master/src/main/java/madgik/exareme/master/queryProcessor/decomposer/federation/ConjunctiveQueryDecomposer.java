@@ -31,16 +31,13 @@ import com.google.common.hash.HashCode;
 public class ConjunctiveQueryDecomposer {
 
 	private SQLQuery initialQuery;
-	private List<String> dbs;
 	private List<NonUnaryWhereCondition> remainingWhereConditions;
-	private ColumnsToTableNames<String> c2t;
 	private ColumnsToTableNames<Node> c2n;
 	private ArrayList<SQLQuery> result;
 	private boolean checkForRangeJoins = true;
 	// private boolean singleTable = false;
 	private ArrayList<SQLQuery> nestedSubqueries;
 	HashSet<Join> lj;
-	private boolean centralizedExecution;
 	private static final boolean useGreedy = DecomposerUtils.USE_GREEDY;
 	private static int counter = 0;
 	// private boolean mergeSelections;
@@ -51,7 +48,6 @@ public class ConjunctiveQueryDecomposer {
 	public ConjunctiveQueryDecomposer(SQLQuery initial, boolean centralized,
 			boolean addRedundantIsNotNull) {
 		this.initialQuery = initial;
-		this.dbs = new ArrayList<String>();
 		this.lj = new HashSet<Join>();
 		this.remainingWhereConditions = new ArrayList<NonUnaryWhereCondition>();
 		this.nestedSubqueries = new ArrayList<SQLQuery>();
@@ -64,7 +60,6 @@ public class ConjunctiveQueryDecomposer {
 				.getBinaryWhereConditions()) {
 			this.remainingWhereConditions.add(bwc);
 		}
-		this.centralizedExecution = centralized;
 		if (addRedundantIsNotNull) {
 			for (int i = 0; i < this.initialQuery.getUnaryWhereConditions()
 					.size(); i++) {
@@ -565,347 +560,8 @@ public class ConjunctiveQueryDecomposer {
 		}
 	}
 
-	public ArrayList<SQLQuery> getSubqueries() {
 
-		// columnsToSubqueries tracks from which temporary table we take each
-		// column of the initial query
-		c2t = new ColumnsToTableNames<String>();
 
-		for (Column initialQueryColumn : this.initialQuery.getAllColumns()) {
-			c2t.putColumnInTable(initialQueryColumn,
-					initialQuery.getResultTableName());
-		}
-		// track columns from nested select subqueries
-		for (SQLQuery nested : this.initialQuery.getNestedSubqueries()) {
-			this.nestedSubqueries.add(nested);
-			for (String alias : nested.getOutputAliases()) {
-				c2t.putColumnInTable(
-						new Column(this.initialQuery
-								.getNestedSubqueryAlias(nested), alias), nested
-								.getResultTableName());
-			}
-		}
-
-		result = new ArrayList<SQLQuery>();
-
-		if (initialQuery.getInputTables().size() == 1
-				&& !initialQuery.hasNestedSuqueriesOrLeftJoin()) {
-			// return initial as only subquery
-			if (this.initialQuery.isFederated()) {
-
-				for (Table t : initialQuery.getInputTables()) {
-
-					if (!t.hasDBIdRemoved()) {
-						t.setName(t.getlocalName());
-						t.setDBIdRemoved();
-					}
-					t.removeDBIdFromAlias();
-
-					initialQuery.setMadisFunctionString(DBInfoReaderDB.dbInfo
-							.getDB(dbs.get(0)).getMadisString());
-					this.initialQuery.setTemporary(false);
-					if (result.isEmpty()) {
-						renameOutputColumnsInNestedSubs();
-					}
-					result.add(this.initialQuery);
-
-				}
-
-			} else {
-				this.initialQuery.setTemporary(false);
-				if (result.isEmpty()) {
-					renameOutputColumnsInNestedSubs();
-				}
-				result.add(initialQuery);
-			}
-			return result;
-		} else if (dbs.size() > 0 && this.initialQuery.isFederated()) {
-			// we have more than one dbs. break the query into queries that can
-			// be executed in only one db
-			for (String db : dbs) {
-				SQLQuery s = createSubqueryFromDB(db);
-				if (result.isEmpty()) {
-					renameOutputColumnsInNestedSubs();
-				}
-				result.add(s);
-				for (Column c : s.getAllOutputColumns()) {
-					c2t.putColumnInTable(c, s.getResultTableName());
-				}
-			}
-
-		} // else we have only one DB, for each table make a subquery
-		else {
-			for (Table t : this.initialQuery.getInputTables()) {
-				ArrayList<String> dummy = new ArrayList<String>();
-				dummy.add(t.getAlias());
-				SQLQuery s = createSubqueriesForTables(dummy, "");
-				if (result.isEmpty()) {
-					renameOutputColumnsInNestedSubs();
-				}
-				result.add(s);
-				for (Column c : s.getAllOutputColumns()) {
-					c2t.putColumnInTable(c, s.getResultTableName());
-				}
-			}
-		}
-
-		if (this.remainingWhereConditions.isEmpty()) {
-			if (this.result.size() > 1) {
-				// CARTESIAN PRODUCT!!!!
-				SQLQuery cartesianSubquery = new SQLQuery();
-				for (SQLQuery q : this.result) {
-					cartesianSubquery.getInputTables().add(
-							new Table(q.getResultTableName(), ""));
-				}
-				makeSubqueryFinal(cartesianSubquery);
-				for (SQLQuery previous : result) {
-					previous.setTemporary(true);
-				}
-				result.add(cartesianSubquery);
-
-			}
-			return result;
-		}
-
-		// we have a query with more than one join, we must rearrange them using
-		// the optimizer
-
-		if (this.centralizedExecution) {
-			SQLQuery joinSubquery = new SQLQuery();
-			// result.add(joinSubquery);
-			while (!this.remainingWhereConditions.isEmpty()) {
-				NonUnaryWhereCondition bwc = this.remainingWhereConditions
-						.get(0);
-
-				// change the tables in the columns of the condition to be
-				// tracked from previous subqueries
-				for (Column otherColumn : c2t.getAllColumns()) {
-					for (Column c : bwc.getAllColumnRefs()) {
-						if (otherColumn.equals(c)) {
-							SQLQuery temporarySubquery = getTemporarySubquery(c2t
-									.getTablenameForColumn(otherColumn));
-							if (temporarySubquery != null) {
-
-								if (!joinSubquery.getInputTables().contains(
-										new Table(temporarySubquery
-												.getResultTableName(), ""))) {
-									joinSubquery.getInputTables().add(
-											new Table(temporarySubquery
-													.getResultTableName(), ""));
-									for (Output o : temporarySubquery
-											.getOutputs()) {
-										// if (o.getObject() instanceof Column)
-										// {
-										Column toadd = new Column(
-												temporarySubquery
-														.getResultTableName(),
-												o.getOutputName());
-										joinSubquery.getOutputs().add(
-												new Output(o.getOutputName(),
-														toadd));
-
-									}
-								}
-							}
-						}
-					}
-				}
-
-				// change columns according to columnsToSubqueries
-				// ConcurrentHashMap<Column, Column> changePairs = new
-				// ConcurrentHashMap();
-				List<Column> allRefs = bwc.getAllColumnRefs();
-				Column[] olds = new Column[allRefs.size()];
-				Column[] news = new Column[allRefs.size()];
-
-				for (int i = 0; i < allRefs.size(); i++) {
-					Column c = allRefs.get(i);
-					Column toChange = new Column(c2t.getTablenameForColumn(c),
-							c.getAlias() + "_" + c.getName());
-					olds[i] = c;
-					news[i] = toChange;
-					// changePairs.put(c, toChange);
-				}
-				for (int j = 0; j < olds.length; j++) {
-					// for (Column old : changePairs.keySet()) {
-					for (int i = 0; i < bwc.getOperands().size(); i++) {
-						Operand o = bwc.getOperands().get(i);
-						if (o instanceof Column) {
-							if (((Column) o).equals(olds[j])) {
-								bwc.setOperandAt(i, news[j]);
-							}
-						} else {
-							o.changeColumn(olds[j], news[j]);
-						}
-					}
-				}
-				joinSubquery.getBinaryWhereConditions().add(bwc);
-
-				// change columns according to columnsToSubqueries
-
-				if (remainingWhereConditions.size() == 1) {
-					// this was the last where condition
-					makeSubqueryFinal(joinSubquery);
-					if (result.isEmpty()) {
-						renameOutputColumnsInNestedSubs();
-					}
-					result.add(joinSubquery);
-					return result;
-				}
-				this.remainingWhereConditions.remove(0);
-
-			}
-
-		}
-
-		while (!this.remainingWhereConditions.isEmpty()) {
-			NonUnaryWhereCondition bwc = this.remainingWhereConditions.get(0);
-
-			SQLQuery joinSubquery = new SQLQuery();
-			// change the tables in the columns of the condition to be tracked
-			// from previous subqueries
-			for (Column otherColumn : c2t.getAllColumns()) {
-				for (Column c : bwc.getAllColumnRefs()) {
-					if (otherColumn.equals(c)) {
-						SQLQuery temporarySubquery = getTemporarySubquery(c2t
-								.getTablenameForColumn(otherColumn));
-						// temporarySubquery.setPartitioningOnColum(new
-						// Column(null, c.tableAlias + "_" + c.columnName));
-						// Column c2 = new
-						// Column(temporarySubquery.getResultTableName(), "");
-						if (!joinSubquery.getInputTables().contains(
-								new Table(temporarySubquery
-										.getResultTableName(), ""))) {
-							joinSubquery.getInputTables().add(
-									new Table(temporarySubquery
-											.getResultTableName(), ""));
-							for (Output o : temporarySubquery.getOutputs()) {
-								// if (o.getObject() instanceof Column) {
-								Column toadd = new Column(
-										temporarySubquery.getResultTableName(),
-										o.getOutputName());
-								joinSubquery.getOutputs().add(
-										new Output(o.getOutputName(), toadd));
-								// } else {
-
-								// System.out.print("OOOOOOOOOOOOO"+o.toString());
-								// TODO?
-								// }
-								// if (o.getOutputName().equals(c.tableAlias +
-								// "_" + c.columnName)) {
-								// c2.columnName = o.getOutputName();
-								// joinSubquery.outputs.add(new
-								// Output(o.getOutputName(), c2));
-
-								// }
-							}
-						}
-					}
-				}
-			}
-
-			// change columns according to columnsToSubqueries
-			// ConcurrentHashMap<Column, Column> changePairs = new
-			// ConcurrentHashMap();
-			List<Column> allRefs = bwc.getAllColumnRefs();
-			Column[] olds = new Column[allRefs.size()];
-			Column[] news = new Column[allRefs.size()];
-
-			for (int i = 0; i < allRefs.size(); i++) {
-				Column c = allRefs.get(i);
-				Column toChange = new Column(c2t.getTablenameForColumn(c),
-						c.getAlias() + "_" + c.getName());
-				olds[i] = c;
-				news[i] = toChange;
-				// changePairs.put(c, toChange);
-			}
-			for (int j = 0; j < olds.length; j++) {
-				// for (Column old : changePairs.keySet()) {
-				for (int i = 0; i < bwc.getOperands().size(); i++) {
-					Operand o = bwc.getOperands().get(i);
-					if (o instanceof Column) {
-						if (((Column) o).equals(olds[j])) {
-							bwc.setOperandAt(i, news[j]);
-						}
-					} else {
-						o.changeColumn(olds[j], news[j]);
-					}
-				}
-			}
-			joinSubquery.getBinaryWhereConditions().add(bwc);
-
-			// change columns according to columnsToSubqueries
-
-			if (remainingWhereConditions.size() == 1) {
-				// this was the last where condition
-				makeSubqueryFinal(joinSubquery);
-				result.add(joinSubquery);
-				return result;
-			}
-			this.remainingWhereConditions.remove(0);
-			// alter columns of the initial query that must be tracked from this
-			// subquery to the columnsToSubqueries
-			// and also forget variables that are not in initial
-			// projection/functions and are not in remaining joins
-			ArrayList<Output> toDelete = new ArrayList<Output>();
-			for (Output o : joinSubquery.getOutputs()) {
-				if (o.getObject() instanceof Column) {
-					Column c = (Column) o.getObject();
-					boolean needed = false;
-					for (Column initial : this.initialQuery.getAllColumns()) {
-						if (c.getName().startsWith(initial.getAlias() + "_")) {
-							needed = true;
-							c2t.putColumnInTable(initial,
-									joinSubquery.getResultTableName());
-							// break;
-						}
-					}
-					// now check if we need it in remaining joins
-					if (!needed) {
-						for (NonUnaryWhereCondition remainingbwc : this.remainingWhereConditions) {
-							for (Column rc : remainingbwc.getAllColumnRefs()) {
-								if ((rc.getAlias() + "_" + rc.getName())
-										.equals(c.getName())) {
-									needed = true; // we need it for subsequent
-													// join, do not delete
-									Table t = new Table(o.getOutputName(), null);
-									c2t.putColumnInTable(
-											new Column(t.getDBName(), t
-													.getlocalName()),
-											joinSubquery.getResultTableName());
-									break;
-								}
-							}
-						}
-					}
-
-					if (!needed) {
-						toDelete.add(o);
-					}
-				}
-			}
-			for (Output delete : toDelete) {
-				joinSubquery.getOutputs().remove(delete);
-			}
-
-			result.add(joinSubquery);
-
-		}
-
-		return result;
-	}
-
-	private SQLQuery createSubqueryFromDB(String dbID) {
-
-		ArrayList<String> tablesFromDB = new ArrayList<String>();
-		for (Table t : initialQuery.getInputTables()) {
-			if (t.isFederated() && t.getDBName().equals(dbID)) {
-				tablesFromDB.add(t.getAlias());
-			}
-		}
-		return createSubqueriesForTables(tablesFromDB, dbID);
-
-	}
 
 	private SQLQuery createSubqueriesForTables(ArrayList<String> tablesFromDB,
 			String dbID) {
@@ -1009,86 +665,6 @@ public class ConjunctiveQueryDecomposer {
 
 	}
 
-	private void makeSubqueryFinal(SQLQuery joinSubquery) {
-
-		// add Output of the original quey and rename table aliases to be taken
-		// from the temp subqueries
-		joinSubquery.getOutputs().clear();
-		for (Output o : this.initialQuery.getOutputs()) {
-			Operand op = o.getObject();
-
-			// rename column alias according to the initial query
-			if (op instanceof Column) {
-				Column initialOutCol = (Column) o.getObject();
-				Column newOutput = new Column(initialOutCol.getAlias(),
-						initialOutCol.getName());
-				String tablename = c2t.getTablenameForColumn(newOutput);
-				newOutput.setAlias(tablename);
-				newOutput.setName(initialOutCol.getAlias() + "_"
-						+ initialOutCol.getName());
-				o.setObject(newOutput);
-				joinSubquery.getOutputs().add(o);
-
-			} else {
-				// HashMap<Column, Column> columnsToChange = new HashMap<Column,
-				// Column>();
-				// for some strange reason program hangs in remote server when I
-				// use HashMap
-				List<Column> allRefs = op.getAllColumnRefs();
-				Column[] olds = new Column[allRefs.size()];
-				Column[] news = new Column[allRefs.size()];
-
-				for (int i = 0; i < allRefs.size(); i++) {
-					Column c = allRefs.get(i);
-					// String tempTableName =
-					// columnsToSubqueries.get(c).getResultTableName();
-					olds[i] = c;
-					news[i] = new Column(c2t.getTablenameForColumn(c),
-							c.getAlias() + "_" + c.getName());
-					// columnsToChange.put(c, new
-					// Column(c2t.getTablenameForColumn(c), c.tableAlias + "_" +
-					// c.columnName));
-					// c.columnName = c.tableAlias + "_" + c.columnName;
-					// c.tableAlias = tempTableName;
-				}
-				for (int i = 0; i < allRefs.size(); i++) {
-					// Column old : columnsToChange.keySet()
-
-					op.changeColumn(olds[i], news[i]);
-				}
-
-				joinSubquery.getOutputs().add(o);
-			}
-			// }
-
-		}
-
-		for (Column c : this.initialQuery.getGroupBy()) {
-			if (c.getAlias() != null) {
-				joinSubquery.getGroupBy().add(
-						new Column(c2t.getTablenameForColumn(c), c.getAlias()
-								+ "_" + c.getName()));
-			} else {
-				// table alias null
-				joinSubquery.getGroupBy().add(c);
-			}
-		}
-		for (ColumnOrderBy c : this.initialQuery.getOrderBy()) {
-			if (c.getAlias() != null) {
-				joinSubquery.getOrderBy().add(
-						new ColumnOrderBy(c2t.getTablenameForColumn(c), c
-								.getAlias() + "_" + c.getName(), c.isAsc));
-			} else {
-				// table alias null
-				joinSubquery.getOrderBy().add(c);
-			}
-		}
-		joinSubquery.setLimit(this.initialQuery.getLimit());
-		joinSubquery.setTemporary(false);
-		joinSubquery.setSelectAll(this.initialQuery.isSelectAll());
-		joinSubquery.setOutputColumnsDistinct(this.initialQuery
-				.getOutputColumnsDistinct());
-	}
 
 	private Node makeNodeFinal(Node n, NodeHashValues hashes) {
 		Node tempParent = n;
@@ -1228,56 +804,12 @@ public class ConjunctiveQueryDecomposer {
 
 		return tempParent;
 
-		// joinSubquery.setLimit(this.initialQuery.getLimit());
-		// joinSubquery.setTemporary(false);
-		// joinSubquery.setSelectAll(this.initialQuery.isSelectAll());
-		// joinSubquery.setOutputColumnsDistinct(this.initialQuery.getOutputColumnsDistinct());
+
 	}
 
-	private SQLQuery getTemporarySubquery(String tablename) {
-		for (SQLQuery q : this.result) {
-			if (q.getResultTableName().equals(tablename)) {
-				return q;
-			}
-		}
-		for (SQLQuery q : this.nestedSubqueries) {
-			if (q.getResultTableName().equals(tablename)) {
-				return q;
-			}
-		}
-		return null;
-	}
 
-	// void addNestedSubquery(SQLQuery s) {
-	// this.nestedSubqueries.add(s);
-	// }
-	private void renameOutputColumnsInNestedSubs() {
-		for (SQLQuery next : this.initialQuery.getNestedSubqueries()) {
-			for (Output o : next.getOutputs()) {
-				// change output in order by and group by
-				for (Column ob : next.getOrderBy()) {
-					if (ob.getName().equals(o.getOutputName())) {
-						ob.changeColumn(
-								ob,
-								new Column(null, this.initialQuery
-										.getNestedSubqueryAlias(next)
-										+ "_"
-										+ o.getOutputName()));
-					}
-				}
-				for (Column ob : next.getGroupBy()) {
-					if (ob.getName().equals(o.getOutputName())) {
-						ob.setName(this.initialQuery
-								.getNestedSubqueryAlias(next)
-								+ "_"
-								+ o.getOutputName());
-					}
-				}
-				o.setOutputName(this.initialQuery.getNestedSubqueryAlias(next)
-						+ "_" + o.getOutputName());
-			}
-		}
-	}
+
+
 
 	Set<Join> getJoins() {
 		return lj;

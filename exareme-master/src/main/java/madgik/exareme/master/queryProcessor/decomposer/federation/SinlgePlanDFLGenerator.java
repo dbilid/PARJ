@@ -485,9 +485,9 @@ public class SinlgePlanDFLGenerator {
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
-			visited.put(k, current);
+			//visited.put(k, current);
 
-			// if (memo.getMemoValue(k).isMaterialised()) {
+			//if (memo.getMemoValue(k).isMaterialised()) {
 			// current.setMaterialised(true);
 			// current.setHashId(e.getHashId());
 			// }
@@ -792,7 +792,7 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			current.setNested(true);
+			//current.setNested(true);
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 
 		} else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
@@ -1500,7 +1500,7 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			current.setNested(true);
+			//current.setNested(true);
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
 		}
@@ -1556,10 +1556,23 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			if(q==null){
+				q=current;
+			}
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
 			q.setOrderBy(orderCols);
 
-		} else {
+		}
+		else if (op.getOpCode() == Node.GROUPBY) {
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			if(q==null){
+				q=current;
+			}
+			List<Column> groupCols = (ArrayList<Column>) op.getObject();
+			q.setGroupBy(groupCols);
+
+		}else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
@@ -2040,17 +2053,32 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			current.setNested(true);
+			//current.setNested(true);
 			// tempResult.trackBaseTableFromQuery(op.getDescendantBaseTables().iterator().next(),
 			// current.getTemporaryTableName());
 			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
+			current.setRepartition(repBefore, partitionNo);
+			current.setPartition(repBefore);
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			if(q==null){
+				q=current;
+			}
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
 			q.setOrderBy(orderCols);
 
-		} else {
+		}
+		else if (op.getOpCode() == Node.GROUPBY) {
+			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
+			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			if(q==null){
+				q=current;
+			}
+			List<Column> orderCols = (ArrayList<Column>) op.getObject();
+			q.setGroupBy(orderCols);
+
+		}else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);

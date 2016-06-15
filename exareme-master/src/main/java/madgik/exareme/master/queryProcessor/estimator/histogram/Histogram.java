@@ -207,8 +207,7 @@ public final class Histogram {
         	h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
 
         if (!existsIntersection(h2)) {
-            System.out.println(this);
-            System.out.println(h2);
+        	log.debug("empty join result");
             this.convertToTransparentHistogram();
         } else {
             Map<Double, Double> cbmap = this.combine(h2);

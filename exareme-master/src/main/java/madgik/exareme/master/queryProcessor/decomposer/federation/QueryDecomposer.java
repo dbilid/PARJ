@@ -268,7 +268,7 @@ public class QueryDecomposer {
 			log.debug("Base projections created");
 		}
 		//StringBuilder a = root.dotPrint(new HashSet<Node>());
-	// System.out.println(a.toString());
+		//System.out.println(a.toString());
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
@@ -1470,7 +1470,9 @@ public class QueryDecomposer {
 			// base table
 			SinglePlan r = new SinglePlan(0);
 			memo.put(e, r, c, repCost, false, null);
-			toMaterialize.add(new MemoKey(e, c));
+			PartitionedMemoValue pmv = (PartitionedMemoValue) memo.getMemoValue(new MemoKey(e ,c));
+			pmv.setToMat(toMaterialize);
+			//toMaterialize.add(new MemoKey(e, c));
 			partitionRecord.setLastPartitioned(null);
 			return r;
 		}
@@ -2006,6 +2008,7 @@ public class QueryDecomposer {
 
 	private void createProjections(Node e) {
 		for (String t : this.refCols.keySet()) {
+			if(n2a.contailsAliasForBaseTable(t)){
 			for (String alias : n2a.getAllAliasesForBaseTable(t)) {
 				Node table = new Node(Node.OR);
 				table.setObject(new Table(t, alias));
@@ -2065,6 +2068,11 @@ public class QueryDecomposer {
 					orNode.addDescendantBaseTable(alias);
 
 				}
+			}
+			}
+			else{
+				log.debug("Cannot create projection for base table "+t+". Probably table"
+						+ "from nested subquery.");
 			}
 		}
 	}

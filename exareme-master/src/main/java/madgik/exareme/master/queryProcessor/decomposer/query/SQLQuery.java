@@ -28,7 +28,7 @@ public class SQLQuery {
 	private Column partitionColumn;
 	// public final List<Function> outputFunctions = new ArrayList<>();
 	private List<Table> inputTables;
-	private boolean isNested;
+	//private boolean isNested;
 	// public final List<Filter> filters = new ArrayList<>();
 	// public final List<Join> joins = new ArrayList<>();
 	private List<UnaryWhereCondition> unaryWhereConditions;
@@ -97,7 +97,6 @@ public class SQLQuery {
 		materialised = false;
 		nestedNode = null;
 		partitionColumn = null;
-		isNested = false;
 		existsInCache = false;
 		joinNode = null;
 		joinOperands = new ArrayList<Operand>();
@@ -1987,13 +1986,7 @@ public class SQLQuery {
 		return this.repartitionColumn;
 	}
 
-	public void setNested(boolean b) {
-		this.isNested = b;
-	}
-
-	public boolean isNested() {
-		return this.isNested;
-	}
+	
 
 	public void setExistsInCache(boolean b) {
 		this.existsInCache = b;
