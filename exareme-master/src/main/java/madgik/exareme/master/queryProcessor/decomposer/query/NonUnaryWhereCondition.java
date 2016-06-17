@@ -17,12 +17,12 @@ import com.google.common.hash.Hashing;
  */
 public class NonUnaryWhereCondition implements Operand {
 
-	private List<Operand> ops;
-	private Set<NonUnaryWhereCondition> filterJoins;
+	protected List<Operand> ops;
+	protected Set<NonUnaryWhereCondition> filterJoins;
 	// private Operand leftOp;
 	// private Operand rightOp;
-	String operator;
-	private HashCode hash=null;
+	protected String operator;
+	protected HashCode hash=null;
 
 	public NonUnaryWhereCondition() {
 		super();
@@ -269,6 +269,20 @@ public class NonUnaryWhereCondition implements Operand {
 
 	public Set<NonUnaryWhereCondition> getFilterJoins() {
 		return this.filterJoins;
+	}
+
+	public boolean referencesAtMostOneTable() {
+		List<Column> cols=this.getAllColumnRefs();
+		if(cols.isEmpty()){
+			return true;
+		}
+		String tableName=cols.get(0).getAlias();
+		for(int i=1;i<cols.size();i++){
+			if(!tableName.equals(cols.get(i).getAlias())){
+				return false;
+			}
+		}
+		return true;
 	}
 	
 }

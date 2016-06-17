@@ -53,12 +53,16 @@ public class SinlgePlanDFLGenerator {
 		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
 		unionNo = 0;
-		if (partitionNo == 1) {
-			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
-		} else if (DecomposerUtils.PUSH_PROCESSING) {
-			combineOperatorsAndOutputQueriesPush(rootkey, qs, new HashMap<MemoKey, SQLQuery>(), false);
-		} else {
-			combineOperatorsAndOutputQueries(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+		try {
+			if (partitionNo == 1) {
+				combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+			} else if (DecomposerUtils.PUSH_PROCESSING) {
+				combineOperatorsAndOutputQueriesPush(rootkey, qs, new HashMap<MemoKey, SQLQuery>(), false);
+			} else {
+				combineOperatorsAndOutputQueries(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+			}
+		} catch (CloneNotSupportedException clone) {
+			log.error("Could not generate plan " + clone.getMessage());
 		}
 		// for (SQLQuery q : qs) {
 		// System.out.println(q.toDistSQL() + "\n");
@@ -177,14 +181,14 @@ public class SinlgePlanDFLGenerator {
 
 		if (DecomposerUtils.REMOVE_OUTPUTS) {
 			log.debug("Removing Outputs...");
-			if ( qs.size() > 1) {
-				List<SQLQuery> unions=qs.get(qs.size()-1).getUnionqueries();
-			for (int i = qs.size() - 2; i > -1; i--) {
-				
-				SQLQuery q = qs.get(i);
-				if(unions.contains(q)){
-					continue;
-				}
+			if (qs.size() > 1) {
+				List<SQLQuery> unions = qs.get(qs.size() - 1).getUnionqueries();
+				for (int i = qs.size() - 2; i > -1; i--) {
+
+					SQLQuery q = qs.get(i);
+					if (unions.contains(q)) {
+						continue;
+					}
 					List<Column> outputs = new ArrayList<Column>();
 					for (Output o : q.getOutputs()) {
 						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
@@ -192,10 +196,9 @@ public class SinlgePlanDFLGenerator {
 					for (int j = qs.size() - 1; j > i; j--) {
 						List<Column> cols = qs.get(j).getAllColumns();
 						for (Column c2 : cols) {
-							if(c2.getBaseTable()!=null){
-							outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
-							}
-							else{
+							if (c2.getBaseTable() != null) {
+								outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
+							} else {
 								outputs.remove(c2);
 							}
 						}
@@ -445,8 +448,8 @@ public class SinlgePlanDFLGenerator {
 
 	}
 
-	private void combineOperatorsAndOutputQueries(MemoKey k, ResultList tempResult,
-			HashMap<MemoKey, SQLQuery> visited) {
+	private void combineOperatorsAndOutputQueries(MemoKey k, ResultList tempResult, HashMap<MemoKey, SQLQuery> visited)
+			throws CloneNotSupportedException {
 
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
@@ -485,9 +488,9 @@ public class SinlgePlanDFLGenerator {
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
-			//visited.put(k, current);
+			// visited.put(k, current);
 
-			//if (memo.getMemoValue(k).isMaterialised()) {
+			// if (memo.getMemoValue(k).isMaterialised()) {
 			// current.setMaterialised(true);
 			// current.setHashId(e.getHashId());
 			// }
@@ -523,11 +526,7 @@ public class SinlgePlanDFLGenerator {
 			// q2.setPartition(repAfter, partitionNo);
 
 			for (Output o : prj.getOperands()) {
-				try {
-					current.getOutputs().add(o.clone());
-				} catch (CloneNotSupportedException e1) {
-					log.warn("could not clone output", e1);
-				}
+				current.getOutputs().add(o.clone());
 			}
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
@@ -574,8 +573,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.JOIN) {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-					nuwc.getOperator());
+			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
@@ -731,11 +729,7 @@ public class SinlgePlanDFLGenerator {
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
 					UnaryWhereCondition uwcCloned = null;
-					try {
-						uwcCloned = uwc.clone();
-					} catch (CloneNotSupportedException e1) {
-						e1.printStackTrace();
-					}
+					uwcCloned = uwc.clone();
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
 						uwcCloned.changeColumn(c,
@@ -744,8 +738,7 @@ public class SinlgePlanDFLGenerator {
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-							nuwc.getOperator());
+					NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
 							nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
@@ -792,7 +785,7 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			//current.setNested(true);
+			// current.setNested(true);
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 
 		} else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
@@ -827,10 +820,9 @@ public class SinlgePlanDFLGenerator {
 
 			for (Operand o : current.getJoinOperands()) {
 				for (Column c : o.getAllColumnRefs()) {
-					String base=tempResult.getQueryForBaseTable(c.getAlias());
-					if(base!=null){
-						o.changeColumn(c,
-								new Column(base, c.getName(), c.getAlias()));
+					String base = tempResult.getQueryForBaseTable(c.getAlias());
+					if (base != null) {
+						o.changeColumn(c, new Column(base, c.getName(), c.getAlias()));
 					}
 				}
 			}
@@ -861,7 +853,7 @@ public class SinlgePlanDFLGenerator {
 	}
 
 	private void combineOperatorsAndOutputQueriesCentralized(MemoKey k, ResultList tempResult,
-			HashMap<MemoKey, SQLQuery> visited) {
+			HashMap<MemoKey, SQLQuery> visited) throws CloneNotSupportedException {
 
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
@@ -913,7 +905,7 @@ public class SinlgePlanDFLGenerator {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
 			if (t.isFederated()) {
-				//visited.put(k, current);
+				// visited.put(k, current);
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 					current.setHashId(e.getHashId());
@@ -947,11 +939,7 @@ public class SinlgePlanDFLGenerator {
 
 			// }
 			for (Output o : prj.getOperands()) {
-				try {
-					current.getOutputs().add(o.clone());
-				} catch (CloneNotSupportedException e1) {
-					log.warn("could not clone output", e1);
-				}
+				current.getOutputs().add(o.clone());
 			}
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
@@ -1084,8 +1072,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.JOIN) {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-					nuwc.getOperator());
+			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
@@ -1431,11 +1418,8 @@ public class SinlgePlanDFLGenerator {
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
 					UnaryWhereCondition uwcCloned = null;
-					try {
-						uwcCloned = uwc.clone();
-					} catch (CloneNotSupportedException e1) {
-						e1.printStackTrace();
-					}
+
+					uwcCloned = uwc.clone();
 
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
@@ -1448,8 +1432,7 @@ public class SinlgePlanDFLGenerator {
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-							nuwc.getOperator());
+					NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
 							if (op.isDescendantOfBaseTable(c.getAlias())) {
@@ -1500,7 +1483,7 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			//current.setNested(true);
+			// current.setNested(true);
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
 		}
@@ -1556,23 +1539,22 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if(q==null){
-				q=current;
+			if (q == null) {
+				q = current;
 			}
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
 			q.setOrderBy(orderCols);
 
-		}
-		else if (op.getOpCode() == Node.GROUPBY) {
+		} else if (op.getOpCode() == Node.GROUPBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if(q==null){
-				q=current;
+			if (q == null) {
+				q = current;
 			}
 			List<Column> groupCols = (ArrayList<Column>) op.getObject();
 			q.setGroupBy(groupCols);
 
-		}else {
+		} else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
@@ -1622,12 +1604,12 @@ public class SinlgePlanDFLGenerator {
 
 	private void addOutputs(SQLQuery current, String inputName, ResultList list) {
 		SQLQuery q = list.get(inputName);
-		//log.debug("adding Output to:" + current.getTemporaryTableName());
+		// log.debug("adding Output to:" + current.getTemporaryTableName());
 
 		if (q != null) {
-			//log.debug("from q:" + q.getTemporaryTableName());
+			// log.debug("from q:" + q.getTemporaryTableName());
 			for (Output o : q.getOutputs()) {
-				//log.debug("out alias:" + o.getOutputName());
+				// log.debug("out alias:" + o.getOutputName());
 				if (!current.getOutputAliases().contains(o.getOutputName())) {
 					current.addOutput(inputName, o.getOutputName());
 				}
@@ -1663,7 +1645,7 @@ public class SinlgePlanDFLGenerator {
 	}
 
 	private void combineOperatorsAndOutputQueriesPush(MemoKey k, ResultList tempResult,
-			HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) {
+			HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) throws CloneNotSupportedException {
 
 		SQLQuery current = tempResult.getCurrent();
 
@@ -1716,12 +1698,12 @@ public class SinlgePlanDFLGenerator {
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
-			//visited.put(k, current);
+			// visited.put(k, current);
 
-			//if (memo.getMemoValue(k).isMaterialised()) {
-				// current.setMaterialised(true);
-				// current.setHashId(e.getHashId());
-			//}
+			// if (memo.getMemoValue(k).isMaterialised()) {
+			// current.setMaterialised(true);
+			// current.setHashId(e.getHashId());
+			// }
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
 		}
@@ -1757,11 +1739,7 @@ public class SinlgePlanDFLGenerator {
 			// q2.setPartition(repAfter, partitionNo);
 
 			for (Output o : prj.getOperands()) {
-				try {
-					current.getOutputs().add(o.clone());
-				} catch (CloneNotSupportedException e1) {
-					log.warn("could not clone output", e1);
-				}
+				current.getOutputs().add(o.clone());
 			}
 			current.setOutputColumnsDinstict(prj.isDistinct());
 			// current.getOutputs().addAll(prj.getOperands());
@@ -1808,8 +1786,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.JOIN) {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
-			NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-					nuwc.getOperator());
+			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 			nuwcCloned.addRangeFilters(nuwc);
 			current.addBinaryWhereCondition(nuwcCloned);
 			List<String> inputNames = new ArrayList<String>();
@@ -1838,17 +1815,17 @@ public class SinlgePlanDFLGenerator {
 			for (NonUnaryWhereCondition bwc : current.getBinaryWhereConditions()) {
 
 				for (int j = 0; j < op.getChildren().size(); j++) {
-					for(Column c:bwc.getAllColumnRefs()){
-					//for (Operand o : bwc.getOperands()) {
+					for (Column c : bwc.getAllColumnRefs()) {
+						// for (Operand o : bwc.getOperands()) {
 
-						//List<Column> cs = o.getAllColumnRefs();
-						//if (!cs.isEmpty()) {
-							// not constant
-							//Column c = cs.get(0);
-							if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
-								bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
-										c.getName(), c.getAlias()));
-							//}
+						// List<Column> cs = o.getAllColumnRefs();
+						// if (!cs.isEmpty()) {
+						// not constant
+						// Column c = cs.get(0);
+						if (op.getChildAt(j).isDescendantOfBaseTable(c.getAlias())) {
+							bwc.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+									c.getAlias()));
+							// }
 						}
 
 					}
@@ -1955,11 +1932,7 @@ public class SinlgePlanDFLGenerator {
 				if (o instanceof UnaryWhereCondition) {
 					UnaryWhereCondition uwc = (UnaryWhereCondition) o;
 					UnaryWhereCondition uwcCloned = null;
-					try {
-						uwcCloned = uwc.clone();
-					} catch (CloneNotSupportedException e1) {
-						e1.printStackTrace();
-					}
+					uwcCloned = uwc.clone();
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
 						uwcCloned.changeColumn(c,
@@ -1968,8 +1941,7 @@ public class SinlgePlanDFLGenerator {
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
 					NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-					NonUnaryWhereCondition nuwcCloned = new NonUnaryWhereCondition(nuwc.getLeftOp(), nuwc.getRightOp(),
-							nuwc.getOperator());
+					NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 					nuwcCloned.addRangeFilters(nuwc);
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
@@ -2053,7 +2025,7 @@ public class SinlgePlanDFLGenerator {
 			}
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
-			//current.setNested(true);
+			// current.setNested(true);
 			// tempResult.trackBaseTableFromQuery(op.getDescendantBaseTables().iterator().next(),
 			// current.getTemporaryTableName());
 			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
@@ -2062,23 +2034,22 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if(q==null){
-				q=current;
+			if (q == null) {
+				q = current;
 			}
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
 			q.setOrderBy(orderCols);
 
-		}
-		else if (op.getOpCode() == Node.GROUPBY) {
+		} else if (op.getOpCode() == Node.GROUPBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if(q==null){
-				q=current;
+			if (q == null) {
+				q = current;
 			}
 			List<Column> orderCols = (ArrayList<Column>) op.getObject();
 			q.setGroupBy(orderCols);
 
-		}else {
+		} else {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);

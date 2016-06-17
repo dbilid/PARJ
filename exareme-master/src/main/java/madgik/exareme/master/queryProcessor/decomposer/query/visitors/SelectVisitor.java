@@ -33,7 +33,7 @@ public class SelectVisitor extends AbstractVisitor {
             // Where conditions
             WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
             whereVisitor.setVisitedJoin(true);
-	    node.accept(whereVisitor);
+            ((SelectNode) node).getWhereClause().accept(whereVisitor);
             // Group by
             GroupByListVisitor groupByVisitor = new GroupByListVisitor(query);
             node.accept(groupByVisitor);
