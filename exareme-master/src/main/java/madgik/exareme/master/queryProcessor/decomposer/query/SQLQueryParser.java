@@ -3,6 +3,9 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.query;
 
+import java.util.Map;
+import java.util.Set;
+
 import com.foundationdb.sql.parser.StatementNode;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
@@ -26,14 +29,14 @@ public class SQLQueryParser {
         return query;
     }
 
-	public static SQLQuery parse(String queryString, NodeHashValues hashes, NamesToAliases n2a) throws Exception {
+	public static SQLQuery parse(String queryString, NodeHashValues hashes, NamesToAliases n2a, Map<String, Set<String>> refCols) throws Exception {
 		DistSQLParser parser = new DistSQLParser();
         StatementNode node = parser.parseStatement(queryString);
         //node.treePrint();
         // Traverse the qury tree
         SQLQuery query = new SQLQuery();
         //query.readDBInfo();
-        SQLQueryVisitor visitor = new SQLQueryVisitor(query, hashes, n2a);
+        SQLQueryVisitor visitor = new SQLQueryVisitor(query, hashes, n2a, refCols);
         node.accept(visitor);
         return query;
 	}

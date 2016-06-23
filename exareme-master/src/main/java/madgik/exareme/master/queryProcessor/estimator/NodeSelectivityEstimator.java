@@ -69,15 +69,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		} else {
 			Node o = n.getChildAt(0);
 			if (o.getOpCode() == Node.JOIN) {
-				NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) o
-						.getObject();
+				NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) o.getObject();
 				if (o.getChildren().size() == 1) {
 					estimateFilterJoin(n, bwc, o.getChildAt(0), o.getChildAt(0));
 				} else {
 					estimateJoin(n, bwc, o.getChildAt(0), o.getChildAt(1));
 				}
-			} else if (o.getOpCode() == Node.PROJECT
-					|| o.getOpCode() == Node.BASEPROJECT) {
+			} else if (o.getOpCode() == Node.PROJECT || o.getOpCode() == Node.BASEPROJECT) {
 				estimateProject(n);
 			} else if (o.getOpCode() == Node.SELECT) {
 				Selection s = (Selection) o.getObject();
@@ -86,8 +84,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				estimateUnion(n);
 			} else if (o.getOpCode() == Node.NESTED) {
 				NodeInfo nested = new NodeInfo();
-				String nestedAlias = n.getDescendantBaseTables().iterator()
-						.next();
+				String nestedAlias = n.getDescendantBaseTables().iterator().next();
 				RelInfo rel = o.getChildAt(0).getNodeInfo().getResultRel();
 				// RelInfo rel =
 				// this.planInfo.get(n.getHashId()).getResultRel();
@@ -99,6 +96,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 			} else if (o.getOpCode() == Node.GROUPBY) {
 				estimateGroupBy(n);
+			} else if (o.getOpCode() == Node.LEFTJOIN) {
+				//TODO compute selectivity for left join
+				//for now we get only one condition and treat it as normal join
+				BinaryOperand bo=(BinaryOperand)o.getObject();
+				NonUnaryWhereCondition nuwc=QueryUtils.getJoinCondition(bo, o);
+				estimateJoin(n, nuwc, o.getChildAt(0), o.getChildAt(1));
 			}
 		}
 
@@ -107,8 +110,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	private void estimateGroupBy(Node n) {
 		// TODO estimate group by
 		NodeInfo nested = new NodeInfo();
-		RelInfo rel = n.getChildAt(0).getChildAt(0).getNodeInfo()
-				.getResultRel();
+		RelInfo rel = n.getChildAt(0).getChildAt(0).getNodeInfo().getResultRel();
 		// RelInfo rel =
 		// this.planInfo.get(n.getHashId()).getResultRel();
 		RelInfo resultRel = new RelInfo(rel);
@@ -133,25 +135,54 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 		// one select node can contain more than one filter!
 		for (Operand nextFilter : filters) {
-			if (nextFilter instanceof UnaryWhereCondition) {
-				// normally you don't care for these conditions (Column IS NOT
-				// NULL)
-				// UnaryWhereCondition uwc = (UnaryWhereCondition) nextFilter;
-				// Table t=(Table) child.getObject();
-				// if(t.getName().startsWith("table")){
-				// not base table
+			applyFilterToNode(nextFilter, ni);
+		}
 
-				// TODO: fix nodeInfo
-				// do nothing!
+	}
 
-				// this.planInfo.get(n.getHashId()).setNumberOfTuples(child.getNumberOfTuples());
-				// this.planInfo.get(n.getHashId()).setTupleLength(child.getTupleLength());
-				// System.out.println(uwc);
+	private void applyFilterToNode(Operand nextFilter, NodeInfo ni) {
+		if (nextFilter instanceof UnaryWhereCondition) {
+			// normally you don't care for these conditions (Column IS NOT
+			// NULL)
+			// UnaryWhereCondition uwc = (UnaryWhereCondition) nextFilter;
+			// Table t=(Table) child.getObject();
+			// if(t.getName().startsWith("table")){
+			// not base table
+
+			// TODO: fix nodeInfo
+			// do nothing!
+
+			// this.planInfo.get(n.getHashId()).setNumberOfTuples(child.getNumberOfTuples());
+			// this.planInfo.get(n.getHashId()).setTupleLength(child.getTupleLength());
+			// System.out.println(uwc);
+		} else if (nextFilter instanceof NonUnaryWhereCondition) {
+			// TODO correct this!
+			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) nextFilter;
+			// System.out.println(nuwc);
+			String operator = nuwc.getOperator(); // e.g. =, <, >
+
+			if (operator.equalsIgnoreCase("and")) {
+				applyFilterToNode(nuwc.getLeftOp(), ni);
+				applyFilterToNode(nuwc.getRightOp(), ni);
+			} else if (operator.equalsIgnoreCase("or")) {
+				log.warn("Filter with OR condition " + nuwc.toString()
+						+ ". Selectivity estimation will not be accurate");
+				// TODO fix estimation with OR conditions
+				// for now just return the one with higher cardinality
+				NodeInfo left = new NodeInfo();
+				left.setNumberOfTuples(ni.getNumberOfTuples());
+				left.setTupleLength(ni.getTupleLength());
+				left.setResultRel(new RelInfo(ni.getResultRel()));
+				applyFilterToNode(nuwc.getLeftOp(), left);
+
+				NodeInfo right = new NodeInfo();
+				right.setNumberOfTuples(ni.getNumberOfTuples());
+				right.setTupleLength(ni.getTupleLength());
+				right.setResultRel(new RelInfo(ni.getResultRel()));
+				applyFilterToNode(nuwc.getLeftOp(), right);
+
+				ni = left.getNumberOfTuples() > right.getNumberOfTuples() ? left : right;
 			} else {
-				// TODO correct this!
-				NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) nextFilter;
-				// System.out.println(nuwc);
-				String operator = nuwc.getOperator(); // e.g. =, <, >
 
 				Column col;
 				Constant con;
@@ -169,16 +200,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// RelInfo lRel = childInfo.getResultRel();
 				// RelInfo resultRel = new RelInfo(lRel);
 				// RelInfo resultRel = initRel;
-
-				Histogram resultHistogram = ni.getResultRel().getAttrIndex()
-						.get(col.toString()).getHistogram();
+				if(!ni.getResultRel().getAttrIndex().containsKey(col.toString())){
+					log.error("Column not found in Attribute index: "+col.toString());
+					ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+					return;
+				}
+				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
 
 				double filterValue = 0;
 				if (!con.isArithmetic()) {
 					if (con.getValue() instanceof String) {
 						String st = (String) con.getValue();
-						filterValue = StatUtils.hashString(con.getValue()
-								.toString());
+						filterValue = StatUtils.hashString(con.getValue().toString());
 						String newSt = "";
 						if (st.startsWith("\'")) {
 							newSt = st.replaceAll("\'", "");
@@ -205,8 +238,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// FilterOperand.NotEqual, Double.parseDouble(con.toString()));
 
 				// adjust RelInfo's histograms based on the resulting histogram
-				ni.getResultRel()
-						.adjustRelation(col.getName(), resultHistogram);
+				ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
 
 				// TODO: fix NOdeInfo!!
 				ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
@@ -214,10 +246,10 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// ni.setResultRel(resultRel);
 			}
 		}
+
 	}
 
-	public void estimateJoin(Node n, NonUnaryWhereCondition nuwc, Node left,
-			Node right) {
+	public void estimateJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {
 		// NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) n.getObject();
 		NodeInfo ni = new NodeInfo();
 		Column l = (Column) nuwc.getLeftOp();
@@ -232,13 +264,17 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo resultRel = new RelInfo(lRel);
 		RelInfo newR = new RelInfo(rRel);
 
-		Histogram resultHistogram = resultRel.getAttrIndex().get(l.toString())
-				.getHistogram();
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l.toString()).getHistogram();
 		if (newR.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
-			resultHistogram.join(newR.getAttrIndex().get(r.toString())
-					.getHistogram());
+			if(nuwc.getOperator().contains(">")||nuwc.getOperator().contains("<")){
+				resultHistogram.rangejoin(newR.getAttrIndex().get(r.toString()).getHistogram());
+			}
+			else{
+				resultHistogram.join(newR.getAttrIndex().get(r.toString()).getHistogram());
+			}
+			
 		}
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
@@ -271,8 +307,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	}
 
-	public void estimateFilterJoin(Node n, NonUnaryWhereCondition nuwc,
-			Node left, Node right) {
+	public void estimateFilterJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {
 		// NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) n.getObject();
 		NodeInfo ni = new NodeInfo();
 		Column l = (Column) nuwc.getLeftOp();
@@ -286,14 +321,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 		RelInfo resultRel = new RelInfo(lRel);
 
-		Histogram resultHistogram = resultRel.getAttrIndex().get(l.toString())
-				.getHistogram();
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l.toString()).getHistogram();
 
 		if (rRel.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
-			resultHistogram.filterjoin(rRel.getAttrIndex().get(r.toString())
-					.getHistogram());
+			resultHistogram.filterjoin(rRel.getAttrIndex().get(r.toString()).getHistogram());
 		}
 
 		// resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
@@ -419,8 +452,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 			for (int i = 0; i < HASH_STRING_CHARS; i++) {
 				hashStringVal += (double) ((int) hashChars[i])
-						* Math.pow((double) HASH_STRING_BASE,
-								(double) (HASH_STRING_CHARS - i));
+						* Math.pow((double) HASH_STRING_BASE, (double) (HASH_STRING_CHARS - i));
 			}
 			return hashStringVal;
 		}
@@ -433,8 +465,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 			for (int i = 0; i < str.length(); i++) {
 				hashStringVal += (double) ((int) hashChars[i])
-						* Math.pow((double) HASH_STRING_BASE,
-								(double) (HASH_STRING_CHARS - i));
+						* Math.pow((double) HASH_STRING_BASE, (double) (HASH_STRING_CHARS - i));
 			}
 
 			return hashStringVal;

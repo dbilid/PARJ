@@ -129,7 +129,10 @@ public class SQLQuery {
 		output.append(this.getTemporaryTableName());
 
 		if (this.isStringSQL) {
-			output.append(" as direct ");
+			output.append(" as ");
+			if (this.noOfPartitions>1){
+				output.append("direct ");
+			}
 			output.append(sql);
 			output.append(";");
 			return output.toString();
@@ -147,12 +150,13 @@ public class SQLQuery {
 			output.append(repartitionColumn.getName());
 		}
 		output.append(" \n");
+		output.append("as ");
 		if (this.isFederated()) {
-			output.append("as ");
+			
 			output.append(DecomposerUtils.EXTERNAL_KEY);
 			output.append(" ");
-		} else {
-			output.append("as direct ");
+		} else if (this.noOfPartitions>1){
+			output.append("direct ");
 		}
 		output.append("\n");
 		output.append(toSQL());
@@ -237,6 +241,7 @@ public class SQLQuery {
 				// output.append(")");
 
 			}
+			output.append(")");
 			/*
 			 * output.append(this.getLeftJoinTable().getResultTableName()); if
 			 * (this.getLeftJoinTableAlias() != null) { output.append(" as ");
@@ -320,11 +325,11 @@ public class SQLQuery {
 		separator = "";
 		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()
 				|| (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle "))) {
-			if (this.getJoinType() != null) {
-				output.append(" on (");
-			} else {
+			//if (this.getJoinType() != null) {
+			//	output.append(" on (");
+			//} else {
 				output.append(" \nwhere \n");
-			}
+			//}
 		}
 		for (NonUnaryWhereCondition wc : getBinaryWhereConditions()) {
 			output.append(separator);
@@ -341,9 +346,7 @@ public class SQLQuery {
 			output.append("rownum <=");
 			output.append(this.limit);
 		}
-		if (this.getJoinType() != null) {
-			output.append(") ");
-		}
+		
 
 		if (!groupBy.isEmpty()) {
 			separator = "";
@@ -573,6 +576,11 @@ public class SQLQuery {
 		}
 		if(repartitionColumn!=null){
 			result.add(repartitionColumn);
+		}
+		for(Operand o:joinOperands){
+			for(Column c:o.getAllColumnRefs()){
+				result.add(c);
+			}
 		}
 		return result;
 	}
@@ -1141,8 +1149,14 @@ public class SQLQuery {
 			NonUnaryWhereCondition bwc = null;
 			if (op instanceof NonUnaryWhereCondition) {
 				bwc = (NonUnaryWhereCondition) op;
+				
+				
 
 				if (bwc.getOperator().equals("or")) {
+					
+					if(!bwc.referencesAtMostOneTable()){
+						//if yes, leave as is, it will be pushed to a base table
+					
 					for (List<Operand> tempResult : normalized) {
 						tempResult.remove(bwc);
 					}
@@ -1188,7 +1202,7 @@ public class SQLQuery {
 							}
 						}
 					}
-
+					}
 					// in.add(left);
 					// second.add(right);
 					// break;
@@ -1336,7 +1350,9 @@ public class SQLQuery {
 							this.nestedSelectSubqueries.get(nested));
 				}
 			}
-
+			normalized.setGroupBy(this.groupBy);
+			normalized.setOrderBy(this.orderBy);
+			normalized.setLimit(this.limit);
 			normalized.selectAll = this.selectAll;
 			normalized.temporary = this.temporary;
 			normalized.isFederated = this.isFederated;

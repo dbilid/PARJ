@@ -6,6 +6,9 @@
 package madgik.exareme.master.queryProcessor.decomposer.util;
 
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+import madgik.exareme.master.queryProcessor.decomposer.federation.Memo;
+import madgik.exareme.master.queryProcessor.decomposer.federation.MemoKey;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
@@ -44,8 +47,7 @@ public class Util {
 		}
 	}
 
-	public static HashMap<String, HashSet<String>> getMysqlIndices(
-			String conString) throws SQLException {
+	public static HashMap<String, HashSet<String>> getMysqlIndices(String conString) throws SQLException {
 		HashMap<String, HashSet<String>> result = new HashMap<String, HashSet<String>>();
 
 		Connection conn;
@@ -81,8 +83,7 @@ public class Util {
 			try {
 				query = SQLQueryParser.parse(q, null);
 			} catch (Exception e) {
-				log.error("Could not generate analyze commands."
-						+ e.getMessage());
+				log.error("Could not generate analyze commands." + e.getMessage());
 			}
 			for (Column c : query.getAllReferencedColumns()) {
 				if (!tables.containsKey(c.getAlias())) {
@@ -104,4 +105,40 @@ public class Util {
 		}
 		return result;
 	}
+
+	public static boolean planContainsLargerResult(Node n, Memo finalMemo, double distributedLimit) {
+		try {
+			if ((n.getNodeInfo().getTupleLength() * n.getNodeInfo().getNumberOfTuples()) > (distributedLimit * 1000000)) {
+				System.out.println("size::::"+n.getNodeInfo().getTupleLength());
+				System.out.println( n.getNodeInfo().getNumberOfTuples());
+				System.out.println(distributedLimit * 1000000);
+				return true;
+			}
+		} catch (java.lang.Exception ex) {
+			log.error("could not obtain size estimation for node " + n.getObject().toString());
+		}
+		if(n.getChildren().isEmpty()){
+			return false;
+		}
+		Node op = n.getChildAt(finalMemo.getMemoValue(new MemoKey(n, null)).getPlan().getChoice());
+		for (Node child : op.getChildren()) {
+			if (planContainsLargerResult(child, finalMemo, distributedLimit)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static void setDescNotMaterialised(Node e, Memo memo) {
+		MemoKey key=new MemoKey(e , null);
+		memo.getMemoValue(key).setMaterialized(false);
+		if(e.getChildren().isEmpty()){
+			return;
+		}
+		Node op=e.getChildAt(memo.getMemoValue(key).getPlan().getChoice());
+		for(Node e2:op.getChildren()){
+			setDescNotMaterialised(e2, memo);
+		}
+	}
+
 }

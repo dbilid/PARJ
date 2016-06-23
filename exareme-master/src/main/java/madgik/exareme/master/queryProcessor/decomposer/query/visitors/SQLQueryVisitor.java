@@ -14,6 +14,7 @@ import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
+import madgik.exareme.master.queryProcessor.decomposer.query.Output;
 import madgik.exareme.master.queryProcessor.decomposer.query.QueryUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
@@ -21,8 +22,10 @@ import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -34,16 +37,27 @@ public class SQLQueryVisitor extends AbstractVisitor {
     private boolean stop = false;
     private NodeHashValues hashes;
     private NamesToAliases n2a;
+    private Map<String, Set<String>> projectRefCols;
 
     public SQLQueryVisitor(SQLQuery query, NodeHashValues h) {
         super(query);
         hashes=h;
+        projectRefCols=new HashMap<String, Set<String>>();
     }
 
     public SQLQueryVisitor(SQLQuery query, NodeHashValues h, NamesToAliases n2a) {
     	super(query);
         hashes=h;
         this.n2a=n2a;
+        projectRefCols=new HashMap<String, Set<String>>();
+	}
+
+	public SQLQueryVisitor(SQLQuery query, NodeHashValues h, NamesToAliases n2a,
+			Map<String, Set<String>> refCols) {
+		super(query);
+        hashes=h;
+        this.n2a=n2a;
+        projectRefCols=refCols;
 	}
 
 	@Override public Visitable visit(Visitable node) throws StandardException {
@@ -52,7 +66,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
         if (node instanceof JoinNode) {
             if (query.getJoinNode() == null) {
             	Map<String, Integer> counts = new HashMap<String, Integer>();
-            	query.setJoinNode(getJoinNode((JoinNode) node, counts, new HashMap<String, String>()));
+            	query.setJoinNode(getJoinNode((JoinNode) node, counts, new HashMap<String, String>(), new HashMap<String, String>()));
                 //decomposeJoinNode((JoinNode) node);
                 //WhereClauseVisitor whereVisitor = new WhereClauseVisitor(query);
                 //node.accept(whereVisitor);
@@ -110,7 +124,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 
                         SQLQuery nestedSelectSubquery = new SQLQuery();
                         //query.readDBInfo();
-                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery, hashes, n2a);
+                        SQLQueryVisitor subqueryVisitor = new SQLQueryVisitor(nestedSelectSubquery, hashes, n2a, projectRefCols);
                         nestedSelectNode.accept(subqueryVisitor);
 
                         this.query.addNestedSelectSubquery(nestedSelectSubquery, alias);
@@ -134,7 +148,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
         return node;
     }
 
-    private Node getJoinNode(JoinNode node, Map<String, Integer> counts, Map<String, String> correspondingAliases) throws StandardException {
+    private Node getJoinNode(JoinNode node, Map<String, Integer> counts, Map<String, String> correspondingAliases, Map<String, String> aliasesToTables) throws StandardException {
 		Node j=new Node(Node.AND, Node.JOINKEY);
 		if(node instanceof HalfOuterJoinNode){
 			HalfOuterJoinNode outer=(HalfOuterJoinNode)node;
@@ -162,6 +176,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());
 			correspondingAliases.put(originalAlias, newAlias);
+			aliasesToTables.put(originalAlias,  t.getName());
 			table.setObject(t);
 			if (!hashes.containsKey(table.getHashId())) {
 
@@ -175,14 +190,22 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(left instanceof JoinNode){
-			Node n=getJoinNode((JoinNode)left, counts, correspondingAliases);
-			j.addChild(n);
-			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
+			CheckForHalfOuterJoinVisitor check=new CheckForHalfOuterJoinVisitor(new SQLQuery());
+			left.accept(check);
+			
+			if(check.stopTraversal()){
+				Node n=getJoinNode((JoinNode)left, counts, correspondingAliases, aliasesToTables);
+				j.addChild(n);
+				j.addAllDescendantBaseTables(n.getDescendantBaseTables());
+			}
+			else{
+				addSubquery(left, j, correspondingAliases);
+			}
 		}
 		else if(left instanceof FromSubquery){
 			FromSubquery fs = (FromSubquery) left;
 			SQLQuery leftSubquery=new SQLQuery();
-            SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+            SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a, projectRefCols);
             fs.getSubquery().accept(v);
             if(leftSubquery.getInputTables().size()==1){
             	leftSubquery.addColumnAliases();
@@ -191,7 +214,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
 			//List<String> firstAliases = aliases.get(0);
 			correspondingAliases.put(fs.getExposedName(), fs.getExposedName());
-			
+			aliasesToTables.put(fs.getExposedName(),  fs.getExposedName());
 		//	leftSubquery.renameTables(firstAliases);
 			
 			
@@ -248,6 +271,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			Node table = new Node(Node.OR);
 			table.addDescendantBaseTable(t.getAlias());
 			correspondingAliases.put(originalAlias, newAlias);
+			aliasesToTables.put(originalAlias,  t.getName());
 			table.setObject(t);
 			if (!hashes.containsKey(table.getHashId())) {
 
@@ -261,14 +285,22 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			j.addAllDescendantBaseTables(table.getDescendantBaseTables());
 		}
 		else if(right instanceof JoinNode){
-			Node n=getJoinNode((JoinNode)right, counts, correspondingAliases);
-			j.addChild(n);
-			j.addAllDescendantBaseTables(n.getDescendantBaseTables());
+			CheckForHalfOuterJoinVisitor check=new CheckForHalfOuterJoinVisitor(new SQLQuery());
+			right.accept(check);
+			
+			if(check.stopTraversal()){
+				Node n=getJoinNode((JoinNode)right, counts, correspondingAliases, aliasesToTables);
+				j.addChild(n);
+				j.addAllDescendantBaseTables(n.getDescendantBaseTables());
+			}
+			else{
+				addSubquery(right, j, correspondingAliases);
+			}
 		}
 		else if(right instanceof FromSubquery){
 			FromSubquery fs = (FromSubquery) right;
 			SQLQuery rightSubquery=new SQLQuery();
-            SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+            SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a, projectRefCols);
             fs.getSubquery().accept(v);
             if(rightSubquery.getInputTables().size()==1){
             	rightSubquery.addColumnAliases();
@@ -277,7 +309,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
 			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
 			//List<String> firstAliases = aliases.get(0);
 			correspondingAliases.put(fs.getExposedName(), fs.getExposedName());
-			
+			aliasesToTables.put(fs.getExposedName(), fs.getExposedName());
 			//rightSubquery.renameTables(firstAliases);
 			
 			
@@ -319,6 +351,14 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		//List<Operand> joinConditions=new ArrayList<Operand>();
 		Operand op=QueryUtils.getOperandFromNode(node.getJoinClause());
 		for(Column c:op.getAllColumnRefs()){
+			if(projectRefCols.containsKey(aliasesToTables.get(c.getAlias()))){
+				projectRefCols.get(aliasesToTables.get(c.getAlias())).add(c.getAlias());
+			}
+			else{
+				Set<String> aliasesForTable=new HashSet<String>();
+				aliasesForTable.add(c.getAlias());
+				projectRefCols.put(aliasesToTables.get(c.getAlias()), aliasesForTable);
+			}
 			op.changeColumn(c, new Column(correspondingAliases.get(c.getAlias()), c.getColumnName()));
 		}
 		QueryUtils.reorderBinaryConditions(op, j.getChildAt(0).getDescendantBaseTables(), j.getChildAt(1).getDescendantBaseTables());
@@ -345,6 +385,56 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		return parent;
 	}
 
+	private void addSubquery(ResultSetNode node, Node j, Map<String, String> correspondingAliases) throws StandardException {
+		SQLQuery leftQ=new SQLQuery();
+		leftQ.setSelectAll(true);
+		LeftJoinSubVisitor vis=new LeftJoinSubVisitor(leftQ);
+		node.accept(vis);
+		
+		Map<String, Set<String>> refCols = new HashMap<String, Set<String>>();
+		leftQ.generateRefCols(refCols);
+		for(String t:refCols.keySet()){
+			if(projectRefCols.containsKey(t)){
+				projectRefCols.get(t).addAll(refCols.get(t));
+			}
+			else{
+				projectRefCols.put(t, refCols.get(t));
+			}
+		}
+		
+		if (!leftQ.getNestedSubqueries().isEmpty()) {
+			for (SQLQuery nested : leftQ.getNestedSubqueries()) {
+				addNestedToDAG(nested, leftQ);
+				correspondingAliases.put(leftQ.getNestedSubqueryAlias(nested), leftQ.getNestedSubqueryAlias(nested));
+			}
+		}
+		
+		List<List<String>> aliases = leftQ.getListOfAliases(n2a, true);
+		List<String> firstAliases = aliases.get(0);
+		for(int i=0;i<leftQ.getInputTables().size();i++){
+			correspondingAliases.put(leftQ.getInputTables().get(i).getAlias(), firstAliases.get(i));
+		}
+		// for(List<String>
+		// aliases:initialQuery.getListOfAliases(n2a)){
+		
+		leftQ.renameTables(firstAliases);
+		ConjunctiveQueryDecomposer d=new ConjunctiveQueryDecomposer(leftQ, false, true);
+
+		Node topSubquery = d.addCQToDAG(j, hashes);
+		
+		HashCode hc=j.getHashId();
+		if(hashes.containsKey(hc)){
+			j.removeAllChildren();
+			j=hashes.get(hc);
+		}
+		else{
+			hashes.put(hc, j);
+		}
+		
+
+		
+	}
+
 	@Override public boolean skipChildren(Visitable node) {
         return FromSubquery.class.isInstance(node) || (node instanceof JoinNode
             && query.getJoinType() != null);
@@ -358,8 +448,8 @@ public class SQLQueryVisitor extends AbstractVisitor {
         SQLQuery leftSubquery = new SQLQuery();
         SQLQuery rightSubquery = new SQLQuery();
         //query.readDBInfo();
-        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery, hashes, n2a);
-        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+        SQLQueryVisitor leftVisitor = new SQLQueryVisitor(leftSubquery, hashes, n2a, projectRefCols);
+        SQLQueryVisitor rightVisitor = new SQLQueryVisitor(rightSubquery, hashes, n2a, projectRefCols);
 
         if (uNode.getResultColumns() != null) {
             //uNode.getResultColumns().accept(leftVisitor);
@@ -370,7 +460,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getLeftResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getLeftResultSet());
             } else if (uNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a, projectRefCols);
                 uNode.getLeftResultSet().accept(v);
                 this.query.getUnionqueries().add(leftSubquery);
             } else {
@@ -383,7 +473,7 @@ public class SQLQueryVisitor extends AbstractVisitor {
             if (uNode.getRightResultSet() instanceof UnionNode) {
                 decomposeUnionNode((UnionNode) uNode.getRightResultSet());
             } else if (uNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a, projectRefCols);
                 uNode.getRightResultSet().accept(v);
                 this.query.getUnionqueries().add(rightSubquery);
             } else {
@@ -411,12 +501,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             // for now we only consider that the join operators are base tables or nested joins
             if (jNode.getLeftResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getLeftResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a, projectRefCols);
                 fs.getSubquery().accept(v);
                 this.query.setLeftJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getLeftResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(leftSubquery, hashes, n2a, projectRefCols);
                 jNode.getLeftResultSet().accept(v);
                 //leftSubquery.setSelectAll(true);
             } else if (jNode.getLeftResultSet() instanceof FromBaseTable) {
@@ -461,12 +551,12 @@ public class SQLQueryVisitor extends AbstractVisitor {
             //for now we only consider that the join operators are base tables or nested joins
             if (jNode.getRightResultSet() instanceof FromSubquery) {
                 FromSubquery fs = (FromSubquery) jNode.getRightResultSet();
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a, projectRefCols);
                 fs.getSubquery().accept(v);
                 this.query.setRightJoinTableAlias(fs.getCorrelationName());
                 //jNode.getLeftResultSet().accept(leftVisitor);
             } else if (jNode.getRightResultSet() instanceof JoinNode) {
-                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a);
+                SQLQueryVisitor v = new SQLQueryVisitor(rightSubquery, hashes, n2a, projectRefCols);
                 jNode.getRightResultSet().accept(v);
                 //rightSubquery.setSelectAll(true);
             } else if (jNode.getRightResultSet() instanceof FromBaseTable) {
@@ -499,4 +589,70 @@ public class SQLQueryVisitor extends AbstractVisitor {
         //uNode.accept(visitor);
 
     }
+    
+    public void addNestedToDAG(SQLQuery nested, SQLQuery parent) {
+		nested.normalizeWhereConditions();
+		
+			// rename outputs
+			if (!(parent.isSelectAll() && parent.getBinaryWhereConditions().isEmpty()
+					&& parent.getUnaryWhereConditions().isEmpty() && parent.getNestedSelectSubqueries().size() == 1
+					&& !parent.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries())) {
+				// rename outputs
+				String alias = parent.getNestedSubqueryAlias(nested);
+				for (Output o : nested.getOutputs()) {
+					String name = o.getOutputName();
+					o.setOutputName(alias + "_" + name);
+				}
+			}
+
+			Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
+			Node nestedNode = new Node(Node.OR);
+			nestedNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
+			nestedNode.addChild(nestedNodeOr);
+			nestedNodeOr.setObject(parent.getNestedSubqueryAlias(nested));
+			nestedNode.addDescendantBaseTable(parent.getNestedSubqueryAlias(nested));
+			/*
+			 * for (List<String> aliases : nested.getListOfAliases(n2a))
+			 * { nested.renameTables(aliases);
+			 * ConjunctiveQueryDecomposer d = new
+			 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
+			 * addNotNulls); d.addCQToDAG(union, hashes); }
+			 */
+			//List<List<String>> aliases = nested.getListOfAliases(n2a, true);
+			// for(List<String>
+			// aliases:initialQuery.getListOfAliases(n2a)){
+			List<String> firstAliases = new ArrayList<String>();
+			for(int i=0;i<nested.getInputTables().size();i++){
+				firstAliases.add("nestedalias"+i);
+			}
+			//nested.renameTables(firstAliases);
+			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, false,
+					true);
+			Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
+			// String u=union.dotPrint();
+			/*if (addAliases) {
+				for (int i = 1; i < aliases.size(); i++) {
+					List<String> nextAliases = aliases.get(i);
+					topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases, nextAliases, hashes));
+				}
+			}*/
+			HashCode hc=nestedNode.getHashId();
+			if(hashes.containsKey(hc)){
+				nestedNode.removeAllChildren();
+				nestedNode=hashes.get(hc);
+			}
+			else{
+				hashes.put(hc, nestedNode);
+			}
+			nested.putNestedNode(nestedNode);
+			// nestedNode.removeAllChildren();
+	
+	}
+
+	public Map<String, Set<String>> getProjectRefCols() {
+		return projectRefCols;
+	}
+    
+    
+    
 }

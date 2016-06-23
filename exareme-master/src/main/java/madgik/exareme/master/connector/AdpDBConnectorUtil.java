@@ -140,7 +140,7 @@ public class AdpDBConnectorUtil {
             inputStream.close();
             socketBuffer.close();
         } catch (IOException e) {
-        	if(e.getMessage().equals("Pipe Closed")){
+        	if(e.getMessage().equals("Pipe closed")){
         		log.error("Remote Connection was closed while sending result table");
         	}
         	else{

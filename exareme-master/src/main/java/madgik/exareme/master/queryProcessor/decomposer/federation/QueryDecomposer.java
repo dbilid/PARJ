@@ -36,7 +36,7 @@ public class QueryDecomposer {
 	private static final Logger log = Logger.getLogger(QueryDecomposer.class);
 	private SQLQuery initialQuery;
 	ArrayList<SQLQuery> result;
-	private final int noOfparts;
+	private int noOfparts;
 	private Node root;
 	private Node union;
 	private NodeHashValues hashes;
@@ -223,14 +223,13 @@ public class QueryDecomposer {
 					log.debug("Created dir to store external imports");
 				}
 			}
-			ExecutorService es = Executors.newCachedThreadPool();
+			ExecutorService es = Executors.newFixedThreadPool(5);
 
 			for (int i = 0; i < res.size(); i++) {
 				SQLQuery s = res.get(i);
 				if (s.isFederated()) {
-					// boolean addToregistry = noOfparts == 1 &&
 					// DecomposerUtils.ADD_TO_REGISTRY;
-					boolean addToregistry = DecomposerUtils.ADD_TO_REGISTRY;
+					boolean addToregistry =noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 					StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
@@ -274,6 +273,7 @@ public class QueryDecomposer {
 		sipToUnions = new SipToUnions();
 		sipToUnions.put(unionnumber, new HashSet<SipNode>());
 		startTime=System.currentTimeMillis();
+		//System.out.println("result cardinality::"+root.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples());
 		expandDAG(root);
 		log.debug("DAG expanded");
 		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
@@ -283,7 +283,10 @@ public class QueryDecomposer {
 		}
 		//Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
 		// StringBuilder a2 = root.dotPrint(new HashSet<Node>());
-		// System.out.println(a2.toString());
+		 //System.out.println(a2.toString());
+		if(hashes.containsRangeJoin()){
+			this.noOfparts=1;
+		}
 		 //System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
@@ -312,9 +315,14 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		long t1 = System.currentTimeMillis();
+		
+		SinglePlan best;
+		Memo finalMemo = new Memo();
+		double finalCost = 0;
 		List<Node> shareable = new ArrayList<Node>();
 		Map<Node, Double> greedyToMat = new HashMap<Node, Double>();
-		if (useGreedy) {
+		if (this.noOfparts==1||DecomposerUtils.CHOOSE_MODE) {
+			System.out.println("starting...");
 			root.addShareable(shareable);
 			System.out.println(shareable.size());
 			// add top union results
@@ -331,26 +339,20 @@ public class QueryDecomposer {
 					}
 				}
 			}
-			boolean onlyOne = false;
-			if (onlyOne) {
-				Node mostProminent = null;
-				int score = 0;
-				for (Node n : shareable) {
-					int nScore = (n.getUnions().size() * 10) + n.getDescendantBaseTables().size();
-					if (nScore > score) {
-						score = nScore;
-						mostProminent = n;
-					}
-				}
-				greedyToMat.put(mostProminent, 0.0);
-			} else {
+			
 				Collections.sort(shareable);
 
-				Memo finalMemo = new Memo();
+				
 				unionnumber = 0;
-				SinglePlan best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
-				double finalCost = best.getCost();
-				System.out.println("no mat:" + finalCost);
+				System.out.println("searching centralized plan...");
+				best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
+				finalCost = best.getCost();
+				System.out.println("found with cost "+finalCost);
+				
+		}
+		if (this.noOfparts==1){
+			
+			System.out.println("no mat:" + finalCost);
 				boolean existsBetterPlan = true;
 				int indexOfBest = -1;
 				while (existsBetterPlan) {
@@ -390,43 +392,86 @@ public class QueryDecomposer {
 					}
 				}
 
+			
+		}
+		else if(DecomposerUtils.CHOOSE_MODE){
+			System.out.println("choosing mode...");
+			if(Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)){
+				System.out.println("distributed...");
+				finalMemo=new Memo();
+				best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
+						new HashSet<MemoKey>(), finalMemo);
 			}
+			else{
+				System.out.println("centralised...");
+				this.noOfparts=1;
+				
+				System.out.println("no mat:" + finalCost);
+					boolean existsBetterPlan = true;
+					int indexOfBest = -1;
+					while (existsBetterPlan) {
+						if (indexOfBest > -1) {
+							greedyToMat.put(shareable.get(indexOfBest), 0.0);
+						}
+						existsBetterPlan = false;
+
+						for (int i = 0; i < mostProminent && i < shareable.size(); i++) {
+							if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
+								continue;
+							}
+							greedyToMat.put(shareable.get(shareable.size() - (i + 1)), 0.0);
+							Memo memo = new Memo();
+
+							if (noOfparts == 1) {
+								if (this.useSIP) {
+									this.sipInfo.resetCounters();
+								}
+								unionnumber = 0;
+								best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+								double matCost = 0.0;
+								for (Double d : greedyToMat.values()) {
+									matCost += d;
+								}
+								best.setCost(best.getCost() + matCost);
+								System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
+								System.out.println(best.getCost());
+								greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
+								if (best.getCost() < finalCost) {
+									indexOfBest = shareable.size() - (i + 1);
+									finalCost = best.getCost();
+									finalMemo = memo;
+									existsBetterPlan = true;
+								}
+							}
+						}
+					}
+			}
+			
+		}
+		else{
+			//distributed
+			finalMemo=new Memo();
+			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
+					new HashSet<MemoKey>(), finalMemo);
 		}
 
 		System.out.println(System.currentTimeMillis() - t1);
-		Memo memo = new Memo();
+		
 		System.out.println("no of mat.:" + greedyToMat.size());
-		SinglePlan best;
-		if (noOfparts == 1) {
-			if (this.useSIP) {
-				this.sipInfo.resetCounters();
-			}
-			unionnumber = 0;
-			best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
-			// sipInfo.printMultiUsed();
-			if (useGreedy) {
-				double matCost = 0.0;
-				for (Double d : greedyToMat.values()) {
-					matCost += d;
-				}
-				best.setCost(best.getCost() + matCost);
-			}
-		} else {
-			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
-					new HashSet<MemoKey>(), memo);
-		}
+		
+		
 
 		// Plan best = addRepartitionAndComputeBestPlan(root, cost, memo, cel,
 		// null);
 		System.out.println(System.currentTimeMillis() - t1);
-		System.out.println("best cost:" + best.getCost());
+		//System.out.println("best cost:" + best.getCost());
 		// System.out.println(memo.size());
 		// String dot2 = root.dotPrint();
 		// System.out.println(t1);
 		//
 		// Plan best = findBestPlan(root, cost, memo, new HashSet<Node>(), cel);
 		// System.out.println(best.getPath().toString());
-		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, memo, registry);
+		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, finalMemo, registry);
 		dsql.setN2a(n2a);
 		if (this.useSIP) {
 			dsql.setSipStruct(this.sipInfo);
@@ -500,66 +545,7 @@ public class QueryDecomposer {
 		// Collection<SQLQuery> nestedSubs=s.getNestedSubqueries();
 		if (!s.getNestedSubqueries().isEmpty()) {
 			for (SQLQuery nested : s.getNestedSubqueries()) {
-				nested.normalizeWhereConditions();
-				if (nested.hasNestedSuqueries()) {
-					decomposeSubquery(nested);
-				} else {
-
-					// rename outputs
-					if (!(s.isSelectAll() && s.getBinaryWhereConditions().isEmpty()
-							&& s.getUnaryWhereConditions().isEmpty() && s.getNestedSelectSubqueries().size() == 1
-							&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries())) {
-						// rename outputs
-						String alias = s.getNestedSubqueryAlias(nested);
-						for (Output o : nested.getOutputs()) {
-							String name = o.getOutputName();
-							o.setOutputName(alias + "_" + name);
-						}
-					}
-
-					Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
-					Node nestedNode = new Node(Node.OR);
-					nestedNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
-					nestedNode.addChild(nestedNodeOr);
-					nestedNodeOr.setObject(s.getNestedSubqueryAlias(nested));
-					nestedNode.addDescendantBaseTable(s.getNestedSubqueryAlias(nested));
-					/*
-					 * for (List<String> aliases : nested.getListOfAliases(n2a))
-					 * { nested.renameTables(aliases);
-					 * ConjunctiveQueryDecomposer d = new
-					 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
-					 * addNotNulls); d.addCQToDAG(union, hashes); }
-					 */
-					//List<List<String>> aliases = nested.getListOfAliases(n2a, true);
-					// for(List<String>
-					// aliases:initialQuery.getListOfAliases(n2a)){
-					List<String> firstAliases = new ArrayList<String>();
-					for(int i=0;i<nested.getInputTables().size();i++){
-						firstAliases.add("nestedalias"+i);
-					}
-					//nested.renameTables(firstAliases);
-					ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, centralizedExecution,
-							addNotNulls);
-					Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
-					// String u=union.dotPrint();
-					/*if (addAliases) {
-						for (int i = 1; i < aliases.size(); i++) {
-							List<String> nextAliases = aliases.get(i);
-							topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases, nextAliases, hashes));
-						}
-					}*/
-					HashCode hc=nestedNode.getHashId();
-					if(hashes.containsKey(hc)){
-						nestedNode.removeAllChildren();
-						nestedNode=hashes.get(hc);
-					}
-					else{
-						hashes.put(hc, nestedNode);
-					}
-					nested.putNestedNode(nestedNode);
-					// nestedNode.removeAllChildren();
-
-				}
+				addNestedToDAG(nested, s);
 			}
 
 			// if s is an "empty" select * do not add it and rename the nested
@@ -593,6 +579,70 @@ public class QueryDecomposer {
 
 		}
 
+	}
+
+	public void addNestedToDAG(SQLQuery nested, SQLQuery parent) throws Exception {
+		nested.normalizeWhereConditions();
+		if (nested.hasNestedSuqueries()) {
+			decomposeSubquery(nested);
+		} else {
+
+			// rename outputs
+			if (!(parent.isSelectAll() && parent.getBinaryWhereConditions().isEmpty()
+					&& parent.getUnaryWhereConditions().isEmpty() && parent.getNestedSelectSubqueries().size() == 1
+					&& !parent.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries())) {
+				// rename outputs
+				String alias = parent.getNestedSubqueryAlias(nested);
+				for (Output o : nested.getOutputs()) {
+					String name = o.getOutputName();
+					o.setOutputName(alias + "_" + name);
+				}
+			}
+
+			Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
+			Node nestedNode = new Node(Node.OR);
+			nestedNode.setObject(new Table("table" + Util.createUniqueId().toString(), null));
+			nestedNode.addChild(nestedNodeOr);
+			nestedNodeOr.setObject(parent.getNestedSubqueryAlias(nested));
+			nestedNode.addDescendantBaseTable(parent.getNestedSubqueryAlias(nested));
+			/*
+			 * for (List<String> aliases : nested.getListOfAliases(n2a))
+			 * { nested.renameTables(aliases);
+			 * ConjunctiveQueryDecomposer d = new
+			 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
+			 * addNotNulls); d.addCQToDAG(union, hashes); }
+			 */
+			//List<List<String>> aliases = nested.getListOfAliases(n2a, true);
+			// for(List<String>
+			// aliases:initialQuery.getListOfAliases(n2a)){
+			List<String> firstAliases = new ArrayList<String>();
+			for(int i=0;i<nested.getInputTables().size();i++){
+				firstAliases.add("nestedalias"+i);
+			}
+			//nested.renameTables(firstAliases);
+			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, centralizedExecution,
+					addNotNulls);
+			Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
+			// String u=union.dotPrint();
+			/*if (addAliases) {
+				for (int i = 1; i < aliases.size(); i++) {
+					List<String> nextAliases = aliases.get(i);
+					topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases, nextAliases, hashes));
+				}
+			}*/
+			HashCode hc=nestedNode.getHashId();
+			if(hashes.containsKey(hc)){
+				nestedNode.removeAllChildren();
+				nestedNode=hashes.get(hc);
+			}
+			else{
+				hashes.put(hc, nestedNode);
+			}
+			nested.putNestedNode(nestedNode);
+			// nestedNode.removeAllChildren();
+
+		}
+		
 	}
 
 	// private void computeJoinSimilarities() {
@@ -1547,6 +1597,12 @@ public class QueryDecomposer {
 					if (c2 != null) {
 						c2RepCost = nce.estimateRepartition(e2, c2);
 					}
+					
+					if(a==Node.LEFTJOIN){
+						//TODO optimize this
+						//for now set children materialized
+						toMatAlg.add(new MemoKey(e2, c2));
+					}
 
 					if (c == null || cComesFromChildNo != i || guaranteesResultPtnedOn(a, o, c)) {
 						// algPlan.append(getBestPlan(e2, c2, memo, algLimit,
@@ -1665,7 +1721,7 @@ public class QueryDecomposer {
 					e2RecordCloned = algRecordCloned;
 				}
 				if (a == Node.NESTED) {
-					//children must not me materialized
+					//children must not be materialized
 					toMatE2.clear();
 					// nested is always materialized
 					toMatE2.add(new MemoKey(e, c));
@@ -1782,7 +1838,7 @@ public class QueryDecomposer {
 			return r;
 		}
 
-		SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);
+		SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);;
 
 		for (int k = 0; k < e.getChildren().size(); k++) {
 			Node o = e.getChildAt(k);
@@ -1792,6 +1848,9 @@ public class QueryDecomposer {
 			boolean mat = false;
 			// this must go after algorithmic implementation
 			limit -= opCost;
+			//if (limit < 0) {
+			//	continue;
+			//}
 			double algLimit;
 			// int cComesFromChildNo = -1;
 			// for (int m = 0; m < o.getAlgorithmicImplementations().length;
@@ -1805,7 +1864,7 @@ public class QueryDecomposer {
 
 			for (int i = 0; i < o.getChildren().size(); i++) {
 				Node e2 = o.getChildAt(i);
-
+				
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
 				// cel, partitionRecord, toMatAlg));
 				SinglePlan t = getBestPlanCentralized(e2, algLimit, memo, greedyToMat);
@@ -1815,6 +1874,10 @@ public class QueryDecomposer {
 				CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(new MemoKey(e2, null));
 				if (o.getOpCode() == Node.NESTED) {
 					mat = true;
+					Util.setDescNotMaterialised(e2, memo);
+				}
+				if (o.getOpCode() == Node.LEFTJOIN||o.getOpCode()==Node.JOINKEY){
+					cmv.setMaterialized(true);
 				}
 				if (cmv.isFederated()) {
 					if (o.getOpCode() == Node.JOIN) {
@@ -1840,17 +1903,27 @@ public class QueryDecomposer {
 				}
 
 				algLimit -= algPlan.getCost();
+				//if(algLimit<0){
+				//	continue;
+				//}
 
 			}
 
-			if (algPlan.getCost() < e2Plan.getCost()) {
+			if ( algPlan.getCost() < e2Plan.getCost()) {
 				e2Plan = algPlan;
 			}
 
+			
 			// }
 			if (e2Plan.getCost() < resultPlan.getCost()) {
 				resultPlan = e2Plan;
 				memo.put(e, resultPlan, mat, false, fed);
+				/*if (!e.getParents().isEmpty() && (e.getParents().get(0).getOpCode() == Node.UNION
+						|| e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
+
+					limit = resultPlan.getCost();
+					System.out.println("prune: " + e.getObject() + "with limit:" + limit);
+				}*/
 
 			}
 
@@ -1942,7 +2015,8 @@ public class QueryDecomposer {
 				// filter join
 				return null;
 			}
-			return QueryUtils.getJoinColumnFromOperand((Operand) o.getObject(), i);
+			Operand op=(Operand)o.getObject();
+			return QueryUtils.getJoinColumnFromOperand(o, op, i);
 		} else {
 			return null;
 		}
@@ -1984,10 +2058,10 @@ public class QueryDecomposer {
 				return true;
 			}
 			BinaryOperand bo=(BinaryOperand) o.getObject();
-			if(QueryUtils.getJoinColumnFromOperand(bo, 0)==null ||QueryUtils.getJoinColumnFromOperand(bo, 1)==null){
+			if(QueryUtils.getJoinColumnFromOperand(o, bo, 0)==null ||QueryUtils.getJoinColumnFromOperand(o, bo, 1)==null){
 				return true;
 			}
-			else if(QueryUtils.getJoinColumnFromOperand(bo, 0).equals(c)||QueryUtils.getJoinColumnFromOperand(bo, 1).equals(c)){
+			else if(QueryUtils.getJoinColumnFromOperand(o, bo, 0).equals(c)||QueryUtils.getJoinColumnFromOperand(o, bo, 1).equals(c)){
 				return false;
 			}
 			else return true;
@@ -2331,5 +2405,17 @@ public class QueryDecomposer {
 	public String getDotPrint() {
 		Set<Node> visited=new HashSet<Node>();
 		return root.dotPrint(visited).toString();
+	}
+
+	public void addRefCols(Map<String, Set<String>> refCols2) {
+		for(String t:refCols2.keySet()){
+			if(refCols.containsKey(t)){
+				refCols.get(t).addAll(refCols2.get(t));
+			}
+			else{
+				refCols.put(t, refCols2.get(t));
+			}
+		}
+		
 	}
 }

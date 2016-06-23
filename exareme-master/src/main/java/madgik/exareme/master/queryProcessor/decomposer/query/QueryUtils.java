@@ -6,6 +6,8 @@ package madgik.exareme.master.queryProcessor.decomposer.query;
 
 import com.foundationdb.sql.StandardException;
 import com.foundationdb.sql.parser.*;
+
+import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.visitors.ColumnReferenceVisitor;
 
 import java.util.HashSet;
@@ -231,26 +233,32 @@ public class QueryUtils {
 		return res;
 	}
 
-	public static Column getJoinColumnFromOperand(Operand o, int i) {
+	public static Column getJoinColumnFromOperand(Node op, Operand o, int i) {
 		if (o instanceof BinaryOperand) {
 
 			BinaryOperand bo = (BinaryOperand) o;
 			if (bo.getOperator().equals("=") && bo.getLeftOp().getAllColumnRefs().size() > 0
 					&& bo.getRightOp().getAllColumnRefs().size() > 0) {
-				if (i == 0) {
-					return bo.getLeftOp().getAllColumnRefs().get(0);
+				
+					Column col= bo.getLeftOp().getAllColumnRefs().get(0);
+					if(op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())&&
+							!op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())){
+						return col;
+					}
 
-				}
-				if (i == 1) {
-					return bo.getRightOp().getAllColumnRefs().get(0);
+					col= bo.getRightOp().getAllColumnRefs().get(0);
+					if(op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias()) &&
+							!op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())){
+						return col;
+					
 
 				}
 			} else if (bo.getOperator().equalsIgnoreCase("and")) {
-				Column c2 = getJoinColumnFromOperand(bo.getLeftOp(), i);
+				Column c2 = getJoinColumnFromOperand(op, bo.getLeftOp(), i);
 				if (c2 != null) {
 					return c2;
 				}
-				c2 = getJoinColumnFromOperand(bo.getRightOp(), i);
+				c2 = getJoinColumnFromOperand(op, bo.getRightOp(), i);
 				if (c2 != null) {
 					return c2;
 				}
@@ -280,5 +288,40 @@ public class QueryUtils {
 			}
 		}
 		
+	}
+
+	public static NonUnaryWhereCondition getJoinCondition(BinaryOperand bo, Node o) {
+		NonUnaryWhereCondition result=null;
+		if(bo.getLeftOp() instanceof Column && bo.getRightOp() instanceof Column){
+			Column l=(Column)bo.getLeftOp();
+			Column r=(Column)bo.getRightOp();
+			if(o.getChildAt(0).getDescendantBaseTables().contains(r.getAlias())&&
+					o.getChildAt(1).getDescendantBaseTables().contains(l.getAlias())){
+				result=new NonUnaryWhereCondition();
+				result.setLeftOp(r);
+				result.setRightOp(l);
+				result.setOperator(bo.getOperator());
+				return result;
+			}
+			if(o.getChildAt(1).getDescendantBaseTables().contains(r.getAlias())&&
+					o.getChildAt(0).getDescendantBaseTables().contains(l.getAlias())){
+				result=new NonUnaryWhereCondition();
+				result.setLeftOp(l);
+				result.setRightOp(r);
+				result.setOperator(bo.getOperator());
+				return result;
+			}
+		}
+		if(bo.getLeftOp() instanceof BinaryOperand){
+			result=getJoinCondition((BinaryOperand) bo.getLeftOp(), o);
+			if(result!=null){
+				return result;
+			}
+		}
+		if(bo.getRightOp() instanceof BinaryOperand){
+			result=getJoinCondition((BinaryOperand) bo.getRightOp(), o);
+				return result;
+		}
+		return null;
 	}
 }

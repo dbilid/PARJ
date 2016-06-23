@@ -636,8 +636,8 @@ public final class Histogram {
             h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
 
         if (!existsIntersection(h2)) {
-            System.out.println(this);
-            System.out.println(h2);
+            //System.out.println(this);
+           // System.out.println(h2);
             this.convertToTransparentHistogram();
         } else {
             Map<Double, Double> cbmap = this.combine(h2);
@@ -692,6 +692,62 @@ public final class Histogram {
             combiningBucket.setFrequency(resultFreq);
         }
     }
+
+	public void rangejoin(Histogram h2) {
+		// TODO make a proper implementation
+		
+		 //preconditions
+        checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is null");
+        if (this.isTransparentHistogram() && !h2.isTransparentHistogram())
+            this.setBucketIndex(new TreeMap<Double, Bucket>(h2.getBucketIndex()));
+        else if (h2.isTransparentHistogram() && !this.isTransparentHistogram())
+        	h2.setBucketIndex(new TreeMap<Double, Bucket>(this.getBucketIndex()));
+
+        if (!existsIntersection(h2)) {
+        	log.debug("empty join result");
+            this.convertToTransparentHistogram();
+        } else {
+            Map<Double, Double> cbmap = this.combine(h2);
+            for (Map.Entry<Double, Double> e : cbmap.entrySet())
+                this.rangeJoinBuckets(h2, e.getKey(), e.getValue());
+        }
+    }
+
+	private void rangeJoinBuckets (Histogram h2, double combiningBucketId, double combinerBucketId) {
+        //preconditions
+        checkNotNull(h2, "Histogram::joinBuckets: parameter <h2> is null");
+
+        Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
+        Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
+
+        if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
+            .lastKey()) {
+
+            double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency() * (combinerBucket.getDiffValues()/2);
+            if(Double.isInfinite(resultFreq)){
+            	log.error("Result Frequency is Infinite");
+            	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            }
+
+            double minCombinerBucketVal = combinerBucketId;
+            double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
+            double minCombiningBucketVal = combiningBucketId;
+            double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
+
+            double combinerSubBucketDiffVals =
+                (maxCombiningBucketVal - minCombiningBucketVal) / (maxCombinerBucketVal
+                    - minCombinerBucketVal) * combinerBucket.getDiffValues();
+
+
+            double nodv = combiningBucket.getDiffValues();
+
+            if (nodv > combinerSubBucketDiffVals)
+                nodv = combinerSubBucketDiffVals;
+
+            combiningBucket.setDiffValues(nodv);
+            combiningBucket.setFrequency(resultFreq);
+        }
+	}
 
 
 }

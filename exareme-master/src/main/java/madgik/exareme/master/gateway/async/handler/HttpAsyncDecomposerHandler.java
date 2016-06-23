@@ -324,7 +324,8 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							log.debug("Parsing SQL Query ...");
 							NodeHashValues hashes = new NodeHashValues();
 							hashes.setSelectivityEstimator(nse);
-							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes, n2a);
+							Map<String, Set<String>> refCols=new HashMap<String, Set<String>>();
+							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes, n2a, refCols);
 							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
 							d.setN2a(n2a);
 							log.debug("SQL Query Decomposing ...");
@@ -466,11 +467,13 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							log.debug("Parsing SQL Query ...");
 							NodeHashValues hashes = new NodeHashValues();
 							hashes.setSelectivityEstimator(nse);
-							squery = SQLQueryParser.parse(query, hashes, n2a);
-							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
+							Map<String, Set<String>> refCols=new HashMap<String, Set<String>>();
 							if (DecomposerUtils.WRITE_ALIASES) {
 								n2a = DBInfoReaderDB.readAliases(path);
 							}
+							squery = SQLQueryParser.parse(query, hashes, n2a, refCols);
+							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
+							d.addRefCols(refCols);
 							d.setN2a(n2a);
 							log.debug("n2a:" + n2a.toString());
 							log.debug("SQL Query Decomposing ...");
@@ -486,7 +489,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							nse = null;
 							hashes = null;
 							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", useCache, false,
-									false, true, -1, 10, null);
+									false, false, -1, 10, null);
 							AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
 							Set<String> referencedTables = new HashSet<String>();
 							boolean a = false;
