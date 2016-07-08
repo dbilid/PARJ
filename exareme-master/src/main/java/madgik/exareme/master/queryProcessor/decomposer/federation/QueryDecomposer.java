@@ -58,12 +58,13 @@ public class QueryDecomposer {
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
 	private final boolean useGreedy = DecomposerUtils.USE_GREEDY;
-	private long exapandDagTime= DecomposerUtils.EXPAND_DAG_TIME;
+	private long getOnlyLeftDeepTreesTime= DecomposerUtils.EXPAND_DAG_TIME;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
 	private NodeCostEstimator nce;
 	private long startTime;
+	private int workers;
 
 	public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
 		this(initial, ".", 1, null);
@@ -73,6 +74,7 @@ public class QueryDecomposer {
 		result = new ArrayList<SQLQuery>();
 		this.initialQuery = initial;
 		this.noOfparts = noOfPartitions;
+		workers=noOfPartitions;
 		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
 		for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
 			byte[] hash = pt.getTable().getHashID();
@@ -223,7 +225,7 @@ public class QueryDecomposer {
 					log.debug("Created dir to store external imports");
 				}
 			}
-			ExecutorService es = Executors.newFixedThreadPool(5);
+			ExecutorService es = Executors.newFixedThreadPool(6);
 
 			for (int i = 0; i < res.size(); i++) {
 				SQLQuery s = res.get(i);
@@ -253,7 +255,7 @@ public class QueryDecomposer {
 				}
 			}
 			es.shutdown();
-			boolean finished = es.awaitTermination(60, TimeUnit.MINUTES);
+			boolean finished = es.awaitTermination(160, TimeUnit.MINUTES);
 
 		}
 		return res;
@@ -276,13 +278,13 @@ public class QueryDecomposer {
 		//System.out.println("result cardinality::"+root.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples());
 		expandDAG(root);
 		log.debug("DAG expanded");
-		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
-		// System.out.println("noOfnode:"+root.count(0));
+		//System.out.println("expandtime:"+(System.currentTimeMillis()-b));
+		//System.out.println("noOfnode:"+root.count(0));
 		if (this.useSIP) {
 			sipInfo.removeNotNeededSIPs();
 		}
 		//Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
-		// StringBuilder a2 = root.dotPrint(new HashSet<Node>());
+		//StringBuilder a2 = root.dotPrint(new HashSet<Node>());
 		 //System.out.println(a2.toString());
 		if(hashes.containsRangeJoin()){
 			this.noOfparts=1;
@@ -345,6 +347,7 @@ public class QueryDecomposer {
 				
 				unionnumber = 0;
 				System.out.println("searching centralized plan...");
+				nce.setPartitionNo(1);
 				best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
 				finalCost = best.getCost();
 				System.out.println("found with cost "+finalCost);
@@ -381,6 +384,7 @@ public class QueryDecomposer {
 							best.setCost(best.getCost() + matCost);
 							System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
 							System.out.println(best.getCost());
+							System.out.println("size:"+(shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
 							greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
 							if (best.getCost() < finalCost) {
 								indexOfBest = shareable.size() - (i + 1);
@@ -398,6 +402,7 @@ public class QueryDecomposer {
 			System.out.println("choosing mode...");
 			if(Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)){
 				System.out.println("distributed...");
+				nce.setPartitionNo(this.noOfparts);
 				finalMemo=new Memo();
 				best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
 						new HashSet<MemoKey>(), finalMemo);
@@ -435,6 +440,7 @@ public class QueryDecomposer {
 								best.setCost(best.getCost() + matCost);
 								System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
 								System.out.println(best.getCost());
+								//System.out.println("size:"+(shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
 								greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
 								if (best.getCost() < finalCost) {
 									indexOfBest = shareable.size() - (i + 1);
@@ -659,8 +665,11 @@ public class QueryDecomposer {
 		for (int i = 0; i < eq.getChildren().size(); i++) {
 			// System.out.println(eq.getChildren().size());
 			Node op = eq.getChildAt(i);
-			
-			if (!op.isExpanded()&&System.currentTimeMillis()-startTime<exapandDagTime) {
+			if(System.currentTimeMillis()-startTime>getOnlyLeftDeepTreesTime&&!onlyLeft){
+				System.out.println("only left!");
+				this.onlyLeft=true;
+			}
+			if (!op.isExpanded()) {
 				for (int x = 0; x < op.getChildren().size(); x++) {
 					Node inpEq = op.getChildAt(x);
 					// System.out.println(eq.getObject());
@@ -840,7 +849,7 @@ public class QueryDecomposer {
 
 										}
 										// System.out.println(associativityTop.getObject().toString());
-										if (!hashes.containsKey(associativityTop.getHashId())) {
+										if (!hashes.containsKey(associativityTop.getHashId())||hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
 											hashes.put(associativityTop.getHashId(), associativityTop);
 											// Node newTop =
 											// hashes.checkAndPutWithChildren(associativityTop);
@@ -1030,7 +1039,7 @@ public class QueryDecomposer {
 										associativityTop.setExpanded(true);
 
 										// System.out.println(associativityTop.getObject().toString());
-										if (!hashes.containsKey(associativityTop.getHashId())) {
+										if (!hashes.containsKey(associativityTop.getHashId())||hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
 											hashes.put(associativityTop.getHashId(), associativityTop);
 											// Node newTop =
 											// hashes.checkAndPutWithChildren(associativityTop);
@@ -1163,9 +1172,8 @@ public class QueryDecomposer {
 				continue;
 			}
 			p.addChildAt(q, pos);
-			if (hashes.containsKey(p.getHashId())) {
+			if (hashes.containsKey(p.getHashId())&&!hashes.get(p.getHashId()).getParents().isEmpty()) {
 				// System.out.println("further unification!");
-
 				unify(hashes.get(p.getHashId()).getFirstParent(), p.getFirstParent());
 			} else {
 				hashes.put(p.getHashId(), p);
@@ -1808,7 +1816,9 @@ public class QueryDecomposer {
 			if (greedyToMat.containsKey(e) && e.getFirstParent().getOpCode() != Node.UNION) {
 				cmv.setMaterialized(true);
 				e.setMaterialised(true);
-				greedyToMat.put(e, resultPlan.getCost() + nce.getWriteCost(e) * 2);
+				greedyToMat.put(e, resultPlan.getCost() * workers + nce.getWriteCost(e) * 2);
+				//TODO consider parallelism
+				//for now * # of workers
 				resultPlan.setCost(nce.getReadCost(e));
 			}
 		}

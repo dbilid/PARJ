@@ -154,5 +154,9 @@ public class UnaryWhereCondition implements Operand {
 		hash=Hashing.combineOrdered(codes);}
 		return hash;
 	}
+
+	public String getValue() {
+		return o;
+	}
     
 }

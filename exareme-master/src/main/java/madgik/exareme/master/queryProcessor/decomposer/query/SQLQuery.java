@@ -689,6 +689,14 @@ public class SQLQuery {
 		}
 		return result;
 	}
+	
+	public Set<String> getTableAliases() {
+		Set<String> result=new HashSet<String>();
+		for(Table t:this.inputTables){
+			result.add(t.getAlias());
+		}
+		return result;
+	}
 
 	private void modifyRDBMSSyntax() {
 		if (this.getMadisFunctionString().startsWith("mysql ")) {
@@ -1472,6 +1480,40 @@ public class SQLQuery {
 				// partialResult.add(alias);
 				newResult.add(alias);
 				traverseTables(i, n2a, newResult, result, getOnlyFirst);
+				if (getOnlyFirst) {
+					return;
+				}
+			}
+		}
+
+	}
+	
+	public void traverseTables(int i, NamesToAliases n2a, List<String> partialResult, List<List<String>> result,
+			boolean getOnlyFirst, Map<String, Integer> counts) {
+		i++;
+		Table t = this.inputTables.get(i - 1);
+		int previousCounts=0;
+		if(counts.containsKey(t.getName())){
+			previousCounts=1+counts.get(t.getName());
+		}
+		for (int a=previousCounts;a<n2a.getAllAliasesForBaseTable(t.getlocalName()).size();a++) {
+			String alias=n2a.getAllAliasesForBaseTable(t.getlocalName()).get(a);
+			if (partialResult.contains(alias)) {
+				continue;
+			}
+			// partialResult.add(alias);
+			if (i == this.inputTables.size()) {
+				List<String> newResult = new ArrayList<String>(partialResult);
+				newResult.add(alias);
+				result.add(newResult);
+				if (getOnlyFirst) {
+					return;
+				}
+			} else {
+				List<String> newResult = new ArrayList<String>(partialResult);
+				// partialResult.add(alias);
+				newResult.add(alias);
+				traverseTables(i, n2a, newResult, result, getOnlyFirst, counts);
 				if (getOnlyFirst) {
 					return;
 				}
@@ -2463,6 +2505,48 @@ public class SQLQuery {
 			}
 		}
 		
+	}
+
+	public boolean containsIputTable(String alias) {
+		for(Table t:this.inputTables){
+			if (t.getAlias().equals(alias)){
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public List<List<String>> getListOfAliases(NamesToAliases n2a, boolean getOnlyFirst, Map<String, Integer> counts) {
+		List<List<String>> result = new ArrayList<List<String>>();
+		Map<String, Integer> countsCloned=new HashMap<String, Integer>(counts);
+		if (this.inputTables.isEmpty()) {
+			return result;
+		}
+		List<String> partialResult = new ArrayList<String>();
+		for (Table t : this.inputTables) {
+			// String localAlias = t.getAlias();
+			// String globalAlias;
+			if (counts.containsKey(t.getlocalName())) {
+				counts.put(t.getlocalName(), counts.get(t.getlocalName()) + 1);
+				n2a.getGlobalAliasForBaseTable(t.getlocalName(), counts.get(t.getlocalName()));
+			} else {
+				counts.put(t.getlocalName(), 0);
+				n2a.getGlobalAliasForBaseTable(t.getlocalName(), 0);
+			}
+		}
+		
+		
+		// for (int i=0;i<this.inputTables.size();i++) {
+		// Table t=this.inputTables.get(i);
+
+		// for(String alias:n2a.getAllAliasesForBaseTable(t.getlocalName())){
+		// partialResult.add(alias);
+		traverseTables(0, n2a, new ArrayList<String>(partialResult), result, getOnlyFirst, countsCloned);
+		// System.out.println(result);
+		// }
+		// i++;
+		// }
+		return result;
 	}
 
 }

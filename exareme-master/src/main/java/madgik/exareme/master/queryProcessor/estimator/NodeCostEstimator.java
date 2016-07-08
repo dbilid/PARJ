@@ -140,6 +140,7 @@ public class NodeCostEstimator {
         throws Exception {
     	if(this.partitionNo==1&&right.getDescendantBaseTables().size()>1){
     		//TODO do not consider bushy joins in centralised and not federated execution
+    		System.out.println(nuwc);
     		return 1000000.0;
     	}
     	else if(right.getDescendantBaseTables().size()>1&&!right.isMaterialised()){
@@ -159,7 +160,7 @@ public class NodeCostEstimator {
         if (Double.isNaN(responseTime)) {
             throw new Exception("NaN");
         }
-        
+        System.out.println(nuwc+":::"+responseTime);
         return responseTime;
     }
 
@@ -313,4 +314,8 @@ public class NodeCostEstimator {
 		return 10;
 	}
 	}
+	public void setPartitionNo(int partitionNo) {
+		this.partitionNo = partitionNo;
+	}
+	
 }

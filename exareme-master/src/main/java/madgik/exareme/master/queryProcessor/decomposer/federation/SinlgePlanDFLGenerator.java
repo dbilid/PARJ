@@ -194,6 +194,10 @@ public class SinlgePlanDFLGenerator {
 						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
 					}
 					for (int j = qs.size() - 1; j > i; j--) {
+						if(qs.get(j).getOutputs().isEmpty()&&qs.get(j).containsIputTable(q.getTemporaryTableName())){
+							outputs.clear();
+							break;
+						}
 						List<Column> cols = qs.get(j).getAllColumns();
 						for (Column c2 : cols) {
 							if (c2.getBaseTable() != null) {
@@ -1441,11 +1445,11 @@ public class SinlgePlanDFLGenerator {
 
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						Column c = uwcCloned.getAllColumnRefs().get(0);
-						if (op.isDescendantOfBaseTable(c.getAlias())) {
+					//	if (op.isDescendantOfBaseTable(c.getAlias())) {
 							uwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
 									c.getName(), c.getAlias()));
 							// addOutputIfNotExists(c, tempResult);
-						}
+					//	}
 					}
 					current.addUnaryWhereCondition(uwcCloned);
 				} else {
@@ -1454,11 +1458,11 @@ public class SinlgePlanDFLGenerator {
 					nuwcCloned.addRangeFilters(nuwc);
 					if (!inputName.equals(current.getTemporaryTableName())) {
 						for (Column c : nuwcCloned.getAllColumnRefs()) {
-							if (op.isDescendantOfBaseTable(c.getAlias())) {
+							//if (op.isDescendantOfBaseTable(c.getAlias())) {
 								nuwcCloned.changeColumn(c, new Column(tempResult.getQueryForBaseTable(c.getAlias()),
 										c.getName(), c.getAlias()));
 								// addOutputIfNotExists(c, tempResult);
-							}
+						//	}
 						}
 					}
 					current.addBinaryWhereCondition(nuwcCloned);
@@ -1509,7 +1513,7 @@ public class SinlgePlanDFLGenerator {
 
 		else if (op.getOpCode() == Node.LEFTJOIN || op.getOpCode() == Node.JOINKEY) {
 			Operand leftJoinOp = (Operand) op.getObject();
-			current.addJoinOperand(leftJoinOp);
+			current.addJoinOperand(leftJoinOp.clone());
 			current.setJoinType("left outer join");
 			if (op.getOpCode() == Node.JOINKEY) {
 				current.setJoinType("join");
@@ -1557,21 +1561,33 @@ public class SinlgePlanDFLGenerator {
 			// tempResult.add(current);
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
-			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if (q == null) {
-				q = current;
-			}
+			//SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			//if (q == null) {
+			//	q = current;
+			//}
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
-			q.setOrderBy(orderCols);
+			current.setOrderBy(orderCols);
+			for(Column c:orderCols){
+				c.setAlias(null);
+			}
+			if(!tempResult.getLastTable().getAlias().equals(current.getTemporaryTableName())){
+				current.addInputTableIfNotExists(tempResult.getLastTable());
+			}
 
 		} else if (op.getOpCode() == Node.GROUPBY) {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
-			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if (q == null) {
-				q = current;
-			}
+			//SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
+			//if (q == null) {
+			//	q = current;
+			//}
 			List<Column> groupCols = (ArrayList<Column>) op.getObject();
-			q.setGroupBy(groupCols);
+			current.setGroupBy(groupCols);
+			for(Column c:groupCols){
+				c.setAlias(null);
+			}
+			if(!tempResult.getLastTable().getAlias().equals(current.getTemporaryTableName())){
+				current.addInputTableIfNotExists(tempResult.getLastTable());
+			}
 
 		} else {
 			log.error("Unknown Operator in DAG");
@@ -1583,6 +1599,10 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(current);
 			// }
 			current.setHashId(e.getHashId());
+			log.debug("size estimation for "+current.getTemporaryTableName()+":");
+			if(e.getNodeInfo()!=null){
+				log.debug(e.getNodeInfo().getNumberOfTuples());
+			}
 			for (String alias : e.getDescendantBaseTables()) {
 				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
@@ -2058,21 +2078,25 @@ public class SinlgePlanDFLGenerator {
 			current.setPartition(repBefore);
 		} else if (op.getOpCode() == Node.ORDERBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
-			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if (q == null) {
-				q = current;
+			List<Column> groupCols = (ArrayList<Column>) op.getObject();
+			current.setGroupBy(groupCols);
+			for(Column c:groupCols){
+				c.setAlias(null);
 			}
-			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
-			q.setOrderBy(orderCols);
-
+			if(!tempResult.getLastTable().getAlias().equals(current.getTemporaryTableName())){
+				current.addInputTableIfNotExists(tempResult.getLastTable());
+			}
 		} else if (op.getOpCode() == Node.GROUPBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
-			SQLQuery q = tempResult.get(tempResult.getLastTable().getName());
-			if (q == null) {
-				q = current;
+			
+			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
+			current.setOrderBy(orderCols);
+			for(Column c:orderCols){
+				c.setAlias(null);
 			}
-			List<Column> orderCols = (ArrayList<Column>) op.getObject();
-			q.setGroupBy(orderCols);
+			if(!tempResult.getLastTable().getAlias().equals(current.getTemporaryTableName())){
+				current.addInputTableIfNotExists(tempResult.getLastTable());
+			}
 
 		} else {
 			log.error("Unknown Operator in DAG");

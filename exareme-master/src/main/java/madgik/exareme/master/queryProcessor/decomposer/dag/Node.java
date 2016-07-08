@@ -796,7 +796,14 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			return;
 		}
 		if (this.unions.size() > 1 && this.type == Node.OR && !shareable.contains(this) && this.getDescendantBaseTables().size()>1) {
-			if (shareable.add(this)) {
+			boolean hasFilterJoinParent=false;
+			for(Node p:this.parents){
+				if(p.getChildren().size()==1&&p.getOpCode()==JOIN){
+					hasFilterJoinParent=true;
+					break;
+				}
+			}
+			if (!hasFilterJoinParent&&shareable.add(this)) {
 				return;
 			}
 		}

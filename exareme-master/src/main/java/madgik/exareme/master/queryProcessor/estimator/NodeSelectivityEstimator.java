@@ -97,10 +97,10 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			} else if (o.getOpCode() == Node.GROUPBY) {
 				estimateGroupBy(n);
 			} else if (o.getOpCode() == Node.LEFTJOIN) {
-				//TODO compute selectivity for left join
-				//for now we get only one condition and treat it as normal join
-				BinaryOperand bo=(BinaryOperand)o.getObject();
-				NonUnaryWhereCondition nuwc=QueryUtils.getJoinCondition(bo, o);
+				// TODO compute selectivity for left join
+				// for now we get only one condition and treat it as normal join
+				BinaryOperand bo = (BinaryOperand) o.getObject();
+				NonUnaryWhereCondition nuwc = QueryUtils.getJoinCondition(bo, o);
 				estimateJoin(n, nuwc, o.getChildAt(0), o.getChildAt(1));
 			}
 		}
@@ -142,6 +142,40 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	private void applyFilterToNode(Operand nextFilter, NodeInfo ni) {
 		if (nextFilter instanceof UnaryWhereCondition) {
+			UnaryWhereCondition uwc = (UnaryWhereCondition) nextFilter;
+			if (uwc.getType() == UnaryWhereCondition.LIKE) {
+				// for now treat like equality
+				// TODO treat properly
+				try {
+					Column col = uwc.getAllColumnRefs().get(0);
+					String con = uwc.getValue();
+					if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
+						log.error("Column not found in Attribute index: " + col.toString());
+						ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+						return;
+					}
+					Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
+
+					double filterValue = 0;
+
+					filterValue = StatUtils.hashString(con);
+					String newSt = "";
+					if (con.startsWith("\'")) {
+						newSt = con.replaceAll("\'", "");
+						filterValue = StatUtils.hashString(newSt);
+					}
+
+					resultHistogram.equal(filterValue);
+
+					ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
+
+					// TODO: fix NOdeInfo!!
+					ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+				} catch (Exception e) {
+					log.error("Could not compute selectivity for filter: " + nextFilter);
+				}
+
+			}
 			// normally you don't care for these conditions (Column IS NOT
 			// NULL)
 			// UnaryWhereCondition uwc = (UnaryWhereCondition) nextFilter;
@@ -200,8 +234,8 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// RelInfo lRel = childInfo.getResultRel();
 				// RelInfo resultRel = new RelInfo(lRel);
 				// RelInfo resultRel = initRel;
-				if(!ni.getResultRel().getAttrIndex().containsKey(col.toString())){
-					log.error("Column not found in Attribute index: "+col.toString());
+				if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
+					log.error("Column not found in Attribute index: " + col.toString());
 					ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
 					return;
 				}
@@ -268,13 +302,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		if (newR.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
-			if(nuwc.getOperator().contains(">")||nuwc.getOperator().contains("<")){
+			if (nuwc.getOperator().contains(">") || nuwc.getOperator().contains("<")) {
 				resultHistogram.rangejoin(newR.getAttrIndex().get(r.toString()).getHistogram());
-			}
-			else{
+			} else {
 				resultHistogram.join(newR.getAttrIndex().get(r.toString()).getHistogram());
 			}
-			
+
 		}
 
 		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());

@@ -9,14 +9,18 @@ import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author dimitris
  */
 public class ColumnsToTableNames<T> extends HashMap<String, T> {
+	
+	private Map<String, T> tableToT;
 
     public ColumnsToTableNames() {
         super();
+        tableToT=new HashMap<String, T>();
     }
 
     public void putColumnInTable(Column c, T t) {
@@ -24,11 +28,15 @@ public class ColumnsToTableNames<T> extends HashMap<String, T> {
     }
 
     public T getTablenameForColumn(Column c) {
+    	if(tableToT.containsKey(c.getAlias())){
+    		return tableToT.get(c.getAlias());
+    	}
         return this.get(c.getAlias() + ":" + c.getName());
     }
 
     public boolean containsColumn(Column c) {
-        return this.containsKey(c.getAlias() + ":" + c.getName());
+        return this.containsKey(c.getAlias() + ":" + c.getName()) ||
+        		tableToT.containsKey(c.getAlias());
     }
 
     public List<Column> getAllColumns() {
@@ -45,5 +53,15 @@ public class ColumnsToTableNames<T> extends HashMap<String, T> {
                 put(s, join);
             }
         }
+        for (String s : this.tableToT.keySet()) {
+            if (tableToT.get(s).equals(toChange)) {
+            	tableToT.put(s, join);
+            }
+        }
     }
+    
+    public void addTable(String s, T t){
+    	this.tableToT.put(s, t);
+    }
+    
 }
