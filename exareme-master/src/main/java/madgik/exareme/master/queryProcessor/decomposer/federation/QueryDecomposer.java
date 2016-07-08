@@ -1781,7 +1781,7 @@ public class QueryDecomposer {
 		SinglePlan resultPlan;
 		if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
 			// check on c!
-			resultPlan = new SinglePlan(nce.getReadCost(e), null);
+			resultPlan = new SinglePlan(0, null);
 		} else if (memo.containsMemoKey(ec)) {
 			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
 			if (!useGreedy) {

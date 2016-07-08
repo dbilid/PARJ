@@ -160,7 +160,6 @@ public class NodeCostEstimator {
         if (Double.isNaN(responseTime)) {
             throw new Exception("NaN");
         }
-        System.out.println(nuwc+":::"+responseTime);
         return responseTime;
     }
 
