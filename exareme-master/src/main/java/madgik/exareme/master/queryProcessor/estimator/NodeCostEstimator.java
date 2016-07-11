@@ -140,7 +140,7 @@ public class NodeCostEstimator {
         throws Exception {
     	if(this.partitionNo==1&&right.getDescendantBaseTables().size()>1){
     		//TODO do not consider bushy joins in centralised and not federated execution
-    		System.out.println(nuwc);
+    		//System.out.println(nuwc);
     		return 1000000.0;
     	}
     	else if(right.getDescendantBaseTables().size()>1&&!right.isMaterialised()){

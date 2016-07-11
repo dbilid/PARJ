@@ -58,7 +58,8 @@ public class QueryDecomposer {
 	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
 	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
 	private final boolean useGreedy = DecomposerUtils.USE_GREEDY;
-	private long getOnlyLeftDeepTreesTime= DecomposerUtils.EXPAND_DAG_TIME;
+	private long getOnlyLeftDeepTreesTime= DecomposerUtils.ONLY_LEFT_TIME;
+	private long expandDagTime= DecomposerUtils.EXPAND_DAG_TIME;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
@@ -661,11 +662,15 @@ public class QueryDecomposer {
 	// }
 
 	private void expandDAG(Node eq) {
-
+		
+		if(System.currentTimeMillis()-startTime>expandDagTime){
+			return;
+		}
+		
 		for (int i = 0; i < eq.getChildren().size(); i++) {
 			// System.out.println(eq.getChildren().size());
 			Node op = eq.getChildAt(i);
-			if(System.currentTimeMillis()-startTime>getOnlyLeftDeepTreesTime&&!onlyLeft){
+			if(!onlyLeft&&System.currentTimeMillis()-startTime>getOnlyLeftDeepTreesTime){
 				System.out.println("only left!");
 				this.onlyLeft=true;
 			}
@@ -780,7 +785,8 @@ public class QueryDecomposer {
 										}
 										Node table = new Node(Node.OR);
 										table.setObject(new Table("table" + Util.createUniqueId(), null));
-										if (hashes.containsKey(associativity.getHashId())) {
+										if (hashes.containsKey(associativity.getHashId())&&!hashes.get(associativity.getHashId()).getParents().isEmpty()) {		
+										//if (hashes.containsKey(associativity.getHashId())) {
 											Node assocInHashes = hashes.get(associativity.getHashId());
 											table = assocInHashes.getFirstParent();
 

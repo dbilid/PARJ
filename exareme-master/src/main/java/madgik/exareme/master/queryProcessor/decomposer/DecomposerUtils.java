@@ -42,6 +42,7 @@ public class DecomposerUtils {
 	public static final int MOST_PROMINENT;
 	public static final boolean USE_GREEDY;
 	public static final long EXPAND_DAG_TIME;
+	public static final long ONLY_LEFT_TIME;
 	public static final double DISTRIBUTED_LIMIT;
 	public static final boolean CHOOSE_MODE;
 
@@ -83,7 +84,7 @@ public class DecomposerUtils {
         MOST_PROMINENT=properties.getInt("most.prominent");
         USE_GREEDY=properties.getBoolean("use.greedy");
         EXPAND_DAG_TIME=properties.getLong("expand.dag.time");
-        
+        ONLY_LEFT_TIME=properties.getLong("only.left.time");
         DISTRIBUTED_LIMIT=properties.getLong("distributed.limit");
         CHOOSE_MODE = properties.getBoolean("choose.mode");
         

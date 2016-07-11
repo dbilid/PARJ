@@ -1599,7 +1599,7 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(current);
 			// }
 			current.setHashId(e.getHashId());
-			log.debug("size estimation for "+current.getTemporaryTableName()+":");
+			log.debug("cardinality estimation for "+current.getTemporaryTableName()+":");
 			if(e.getNodeInfo()!=null){
 				log.debug(e.getNodeInfo().getNumberOfTuples());
 			}
