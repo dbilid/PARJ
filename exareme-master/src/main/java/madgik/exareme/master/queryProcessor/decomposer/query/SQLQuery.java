@@ -748,7 +748,7 @@ public class SQLQuery {
 				c.setName(c.getName().toUpperCase());
 			}
 
-		} else if (this.getMadisFunctionString().startsWith("postgres ")) {
+		} /*else if (this.getMadisFunctionString().startsWith("postgres ")) {
 			for (Column c : this.getAllColumns()) {
 				if (!c.getName().startsWith("\"")) {
 					c.setName("\"" + c.getName() + "\"");
@@ -759,7 +759,7 @@ public class SQLQuery {
 					t.setName("\"" + t.getName() + "\"");
 				}
 			}
-		}
+		}*/
 
 	}
 
