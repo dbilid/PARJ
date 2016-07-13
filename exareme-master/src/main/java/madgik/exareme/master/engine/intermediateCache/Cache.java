@@ -8,6 +8,7 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQueryParser;
 import madgik.exareme.master.registry.Registry;
+import madgik.exareme.utils.association.Triple;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -21,311 +22,351 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Cache {
 
-    AdpDBClientProperties properties;
-    private final static Lock lock = new ReentrantLock();
-    private final int totalSize;
+	AdpDBClientProperties properties;
+	private final static Lock lock = new ReentrantLock();
+	private final int totalSize;
 
-    public Cache(AdpDBClientProperties properties) {
+	public Cache(AdpDBClientProperties properties) {
 
-        this.properties = properties;
-        this.totalSize = 0;
-    }
+		this.properties = properties;
+		this.totalSize = 0;
+	}
 
-    public Cache(AdpDBClientProperties properties, int totalSize) {
-        this.properties = properties;
-        this.totalSize = totalSize;
-    }
+	public Cache(AdpDBClientProperties properties, int totalSize) {
+		this.properties = properties;
+		this.totalSize = totalSize;
+	}
 
+	private boolean validateDiskSpace(Map<String, Integer> map1, Map<String, Integer> map2) {
 
-    private boolean validateDiskSpace(Map<String, Integer> map1, Map<String, Integer> map2) {
+		for (String location : map2.keySet()) {
 
-        for (String location : map1.keySet()) {
+			Integer size1 = map1.get(location);
+			Integer size2 = map2.get(location);
+			System.out.println("1: " + size1);
+			System.out.println("2: " + size2);
+			System.out.println("3: " + totalSize);
+			System.out.println("location " + location);
+			// if (size2 != null && (map1.get(location) + map2.get(location) >
+			// totalSize)) {
+			if (size1 != null && (map1.get(location) + map2.get(location) > totalSize)) {
+				System.out.println("Einai false to flag");
+				return false;
+			} else if (size1 == null && map2.get(location) > totalSize) {
+				System.out.println("flag is false");
+				return false;
+			}
+		}
+		return true;
+	}
 
-            System.out.println("1: " + map1.get(location));
-            System.out.println("2: " + map2.get(location));
-            System.out.println("3: " + totalSize);
-            System.out.println("location " + location);
-            if (map1.get(location) + map2.get(location) > totalSize) {
-                return false;
-            }
-        }
-        return true;
-    }
+	public List<String> updateCache(Table newTable, Map<String, Integer> sizeMap) throws ParseException {
 
-    public void updateCache(Table newTable, Map<String, Integer> sizeMap) throws ParseException {
+		lock.lock();
+		System.out.println("arxiiii");
 
-        lock.lock();
-        System.out.println("arxiiii");
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+		List<String> evictedTables = new LinkedList<String>();
 
-        List<String> evictedTables = new LinkedList<String>();
+		Map<String, Integer> totalSizePerWorker = registry.getWorkersSize();
+		List<Table> tableInfos = registry.getTemporaryTablesCacheInfo();
 
-        Map<String, Integer> totalSizePerWorker = registry.getWorkersSize();
-        List<Table> tableInfos = registry.getTemporaryTablesCacheInfo();
+		Map<String, Map<String, Integer>> sizePerQuery = registry.getSizePerQuery();
 
-        Map<String, Map<String, Integer>> sizePerQuery = registry.getSizePerQuery();
+		boolean computeBenefit = true;
+		TreeMap<Double, List<Table>> tree = new TreeMap<>();
+		List<Table> tableList;
 
-        boolean computeBenefit = true;
-        TreeMap<Double, List<Table>> tree = new TreeMap<>();
-        List<Table> tableList;
+		newTable.setBenefit(newTable.getNumOfAccess()
+				/ (Date.getDifferenceInSec(newTable.getLastAccess(), true) * newTable.getSize()));
+		double benefit, newQueryBenefit = newTable.getBenefit();
+		Table currentTable;
 
-        newTable.setBenefit(newTable.getNumOfAccess() / (Date.getDifferenceInSec(newTable.getLastAccess(), true) * newTable.getSize()));
-        double benefit, newQueryBenefit = newTable.getBenefit();
-        Table currentTable;
+		while (!validateDiskSpace(totalSizePerWorker, sizeMap)) {
 
-        while (!validateDiskSpace(totalSizePerWorker, sizeMap)) {
+			if (computeBenefit) {
+				for (Table table : tableInfos) {
+					if (table.getPin() == 0) {
+						table.setBenefit(table.getNumOfAccess()
+								/ (Date.getDifferenceInSec(table.getLastAccess(), true) * table.getSize()));
+						if (tree.containsKey(table.getBenefit())) {
+							tableList = tree.get(table.getBenefit());
+							tableList.add(table);
+						} else {
+							tableList = new LinkedList<>();
+							tableList.add(table);
+							tree.put(table.getBenefit(), tableList);
+						}
+					}
+				}
+				computeBenefit = false;
+			}
 
-            if (computeBenefit) {
-                for (Table table : tableInfos) {
-                    if (table.getPin() == 0) {
-                        table.setBenefit(table.getNumOfAccess() / (Date.getDifferenceInSec(table.getLastAccess(), true) * table.getSize()));
-                        if (tree.containsKey(table.getBenefit())) {
-                            tableList = tree.get(table.getBenefit());
-                            tableList.add(table);
-                        } else {
-                            tableList = new LinkedList<>();
-                            tableList.add(table);
-                            tree.put(table.getBenefit(), tableList);
-                        }
-                    }
-                }
-                computeBenefit = false;
-            }
+			if (tree.isEmpty()) {
+				// delete to new table
+				System.out.println("tpt dn einai unpinned epomenws dn tha mpei to " + newTable.getName());
+				List<String> table = new ArrayList<>(1);
+				table.add(newTable.getName());
+				lock.unlock();
+				return table;
+			}
 
-            if (tree.isEmpty()) {
-                //delete to new table
-                System.out.println("tpt dn einai unpinned epomenws dn tha mpei to " + newTable.getName());
-                lock.unlock();
-                return;
-            }
+			benefit = tree.firstKey();
+			if (newQueryBenefit < benefit) {
+				// delete to new table
+				System.out.println("to benefit einai mikrotero gia to "+newTable.getName());
+				
+				                List<String> table = new ArrayList<>(1);
+				                table.add(newTable.getName());
+				lock.unlock();
+				return table;
+			}
 
-            benefit = tree.firstKey();
-            if (newQueryBenefit < benefit) {
-                //delete to new table
-                System.out.println("to benefit einai mikrotero ");
-                lock.unlock();
-                return;
-            }
+			tableList = tree.get(benefit);
+			currentTable = tableList.remove(0);
+			if (tableList.isEmpty()) {
+				tree.remove(benefit);
+			}
+			evictedTables.add(currentTable.getName());
 
-            tableList = tree.get(benefit);
-            currentTable = tableList.remove(0);
-            if (tableList.isEmpty()) {
-                tree.remove(benefit);
-            }
-            evictedTables.add(currentTable.getName());
+			Integer size;
+			Map<String, Integer> querySizePerLocation = sizePerQuery.get(currentTable.getName());
+			for (String location : querySizePerLocation.keySet()) {
 
-            Integer size;
-            Map<String, Integer> querySizePerLocation = sizePerQuery.get(currentTable.getName());
-            for (String location : querySizePerLocation.keySet()) {
+				size = totalSizePerWorker.get(location);
+				size -= querySizePerLocation.get(location);
+				totalSizePerWorker.put(location, size);
+			}
+		}
 
-                size = totalSizePerWorker.get(location);
-                size -= querySizePerLocation.get(location);
-                totalSizePerWorker.put(location, size);
-            }
-        }
+		for (String tableName : evictedTables) {
+			// delete to table
+			System.out.println("tha ginei delete to " + tableName);
+		}
+		System.out.println("mpike to " + newTable.getName());
+		lock.unlock();
+		totalSizePerWorker = null;
+		tableInfos = null;
+		sizePerQuery = null;
+		tree = null;
+		System.out.println("telosssss");
+		return evictedTables;
+	}
 
-        for (String tableName : evictedTables) {
-            //delete to table
-            System.out.println("tha ginei delete to " + tableName);
-        }
-        System.out.println("mpike to " + newTable.getName());
-        lock.unlock();
-        totalSizePerWorker = null;
-        tableInfos = null;
-        sizePerQuery = null;
-        tree = null;
-        System.out.println("telosssss");
-    }
+	public boolean pinTables(List<String> tables) {
 
-    public boolean pinTables(List<String> tables) {
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+		lock.lock();
+		for (String table : tables) {
+			if (!registry.containsPhysicalTable(table)) {
+				lock.unlock();
+				return false;
+			}
+		}
 
-        lock.lock();
-        for (String table : tables) {
-            if (!registry.containsPhysicalTable(table)) {
-                lock.unlock();
-                return false;
-            }
-        }
+		for (String table : tables) {
+			registry.pin(table);
+		}
 
-        for (String table : tables) {
-            registry.pin(table);
-        }
+		lock.unlock();
 
-        lock.unlock();
+		return true;
+	}
 
-        return true;
-    }
+	public void unpinTable(String table) {
 
-    public void unpinTable(String table) {
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+		lock.lock();
+		registry.unpin(table);
+		lock.unlock();
+	}
 
-        lock.lock();
-        registry.unpin(table);
-        lock.unlock();
-    }
+	public void updateCacheForTableUse(List<Table> tables) {
 
-    public void updateCacheForTableUse(List<Table> tables) {
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+		lock.lock();
+		registry.updateCacheForTableUse(tables);
+		lock.unlock();
+	}
 
-        lock.lock();
-        registry.updateCacheForTableUse(tables);
-        lock.unlock();
-    }
+	public String queryExistance(String query) {
 
-    public String queryExistance(String query) {
+		QueryContainment qc;
+		SQLQuery sqlQuery = null;
+		try {
+			sqlQuery = SQLQueryParser.parse(query, new NodeHashValues());
+			qc = new QueryContainment();
+			qc.setDemandedQuery(sqlQuery);
+		} catch (Exception e) {
+			System.out.println("mpikaaa me to " + query);
+			return null;
+		}
 
-        QueryContainment qc;
-        SQLQuery sqlQuery = null;
-        try {
-            sqlQuery = SQLQueryParser.parse(query, new NodeHashValues());
-            qc = new QueryContainment();
-            qc.setDemandedQuery(sqlQuery);
-        } catch (Exception e) {
-            System.out.println("mpikaaa me to " + query);
-            return null;
-        }
+		Registry registry = Registry.getInstance(properties.getDatabase());
+		Collection<PhysicalTable> tables = registry.getPhysicalTables();
+		for (PhysicalTable table : tables) {
+			try {
+				sqlQuery = SQLQueryParser.parse(
+						table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"),
+						new NodeHashValues());
+				qc.setCachedQuery(sqlQuery, table.getName());
+				System.out.println("no error sto "
+						+ table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"));
+			} catch (Exception e) {
+				System.out.println(
+						"error sto " + table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"));
+			}
+		}
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
-        Collection<PhysicalTable> tables = registry.getPhysicalTables();
-        for (PhysicalTable table : tables) {
-            try {
-                sqlQuery = SQLQueryParser.parse(table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"),new NodeHashValues());
-                qc.setCachedQuery(sqlQuery, table.getName());
-                System.out.println("no error sto " + table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"));
-            } catch (Exception e) {
-                System.out.println("error sto " + table.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"));
-            }
-        }
+		return qc.containQuery();
 
-        return qc.containQuery();
+	}
 
-    }
+	public Triple<String, String, Integer> queryHashIDExistance(int hashID) {
 
-    public String queryHashIDExistance(int hashID, String partitionColumn, int numOfPartitions) {
+		Registry registry = Registry.getInstance(properties.getDatabase());
+		return registry.containsHashIDInfo(hashID);
+	}
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+	// a)tableName, b)partitionColumn, c)numOfPartitions
+	public Triple<String, String, Integer> queryHashIDExistance(int hashID, long validDuration) {
 
-        String tablename = registry.containsHashID(hashID);
-        if (tablename == null) {
-            return null;
-        } else {
-            int numberOfPartitions = registry.getNumOfPartitions(tablename);
-            if (numberOfPartitions != numOfPartitions) {
-                return null;
-            }
-            String partColumn = registry.getPartitionColumn(tablename);
-            if (partColumn != null && partitionColumn.equals(partColumn)) {
-                return tablename;
-            } else if (partColumn == null && partitionColumn == null) {
-                return tablename;
-            } else {
-                return null;
-            }
-        }
-    }
+		Registry registry = Registry.getInstance(properties.getDatabase());
+		return registry.containsHashIDInfo(hashID, validDuration);
+	}
 
-    public String queryHashIDExistance(int hashID, String partitionColumn, int numOfPartitions,
-                                       long validDuration) throws ParseException {
+	public String queryHashIDExistance(int hashID, String partitionColumn, int numOfPartitions) {
 
-        Registry registry = Registry.getInstance(properties.getDatabase());
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        String tablename = registry.containsHashID(hashID, validDuration);
-        if (tablename == null) {
-            return null;
-        } else {
-            int numberOfPartitions = registry.getNumOfPartitions(tablename);
-            if (numberOfPartitions != numOfPartitions) {
-                return null;
-            }
-            String partColumn = registry.getPartitionColumn(tablename);
-            if (partColumn != null && partitionColumn.equals(partColumn)) {
-                return tablename;
-            } else if (partColumn == null && partitionColumn == null) {
-                return tablename;
-            } else {
-                return null;
-            }
-        }
-    }
+		String tablename = registry.containsHashID(hashID);
+		if (tablename == null) {
+			return null;
+		} else {
+			int numberOfPartitions = registry.getNumOfPartitions(tablename);
+			if (numberOfPartitions != numOfPartitions) {
+				return null;
+			}
+			String partColumn = registry.getPartitionColumn(tablename);
+			if (partColumn != null && partitionColumn.equals(partColumn)) {
+				return tablename;
+			} else if (partColumn == null && partitionColumn == null) {
+				return tablename;
+			} else {
+				return null;
+			}
+		}
+	}
 
-    public static void main(String[] args) throws Exception {
+	public String queryHashIDExistance(int hashID, String partitionColumn, int numOfPartitions, long validDuration)
+			throws ParseException {
 
-        AdpDBClientProperties properties = new AdpDBClientProperties("/home/christos/database", "", "", false, false, -1, 10);
-//        Cache cache = new Cache(properties);
-//        System.out.println(cache.queryHashIDExistance(810901805));
+		Registry registry = Registry.getInstance(properties.getDatabase());
 
-        /* pin and unpin
+		String tablename = registry.containsHashID(hashID, validDuration);
+		if (tablename == null) {
+			return null;
+		} else {
+			int numberOfPartitions = registry.getNumOfPartitions(tablename);
+			if (numberOfPartitions != numOfPartitions) {
+				return null;
+			}
+			String partColumn = registry.getPartitionColumn(tablename);
+			if (partColumn != null && partitionColumn.equals(partColumn)) {
+				return tablename;
+			} else if (partColumn == null && partitionColumn == null) {
+				return tablename;
+			} else {
+				return null;
+			}
+		}
+	}
 
-//        ArrayList<String> tables = new ArrayList<>();
-//        tables.add("mod_lessons");
-//        tables.add("tmp_lessons");
-////        tables.add("tmp_lesson");
-////        boolean pinned = cache.pinTables(tables);
-////        System.out.println("pinned= " + pinned);
-//        cache.unpinTable("tmp_lessons" SQLQuery sqlQuery;
-        try {
-            sqlQuery = SQLQueryParser.parse("select_*_from_mod__lessons__v2".replaceAll("_", " "));
-        } catch (Exception e) {
-            sqlQuery = null;
-            System.out.println("error sto " + "select_*_from_mod__lessons__v2".replaceAll("_", " ").replaceAll("\\ {2,}", "_"));
-        });
-//        cache.unpinTable("mod_lessons");
+	public static void main(String[] args) throws Exception {
 
+		AdpDBClientProperties properties = new AdpDBClientProperties("/home/christos/database", "", "", false, false,
+				-1, 10);
+				// Cache cache = new Cache(properties);
+				// System.out.println(cache.queryHashIDExistance(810901805));
 
-        */
+		/*
+		 * pin and unpin
+		 * 
+		 * // ArrayList<String> tables = new ArrayList<>(); //
+		 * tables.add("mod_lessons"); // tables.add("tmp_lessons"); ////
+		 * tables.add("tmp_lesson"); //// boolean pinned =
+		 * cache.pinTables(tables); //// System.out.println("pinned= " +
+		 * pinned); // cache.unpinTable("tmp_lessons" SQLQuery sqlQuery; try {
+		 * sqlQuery =
+		 * SQLQueryParser.parse("select_*_from_mod__lessons__v2".replaceAll("_",
+		 * " ")); } catch (Exception e) { sqlQuery = null; System.out.println(
+		 * "error sto " + "select_*_from_mod__lessons__v2".replaceAll("_", " "
+		 * ).replaceAll("\\ {2,}", "_")); }); //
+		 * cache.unpinTable("mod_lessons");
+		 * 
+		 * 
+		 */
 
-        /*replacement
+		/*
+		 * replacement
+		 * 
+		 */
 
-         */
+		// periptwsi 1, tha fugei to mod_lessons
+		// Table table = new Table("new_t");
+		// table.setSize(65536);
+		// table.setNumOfAccess(1);
+		// table.setLastAccess("2016-01-15 12:16:49");
+		// System.out.println(new java.util.Date().toString());
+		// System.out.println(System.currentTimeMillis());
 
-//        periptwsi 1, tha fugei to mod_lessons
-//        Table table = new Table("new_t");
-//        table.setSize(65536);
-//        table.setNumOfAccess(1);
-//        table.setLastAccess("2016-01-15 12:16:49");
-//        System.out.println(new java.util.Date().toString());
-//        System.out.println(System.currentTimeMillis());
+		// DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
+		// Date dateobj = new Date();
+		// System.out.println(df.format(dateobj));
+		// System.out.println(dateobj.toString());
+		//
+		// SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd
+		// HH:mm:ss");
+		//
+		// java.util.Date give_date = dateFormat.parse(new
+		// java.util.Date().toString());
+		// System.out.println(give_date.toString());
+		//
+		// table.setLastAccess(give_date.toString());
 
-//        DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
-//        Date dateobj = new Date();
-//        System.out.println(df.format(dateobj));
-//        System.out.println(dateobj.toString());
-//
-//        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//
-//        java.util.Date give_date = dateFormat.parse(new java.util.Date().toString());
-//        System.out.println(give_date.toString());
-//
-//        table.setLastAccess(give_date.toString());
+		// DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
+		// java.util.Date dateobj = new java.util.Date();
+		// System.out.println("edw "+df.format(dateobj));
+		// table.setLastAccess(df.format(dateobj));
 
-//        DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm:ss");
-//        java.util.Date dateobj = new java.util.Date();
-//        System.out.println("edw "+df.format(dateobj));
-//        table.setLastAccess(df.format(dateobj));
+		// Map<String, Integer> map = new HashMap<>();
+		// map.put("192.168.1.3", 32768);
+		//
+		// Cache cache = new Cache(properties, 327680);
+		// cache.updateCache(table, map);
 
-//        Map<String, Integer> map = new HashMap<>();
-//        map.put("192.168.1.3", 32768);
-//
-//        Cache cache = new Cache(properties, 327680);
-//        cache.updateCache(table, map);
+		Cache cache = new Cache(properties);
+		String table = cache.queryHashIDExistance(0, null, 1, 10000);
+		System.out.println("table is " + table);
+		table = cache.queryHashIDExistance(256, null, 3, 10000);
+		System.out.println("table is " + table);
+		//
+		// System.out.println("apo edw ");
+		// System.out.println(cache.queryExistance("select * from query_lessons1
+		// where query_lessons1.idssss>5"));
+		// System.out.println("edw 2");
+		// System.out.println(cache.queryExistance("select * from l2 where
+		// l2.id>5"));
+		Triple<String, String, Integer> info = cache.queryHashIDExistance(56);
+		if (info != null)
+			System.out.println("info is " + info.getA() + " | " + info.getB() + " || " + info.getC());
+		else
+			System.out.println("info is null");
 
-        Cache cache = new Cache(properties);
-        String table = cache.queryHashIDExistance(0, null, 1, 10000);
-        System.out.println("table is " + table);
-        table = cache.queryHashIDExistance(256, null, 3, 10000);
-        System.out.println("table is " + table);
-//
-        System.out.println("apo edw ");
-        System.out.println(cache.queryExistance("select * from query_lessons1 where query_lessons1.idssss>5"));
-        System.out.println("edw 2");
-        System.out.println(cache.queryExistance("select * from l2 where l2.id>5"));
-
-    }
-
+	}
 
 }

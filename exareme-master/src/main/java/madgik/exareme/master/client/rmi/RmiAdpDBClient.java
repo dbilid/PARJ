@@ -333,7 +333,13 @@ public class RmiAdpDBClient implements AdpDBClient {
 
 		// execute
 		AdpDBStatus status = executor.executeScript(plan, properties);
-		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		if (!properties.isCachedEnable()) {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		} else {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status, this);
+		}
+		// return new RmiAdpDBClientQueryStatus(queryId, properties, plan,
+		// status);
 	}
 
 	@Override
@@ -364,45 +370,45 @@ public class RmiAdpDBClient implements AdpDBClient {
 			HashMap<String, Pair<byte[], String>> hashQueryMap, Map<String, String> extraCommands)
 					throws RemoteException {
 		// parse
-				AdpDBQueryID queryId = createNewQueryID();
-				QueryScript script = parser.parse(queryScript, registry);
-				log.trace("QueryScript parsed.");
+		AdpDBQueryID queryId = createNewQueryID();
+		QueryScript script = parser.parse(queryScript, registry);
+		log.trace("QueryScript parsed.");
 
-				for (Select s : script.getSelectQueries()) {
-					if (extraCommands.containsKey(s.getOutputTable().getTable().getName())) {
-						s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
-					}
-				}
-				
-				// optimize
-				AdpDBHistoricalQueryData queryData = null;
-				AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
-						true /* schedule */, true /* validate */);
+		for (Select s : script.getSelectQueries()) {
+			if (extraCommands.containsKey(s.getOutputTable().getTable().getName())) {
+				s.setExtraCommand(extraCommands.get(s.getOutputTable().getTable().getName()));
+			}
+		}
 
-				// ArrayList<PhysicalTable> results = plan.getState().results;
-				// int hashID;
-				// Loop on pernament tables
-				// for(PhysicalTable result : results){
-				// System.out.println("name of pernament result
-				// "+result.getTable().getName());
-				// hashID = hashIDMap.get(result.getTable().getName());
-				// System.out.println("hashID is "+hashID);
-				// result.getTable().setHashID(hashID);
-				//
-				// }
+		// optimize
+		AdpDBHistoricalQueryData queryData = null;
+		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
+				true /* schedule */, true /* validate */);
 
-				Collection<PhysicalTable> ptables = plan.getScript().getTables();
-				Pair<byte[], String> sqlInfo;
-				for (PhysicalTable table : ptables) {
-					sqlInfo = hashQueryMap.get(table.getTable().getName());
-					table.getTable().setHashID(sqlInfo.getA());
-					table.addPartitionColumn(sqlInfo.getB());
-				}
+		// ArrayList<PhysicalTable> results = plan.getState().results;
+		// int hashID;
+		// Loop on pernament tables
+		// for(PhysicalTable result : results){
+		// System.out.println("name of pernament result
+		// "+result.getTable().getName());
+		// hashID = hashIDMap.get(result.getTable().getName());
+		// System.out.println("hashID is "+hashID);
+		// result.getTable().setHashID(hashID);
+		//
+		// }
 
-				log.trace("Optimized.");
+		Collection<PhysicalTable> ptables = plan.getScript().getTables();
+		Pair<byte[], String> sqlInfo;
+		for (PhysicalTable table : ptables) {
+			sqlInfo = hashQueryMap.get(table.getTable().getName());
+			table.getTable().setHashID(sqlInfo.getA());
+			table.addPartitionColumn(sqlInfo.getB());
+		}
 
-				// execute
-				AdpDBStatus status = executor.executeScript(plan, properties);
-				return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		log.trace("Optimized.");
+
+		// execute
+		AdpDBStatus status = executor.executeScript(plan, properties);
+		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
 	}
 }

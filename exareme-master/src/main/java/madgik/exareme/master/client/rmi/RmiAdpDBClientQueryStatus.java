@@ -9,6 +9,7 @@ import madgik.exareme.common.schema.PhysicalTable;
 import madgik.exareme.common.schema.Table;
 import madgik.exareme.master.client.AdpDBClientProperties;
 import madgik.exareme.master.client.AdpDBClientQueryStatus;
+import madgik.exareme.master.client.AdpDBClient;
 import madgik.exareme.master.engine.AdpDBQueryExecutionPlan;
 import madgik.exareme.master.engine.intermediateCache.Cache;
 import madgik.exareme.master.engine.parser.SemanticException;
@@ -33,6 +34,7 @@ import java.util.*;
 public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
 	private final static Logger log = Logger.getLogger(AdpDBClientQueryStatus.class);
 
+	private AdpDBClient client;
 	private AdpDBClientProperties properties;
 	private AdpDBQueryExecutionPlan plan;
 	private AdpDBStatus status;
@@ -50,6 +52,19 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
 		this.lastStatus = null;
 		this.timeF = new TimeFormat(TimeUnit.min);
 		this.finished = false;
+		this.client = null;
+	}
+
+	public RmiAdpDBClientQueryStatus(AdpDBQueryID queryId, AdpDBClientProperties properties,
+			AdpDBQueryExecutionPlan plan, AdpDBStatus status, AdpDBClient client) {
+		this.properties = properties;
+		this.plan = plan;
+		this.status = status;
+		this.resultTableName = null;
+		this.lastStatus = null;
+		this.timeF = new TimeFormat(TimeUnit.min);
+		this.finished = false;
+		this.client = client;
 	}
 
 	@Override
@@ -264,6 +279,7 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
 			// if
 			// (AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true"))
 			// {
+			List<String>  evictedTables = new ArrayList<String>();
 			if (properties.isCachedEnable()) {
 
 				DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -339,7 +355,8 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
 						table.setSize(totalSize);
 						try {
 							// System.out.println("map " + map);
-							cache.updateCache(table, map);
+							 evictedTables.addAll(cache.updateCache(table, map));
+							//cache.updateCache(table, map);
 						} catch (ParseException e) {
 							e.printStackTrace();
 						}
@@ -389,6 +406,22 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
 					registry.removePhysicalTable(dmOP.getDMQuery().getTable());
 				}
 			}
+			for(String evictedTable : evictedTables){
+                System.out.println("dropTable" + evictedTable);
+
+                AdpDBClientQueryStatus queryStatus = client.query("dropTable" + evictedTable, "distributed drop table " + evictedTable+";");
+                System.out.println("dinw to "+"distributed drop table " + evictedTable+";");
+                while (queryStatus.hasFinished() == false && queryStatus.hasError() == false) {
+                    try {
+                        Thread.sleep(10 * 1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (queryStatus.hasError()) {
+                    log.error("Exception occured..." + queryStatus.getError());
+                }
+            }
 			log.debug("Registry updated.");
 		}
 	}

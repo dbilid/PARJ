@@ -472,7 +472,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								n2a = DBInfoReaderDB.readAliases(path);
 							}
 							squery = SQLQueryParser.parse(query, hashes, n2a, refCols);
-							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
+							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes, useCache);
 							d.addRefCols(refCols);
 							d.setN2a(n2a);
 							log.debug("n2a:" + n2a.toString());

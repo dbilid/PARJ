@@ -29,14 +29,14 @@ public class SinlgePlanDFLGenerator {
 	private Map<String, Set<Column>> matResultUsedCols;
 	private boolean useSIP;
 	private SipStructure sipStruct;
-	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
+	private boolean useCache;
 	private boolean addIndicesToMatQueries = false;
 	private SipToUnions sipToUnions;
 	private int unionNo;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
-	SinlgePlanDFLGenerator(Node n, int partNo, Memo m, Map<HashCode, madgik.exareme.common.schema.Table> r) {
+	SinlgePlanDFLGenerator(Node n, int partNo, Memo m, Map<HashCode, madgik.exareme.common.schema.Table> r, boolean useCache) {
 		this.root = n;
 		this.partitionNo = partNo;
 		this.memo = m;
@@ -44,6 +44,7 @@ public class SinlgePlanDFLGenerator {
 		if (addIndicesToMatQueries) {
 			matResultUsedCols = new HashMap<String, Set<Column>>();
 		}
+		this.useCache=useCache;
 	}
 
 	public ResultList generate() {

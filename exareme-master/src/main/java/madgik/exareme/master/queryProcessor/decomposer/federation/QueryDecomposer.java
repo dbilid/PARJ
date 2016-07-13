@@ -55,11 +55,11 @@ public class QueryDecomposer {
 	private boolean useSIP = false;
 	// private Registry registry;
 	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
-	private final boolean useCache = AdpDBProperties.getAdpDBProps().getBoolean("db.cache");
+	private boolean useCache;
 	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
 	private final boolean useGreedy = DecomposerUtils.USE_GREEDY;
-	private long getOnlyLeftDeepTreesTime= DecomposerUtils.ONLY_LEFT_TIME;
-	private long expandDagTime= DecomposerUtils.EXPAND_DAG_TIME;
+	private long getOnlyLeftDeepTreesTime = DecomposerUtils.ONLY_LEFT_TIME;
+	private long expandDagTime = DecomposerUtils.EXPAND_DAG_TIME;
 	private boolean onlyLeft = false;
 	private int unionnumber;
 	SipToUnions sipToUnions;
@@ -71,11 +71,16 @@ public class QueryDecomposer {
 		this(initial, ".", 1, null);
 	}
 
+	public QueryDecomposer(SQLQuery initial, String database, int noOfPartitions, NodeHashValues h, boolean useCache) {
+		this(initial, database, noOfPartitions, h);
+		this.useCache = useCache;
+	}
+
 	public QueryDecomposer(SQLQuery initial, String database, int noOfPartitions, NodeHashValues h) {
 		result = new ArrayList<SQLQuery>();
 		this.initialQuery = initial;
 		this.noOfparts = noOfPartitions;
-		workers=noOfPartitions;
+		workers = noOfPartitions;
 		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
 		for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
 			byte[] hash = pt.getTable().getHashID();
@@ -232,7 +237,7 @@ public class QueryDecomposer {
 				SQLQuery s = res.get(i);
 				if (s.isFederated()) {
 					// DecomposerUtils.ADD_TO_REGISTRY;
-					boolean addToregistry =noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
+					boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 					StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
@@ -269,28 +274,29 @@ public class QueryDecomposer {
 			createProjections(root);
 			log.debug("Base projections created");
 		}
-		//StringBuilder a = root.dotPrint(new HashSet<Node>());
-		//System.out.println(a.toString());
+		// StringBuilder a = root.dotPrint(new HashSet<Node>());
+		// System.out.println(a.toString());
 		// long b=System.currentTimeMillis();
 		unionnumber = 0;
 		sipToUnions = new SipToUnions();
 		sipToUnions.put(unionnumber, new HashSet<SipNode>());
-		startTime=System.currentTimeMillis();
-		//System.out.println("result cardinality::"+root.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples());
+		startTime = System.currentTimeMillis();
+		// System.out.println("result
+		// cardinality::"+root.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples());
 		expandDAG(root);
 		log.debug("DAG expanded");
-		//System.out.println("expandtime:"+(System.currentTimeMillis()-b));
-		//System.out.println("noOfnode:"+root.count(0));
+		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
+		// System.out.println("noOfnode:"+root.count(0));
 		if (this.useSIP) {
 			sipInfo.removeNotNeededSIPs();
 		}
-		//Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
-		//StringBuilder a2 = root.dotPrint(new HashSet<Node>());
-		 //System.out.println(a2.toString());
-		if(hashes.containsRangeJoin()){
-			this.noOfparts=1;
+		// Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
+		// StringBuilder a2 = root.dotPrint(new HashSet<Node>());
+		// System.out.println(a2.toString());
+		if (hashes.containsRangeJoin()) {
+			this.noOfparts = 1;
 		}
-		 //System.out.println(root.dotPrint());
+		// System.out.println(root.dotPrint());
 		// int no=root.count(0);
 		if (this.initialQuery.getLimit() > -1) {
 			Node limit = new Node(Node.AND, Node.LIMIT);
@@ -318,13 +324,13 @@ public class QueryDecomposer {
 		}
 		// String a = root.dotPrint();
 		long t1 = System.currentTimeMillis();
-		
+
 		SinglePlan best;
 		Memo finalMemo = new Memo();
 		double finalCost = 0;
 		List<Node> shareable = new ArrayList<Node>();
 		Map<Node, Double> greedyToMat = new HashMap<Node, Double>();
-		if (this.noOfparts==1||DecomposerUtils.CHOOSE_MODE) {
+		if (this.noOfparts == 1 || DecomposerUtils.CHOOSE_MODE) {
 			System.out.println("starting...");
 			root.addShareable(shareable);
 			System.out.println(shareable.size());
@@ -342,21 +348,74 @@ public class QueryDecomposer {
 					}
 				}
 			}
-			
-				Collections.sort(shareable);
 
-				
-				unionnumber = 0;
-				System.out.println("searching centralized plan...");
-				nce.setPartitionNo(1);
-				best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
-				finalCost = best.getCost();
-				System.out.println("found with cost "+finalCost);
-				
+			Collections.sort(shareable);
+
+			unionnumber = 0;
+			System.out.println("searching centralized plan...");
+			nce.setPartitionNo(1);
+			best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
+			finalCost = best.getCost();
+			System.out.println("found with cost " + finalCost);
+
 		}
-		if (this.noOfparts==1){
-			
+		if (this.noOfparts == 1) {
+
 			System.out.println("no mat:" + finalCost);
+			boolean existsBetterPlan = true;
+			int indexOfBest = -1;
+			while (existsBetterPlan) {
+				if (indexOfBest > -1) {
+					greedyToMat.put(shareable.get(indexOfBest), 0.0);
+				}
+				existsBetterPlan = false;
+
+				for (int i = 0; i < mostProminent && i < shareable.size(); i++) {
+					if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
+						continue;
+					}
+					greedyToMat.put(shareable.get(shareable.size() - (i + 1)), 0.0);
+					Memo memo = new Memo();
+
+					if (noOfparts == 1) {
+						if (this.useSIP) {
+							this.sipInfo.resetCounters();
+						}
+						unionnumber = 0;
+						best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+						double matCost = 0.0;
+						for (Double d : greedyToMat.values()) {
+							matCost += d;
+						}
+						best.setCost(best.getCost() + matCost);
+						System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
+						System.out.println(best.getCost());
+						System.out.println("size:"
+								+ (shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
+						greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
+						if (best.getCost() < finalCost) {
+							indexOfBest = shareable.size() - (i + 1);
+							finalCost = best.getCost();
+							finalMemo = memo;
+							existsBetterPlan = true;
+						}
+					}
+				}
+			}
+
+		} else if (DecomposerUtils.CHOOSE_MODE) {
+			System.out.println("choosing mode...");
+			if (Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)) {
+				System.out.println("distributed...");
+				nce.setPartitionNo(this.noOfparts);
+				finalMemo = new Memo();
+				best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
+						new HashSet<MemoKey>(), finalMemo);
+			} else {
+				System.out.println("centralised...");
+				this.noOfparts = 1;
+
+				System.out.println("no mat:" + finalCost);
 				boolean existsBetterPlan = true;
 				int indexOfBest = -1;
 				while (existsBetterPlan) {
@@ -385,7 +444,8 @@ public class QueryDecomposer {
 							best.setCost(best.getCost() + matCost);
 							System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
 							System.out.println(best.getCost());
-							System.out.println("size:"+(shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
+							// System.out.println("size:"+(shareable.get(shareable.size()
+							// - (i + 1)).getNodeInfo().getNumberOfTuples()));
 							greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
 							if (best.getCost() < finalCost) {
 								indexOfBest = shareable.size() - (i + 1);
@@ -396,89 +456,30 @@ public class QueryDecomposer {
 						}
 					}
 				}
-
-			
-		}
-		else if(DecomposerUtils.CHOOSE_MODE){
-			System.out.println("choosing mode...");
-			if(Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)){
-				System.out.println("distributed...");
-				nce.setPartitionNo(this.noOfparts);
-				finalMemo=new Memo();
-				best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
-						new HashSet<MemoKey>(), finalMemo);
 			}
-			else{
-				System.out.println("centralised...");
-				this.noOfparts=1;
-				
-				System.out.println("no mat:" + finalCost);
-					boolean existsBetterPlan = true;
-					int indexOfBest = -1;
-					while (existsBetterPlan) {
-						if (indexOfBest > -1) {
-							greedyToMat.put(shareable.get(indexOfBest), 0.0);
-						}
-						existsBetterPlan = false;
 
-						for (int i = 0; i < mostProminent && i < shareable.size(); i++) {
-							if (greedyToMat.containsKey(shareable.get(shareable.size() - (i + 1)))) {
-								continue;
-							}
-							greedyToMat.put(shareable.get(shareable.size() - (i + 1)), 0.0);
-							Memo memo = new Memo();
-
-							if (noOfparts == 1) {
-								if (this.useSIP) {
-									this.sipInfo.resetCounters();
-								}
-								unionnumber = 0;
-								best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
-								double matCost = 0.0;
-								for (Double d : greedyToMat.values()) {
-									matCost += d;
-								}
-								best.setCost(best.getCost() + matCost);
-								System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
-								System.out.println(best.getCost());
-								//System.out.println("size:"+(shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
-								greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
-								if (best.getCost() < finalCost) {
-									indexOfBest = shareable.size() - (i + 1);
-									finalCost = best.getCost();
-									finalMemo = memo;
-									existsBetterPlan = true;
-								}
-							}
-						}
-					}
-			}
-			
-		}
-		else{
-			//distributed
-			finalMemo=new Memo();
+		} else {
+			// distributed
+			finalMemo = new Memo();
 			best = getBestPlanPruned(root, null, Double.MAX_VALUE, Double.MAX_VALUE, new EquivalentColumnClasses(),
 					new HashSet<MemoKey>(), finalMemo);
 		}
 
 		System.out.println(System.currentTimeMillis() - t1);
-		
+
 		System.out.println("no of mat.:" + greedyToMat.size());
-		
-		
 
 		// Plan best = addRepartitionAndComputeBestPlan(root, cost, memo, cel,
 		// null);
 		System.out.println(System.currentTimeMillis() - t1);
-		//System.out.println("best cost:" + best.getCost());
+		// System.out.println("best cost:" + best.getCost());
 		// System.out.println(memo.size());
 		// String dot2 = root.dotPrint();
 		// System.out.println(t1);
 		//
 		// Plan best = findBestPlan(root, cost, memo, new HashSet<Node>(), cel);
 		// System.out.println(best.getPath().toString());
-		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, finalMemo, registry);
+		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, finalMemo, registry, useCache);
 		dsql.setN2a(n2a);
 		if (this.useSIP) {
 			dsql.setSipStruct(this.sipInfo);
@@ -613,43 +614,40 @@ public class QueryDecomposer {
 			nestedNodeOr.setObject(parent.getNestedSubqueryAlias(nested));
 			nestedNode.addDescendantBaseTable(parent.getNestedSubqueryAlias(nested));
 			/*
-			 * for (List<String> aliases : nested.getListOfAliases(n2a))
-			 * { nested.renameTables(aliases);
-			 * ConjunctiveQueryDecomposer d = new
+			 * for (List<String> aliases : nested.getListOfAliases(n2a)) {
+			 * nested.renameTables(aliases); ConjunctiveQueryDecomposer d = new
 			 * ConjunctiveQueryDecomposer(nested, centralizedExecution,
 			 * addNotNulls); d.addCQToDAG(union, hashes); }
 			 */
-			//List<List<String>> aliases = nested.getListOfAliases(n2a, true);
+			// List<List<String>> aliases = nested.getListOfAliases(n2a, true);
 			// for(List<String>
 			// aliases:initialQuery.getListOfAliases(n2a)){
 			List<String> firstAliases = new ArrayList<String>();
-			for(int i=0;i<nested.getInputTables().size();i++){
-				firstAliases.add("nestedalias"+i);
+			for (int i = 0; i < nested.getInputTables().size(); i++) {
+				firstAliases.add("nestedalias" + i);
 			}
-			//nested.renameTables(firstAliases);
-			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, centralizedExecution,
-					addNotNulls);
+			// nested.renameTables(firstAliases);
+			ConjunctiveQueryDecomposer d = new ConjunctiveQueryDecomposer(nested, centralizedExecution, addNotNulls);
 			Node topSubquery = d.addCQToDAG(nestedNodeOr, hashes);
 			// String u=union.dotPrint();
-			/*if (addAliases) {
-				for (int i = 1; i < aliases.size(); i++) {
-					List<String> nextAliases = aliases.get(i);
-					topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases, nextAliases, hashes));
-				}
-			}*/
-			HashCode hc=nestedNode.getHashId();
-			if(hashes.containsKey(hc)){
+			/*
+			 * if (addAliases) { for (int i = 1; i < aliases.size(); i++) {
+			 * List<String> nextAliases = aliases.get(i);
+			 * topSubquery.addChild(addAliasesToDAG(topSubquery, firstAliases,
+			 * nextAliases, hashes)); } }
+			 */
+			HashCode hc = nestedNode.getHashId();
+			if (hashes.containsKey(hc)) {
 				nestedNode.removeAllChildren();
-				nestedNode=hashes.get(hc);
-			}
-			else{
+				nestedNode = hashes.get(hc);
+			} else {
 				hashes.put(hc, nestedNode);
 			}
 			nested.putNestedNode(nestedNode);
 			// nestedNode.removeAllChildren();
 
 		}
-		
+
 	}
 
 	// private void computeJoinSimilarities() {
@@ -662,17 +660,17 @@ public class QueryDecomposer {
 	// }
 
 	private void expandDAG(Node eq) {
-		
-		if(System.currentTimeMillis()-startTime>expandDagTime){
+
+		if (System.currentTimeMillis() - startTime > expandDagTime) {
 			return;
 		}
-		
+
 		for (int i = 0; i < eq.getChildren().size(); i++) {
 			// System.out.println(eq.getChildren().size());
 			Node op = eq.getChildAt(i);
-			if(!onlyLeft&&System.currentTimeMillis()-startTime>getOnlyLeftDeepTreesTime){
+			if (!onlyLeft && System.currentTimeMillis() - startTime > getOnlyLeftDeepTreesTime) {
 				System.out.println("only left!");
-				this.onlyLeft=true;
+				this.onlyLeft = true;
 			}
 			if (!op.isExpanded()) {
 				for (int x = 0; x < op.getChildren().size(); x++) {
@@ -785,8 +783,11 @@ public class QueryDecomposer {
 										}
 										Node table = new Node(Node.OR);
 										table.setObject(new Table("table" + Util.createUniqueId(), null));
-										if (hashes.containsKey(associativity.getHashId())&&!hashes.get(associativity.getHashId()).getParents().isEmpty()) {		
-										//if (hashes.containsKey(associativity.getHashId())) {
+										if (hashes.containsKey(associativity.getHashId())
+												&& !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
+											// if
+											// (hashes.containsKey(associativity.getHashId()))
+											// {
 											Node assocInHashes = hashes.get(associativity.getHashId());
 											table = assocInHashes.getFirstParent();
 
@@ -855,7 +856,8 @@ public class QueryDecomposer {
 
 										}
 										// System.out.println(associativityTop.getObject().toString());
-										if (!hashes.containsKey(associativityTop.getHashId())||hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
+										if (!hashes.containsKey(associativityTop.getHashId())
+												|| hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
 											hashes.put(associativityTop.getHashId(), associativityTop);
 											// Node newTop =
 											// hashes.checkAndPutWithChildren(associativityTop);
@@ -1045,7 +1047,8 @@ public class QueryDecomposer {
 										associativityTop.setExpanded(true);
 
 										// System.out.println(associativityTop.getObject().toString());
-										if (!hashes.containsKey(associativityTop.getHashId())||hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
+										if (!hashes.containsKey(associativityTop.getHashId())
+												|| hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
 											hashes.put(associativityTop.getHashId(), associativityTop);
 											// Node newTop =
 											// hashes.checkAndPutWithChildren(associativityTop);
@@ -1178,7 +1181,7 @@ public class QueryDecomposer {
 				continue;
 			}
 			p.addChildAt(q, pos);
-			if (hashes.containsKey(p.getHashId())&&!hashes.get(p.getHashId()).getParents().isEmpty()) {
+			if (hashes.containsKey(p.getHashId()) && !hashes.get(p.getHashId()).getParents().isEmpty()) {
 				// System.out.println("further unification!");
 				unify(hashes.get(p.getHashId()).getFirstParent(), p.getFirstParent());
 			} else {
@@ -1520,8 +1523,8 @@ public class QueryDecomposer {
 			madgik.exareme.common.schema.Table t = registry.get(e.getHashId());
 			String col = Registry.getInstance(db).getPartitionColumn(t.getName());
 			int ptns = Registry.getInstance(db).getNumOfPartitions(t.getName());
-			
-			if (c.getName().equals(col)&&ptns==noOfparts) {
+
+			if (c.getName().equals(col) && ptns == noOfparts) {
 				SinglePlan r = new SinglePlan(0);
 
 				memo.put(e, r, true, true, false);
@@ -1534,9 +1537,9 @@ public class QueryDecomposer {
 			// base table
 			SinglePlan r = new SinglePlan(0);
 			memo.put(e, r, c, repCost, false, null);
-			PartitionedMemoValue pmv = (PartitionedMemoValue) memo.getMemoValue(new MemoKey(e ,c));
+			PartitionedMemoValue pmv = (PartitionedMemoValue) memo.getMemoValue(new MemoKey(e, c));
 			pmv.setToMat(toMaterialize);
-			//toMaterialize.add(new MemoKey(e, c));
+			// toMaterialize.add(new MemoKey(e, c));
 			partitionRecord.setLastPartitioned(null);
 			return r;
 		}
@@ -1582,14 +1585,14 @@ public class QueryDecomposer {
 			for (int m = 0; m < o.getAlgorithmicImplementations().length; m++) {
 
 				int a = o.getAlgorithmicImplementations()[m];
-				
+
 				int retainsPartition = -1;
 				retainsPartition = getRetainsPartition(a);
 				PartitionCols returnedPt = null;
 				algRecordCloned = e2RecordCloned.shallowCopy();
 				algLimit = newLimit;
 				Set<MemoKey> toMatAlg = new HashSet<MemoKey>();
-				
+
 				SinglePlan algPlan = new SinglePlan(opCost);
 				algPlan.setChoice(k);
 				if (c != null && guaranteesResultPtnedOn(a, o, c)) {
@@ -1611,10 +1614,10 @@ public class QueryDecomposer {
 					if (c2 != null) {
 						c2RepCost = nce.estimateRepartition(e2, c2);
 					}
-					
-					if(a==Node.LEFTJOIN){
-						//TODO optimize this
-						//for now set children materialized
+
+					if (a == Node.LEFTJOIN) {
+						// TODO optimize this
+						// for now set children materialized
 						toMatAlg.add(new MemoKey(e2, c2));
 					}
 
@@ -1699,15 +1702,11 @@ public class QueryDecomposer {
 							algPlan.increaseCost(c2RepCost);
 						}
 					}
-					
 
 					// mark as materialised the result of federated execution
-					 if(a==Node.BASEPROJECT &&
-					 ((Table)e2.getObject()).isFederated()){
-					toMatAlg.add(new MemoKey(e, c));
-					 }
-					 
-					 
+					if (a == Node.BASEPROJECT && ((Table) e2.getObject()).isFederated()) {
+						toMatAlg.add(new MemoKey(e, c));
+					}
 
 					// double e2PlanCost = algPlan.getCost();
 					if (c != null) {
@@ -1735,11 +1734,11 @@ public class QueryDecomposer {
 					e2RecordCloned = algRecordCloned;
 				}
 				if (a == Node.NESTED) {
-					//children must not be materialized
+					// children must not be materialized
 					toMatE2.clear();
 					// nested is always materialized
 					toMatE2.add(new MemoKey(e, c));
-					
+
 				}
 			}
 			if (resultPlan == null || e2Plan.getCost() < resultPlan.getCost()) {
@@ -1823,8 +1822,8 @@ public class QueryDecomposer {
 				cmv.setMaterialized(true);
 				e.setMaterialised(true);
 				greedyToMat.put(e, resultPlan.getCost() * workers + nce.getWriteCost(e) * 2);
-				//TODO consider parallelism
-				//for now * # of workers
+				// TODO consider parallelism
+				// for now * # of workers
 				resultPlan.setCost(nce.getReadCost(e));
 			}
 		}
@@ -1854,7 +1853,8 @@ public class QueryDecomposer {
 			return r;
 		}
 
-		SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);;
+		SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);
+		;
 
 		for (int k = 0; k < e.getChildren().size(); k++) {
 			Node o = e.getChildAt(k);
@@ -1864,9 +1864,9 @@ public class QueryDecomposer {
 			boolean mat = false;
 			// this must go after algorithmic implementation
 			limit -= opCost;
-			//if (limit < 0) {
-			//	continue;
-			//}
+			// if (limit < 0) {
+			// continue;
+			// }
 			double algLimit;
 			// int cComesFromChildNo = -1;
 			// for (int m = 0; m < o.getAlgorithmicImplementations().length;
@@ -1880,7 +1880,7 @@ public class QueryDecomposer {
 
 			for (int i = 0; i < o.getChildren().size(); i++) {
 				Node e2 = o.getChildAt(i);
-				
+
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
 				// cel, partitionRecord, toMatAlg));
 				SinglePlan t = getBestPlanCentralized(e2, algLimit, memo, greedyToMat);
@@ -1892,7 +1892,7 @@ public class QueryDecomposer {
 					mat = true;
 					Util.setDescNotMaterialised(e2, memo);
 				}
-				if (o.getOpCode() == Node.LEFTJOIN||o.getOpCode()==Node.JOINKEY){
+				if (o.getOpCode() == Node.LEFTJOIN || o.getOpCode() == Node.JOINKEY) {
 					cmv.setMaterialized(true);
 				}
 				if (cmv.isFederated()) {
@@ -1919,27 +1919,28 @@ public class QueryDecomposer {
 				}
 
 				algLimit -= algPlan.getCost();
-				//if(algLimit<0){
-				//	continue;
-				//}
+				// if(algLimit<0){
+				// continue;
+				// }
 
 			}
 
-			if ( algPlan.getCost() < e2Plan.getCost()) {
+			if (algPlan.getCost() < e2Plan.getCost()) {
 				e2Plan = algPlan;
 			}
 
-			
 			// }
 			if (e2Plan.getCost() < resultPlan.getCost()) {
 				resultPlan = e2Plan;
 				memo.put(e, resultPlan, mat, false, fed);
-				/*if (!e.getParents().isEmpty() && (e.getParents().get(0).getOpCode() == Node.UNION
-						|| e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
-
-					limit = resultPlan.getCost();
-					System.out.println("prune: " + e.getObject() + "with limit:" + limit);
-				}*/
+				/*
+				 * if (!e.getParents().isEmpty() &&
+				 * (e.getParents().get(0).getOpCode() == Node.UNION ||
+				 * e.getParents().get(0).getOpCode() == Node.UNIONALL)) {
+				 * 
+				 * limit = resultPlan.getCost(); System.out.println("prune: " +
+				 * e.getObject() + "with limit:" + limit); }
+				 */
 
 			}
 
@@ -2026,12 +2027,12 @@ public class QueryDecomposer {
 					return null;
 				}
 			}
-		} else if (o.getOpCode() == Node.LEFTJOIN ||o.getOpCode() == Node.JOINKEY) {
+		} else if (o.getOpCode() == Node.LEFTJOIN || o.getOpCode() == Node.JOINKEY) {
 			if (o.getChildren().size() == 1) {
 				// filter join
 				return null;
 			}
-			Operand op=(Operand)o.getObject();
+			Operand op = (Operand) o.getObject();
 			return QueryUtils.getJoinColumnFromOperand(o, op, i);
 		} else {
 			return null;
@@ -2069,20 +2070,20 @@ public class QueryDecomposer {
 			} else {
 				return false;
 			}
-		} else if (o.getOpCode() == Node.JOINKEY || o.getOpCode()==Node.LEFTJOIN) {
-			if(!(o.getObject() instanceof BinaryOperand)){
+		} else if (o.getOpCode() == Node.JOINKEY || o.getOpCode() == Node.LEFTJOIN) {
+			if (!(o.getObject() instanceof BinaryOperand)) {
 				return true;
 			}
-			BinaryOperand bo=(BinaryOperand) o.getObject();
-			if(QueryUtils.getJoinColumnFromOperand(o, bo, 0)==null ||QueryUtils.getJoinColumnFromOperand(o, bo, 1)==null){
+			BinaryOperand bo = (BinaryOperand) o.getObject();
+			if (QueryUtils.getJoinColumnFromOperand(o, bo, 0) == null
+					|| QueryUtils.getJoinColumnFromOperand(o, bo, 1) == null) {
 				return true;
-			}
-			else if(QueryUtils.getJoinColumnFromOperand(o, bo, 0).equals(c)||QueryUtils.getJoinColumnFromOperand(o, bo, 1).equals(c)){
+			} else if (QueryUtils.getJoinColumnFromOperand(o, bo, 0).equals(c)
+					|| QueryUtils.getJoinColumnFromOperand(o, bo, 1).equals(c)) {
 				return false;
-			}
-			else return true;
-		}
-		else {
+			} else
+				return true;
+		} else {
 			return false;
 		}
 	}
@@ -2098,71 +2099,70 @@ public class QueryDecomposer {
 
 	private void createProjections(Node e) {
 		for (String t : this.refCols.keySet()) {
-			if(n2a.contailsAliasForBaseTable(t)){
-			for (String alias : n2a.getAllAliasesForBaseTable(t)) {
-				Node table = new Node(Node.OR);
-				table.setObject(new Table(t, alias));
-				Node tableInHashes = hashes.get(table.getHashId());
-				if (tableInHashes == null) {
-					// System.out.println("not found");
-				} else {
-					Node project;
-					Node orNode;
-					if (tableInHashes.getParents().size() == 1
-							&& tableInHashes.getFirstParent().getOpCode() == Node.BASEPROJECT) {
-						project = tableInHashes.getFirstParent();
-						orNode = project.getFirstParent();
-						Projection prj = (Projection) project.getObject();
-						hashes.remove(project.getHashId());
-						for (String c : refCols.get(t)) {
-							Column toAdd = new Column(alias, c);
-							if (!prj.getAllColumnRefs().contains(toAdd))
-								prj.addOperand(new Output(alias + "_" + c, toAdd));
-						}
-						this.hashes.put(project.getHashId(), project);
-						this.hashes.put(orNode.getHashId(), orNode);
-
+			if (n2a.contailsAliasForBaseTable(t)) {
+				for (String alias : n2a.getAllAliasesForBaseTable(t)) {
+					Node table = new Node(Node.OR);
+					table.setObject(new Table(t, alias));
+					Node tableInHashes = hashes.get(table.getHashId());
+					if (tableInHashes == null) {
+						// System.out.println("not found");
 					} else {
-						orNode = new Node(Node.OR);
-						orNode.setObject(new Table("table" + Util.createUniqueId(), null));
-						project = new Node(Node.AND, Node.BASEPROJECT);
-						orNode.addChild(project);
-						Projection prj = new Projection();
-						for (String c : refCols.get(t)) {
-							prj.addOperand(new Output(alias + "_" + c, new Column(alias, c)));
-						}
-						project.setObject(prj);
-						Set<Node> toRecompute = new HashSet<Node>();
-						while (!tableInHashes.getParents().isEmpty()) {
-							Node p = tableInHashes.getFirstParent();
-							tableInHashes.getParents().remove(0);
-							int childNo = p.getChildren().indexOf(tableInHashes);
-							this.hashes.remove(p.getHashId());
-							p.removeChild(tableInHashes);
-							p.addChildAt(orNode, childNo);
-							toRecompute.add(p);
-							// this.hashes.put(p.getHashId(), p);
-						}
-						project.addChild(tableInHashes);
-						this.hashes.put(project.getHashId(), project);
-						this.hashes.put(orNode.getHashId(), orNode);
-						for (Node r : toRecompute) {
-							this.hashes.put(r.getHashId(), r);
-							// recompute parents?
+						Node project;
+						Node orNode;
+						if (tableInHashes.getParents().size() == 1
+								&& tableInHashes.getFirstParent().getOpCode() == Node.BASEPROJECT) {
+							project = tableInHashes.getFirstParent();
+							orNode = project.getFirstParent();
+							Projection prj = (Projection) project.getObject();
+							hashes.remove(project.getHashId());
+							for (String c : refCols.get(t)) {
+								Column toAdd = new Column(alias, c);
+								if (!prj.getAllColumnRefs().contains(toAdd))
+									prj.addOperand(new Output(alias + "_" + c, toAdd));
+							}
+							this.hashes.put(project.getHashId(), project);
+							this.hashes.put(orNode.getHashId(), orNode);
 
-							setParentsNeedRecompute(r);
+						} else {
+							orNode = new Node(Node.OR);
+							orNode.setObject(new Table("table" + Util.createUniqueId(), null));
+							project = new Node(Node.AND, Node.BASEPROJECT);
+							orNode.addChild(project);
+							Projection prj = new Projection();
+							for (String c : refCols.get(t)) {
+								prj.addOperand(new Output(alias + "_" + c, new Column(alias, c)));
+							}
+							project.setObject(prj);
+							Set<Node> toRecompute = new HashSet<Node>();
+							while (!tableInHashes.getParents().isEmpty()) {
+								Node p = tableInHashes.getFirstParent();
+								tableInHashes.getParents().remove(0);
+								int childNo = p.getChildren().indexOf(tableInHashes);
+								this.hashes.remove(p.getHashId());
+								p.removeChild(tableInHashes);
+								p.addChildAt(orNode, childNo);
+								toRecompute.add(p);
+								// this.hashes.put(p.getHashId(), p);
+							}
+							project.addChild(tableInHashes);
+							this.hashes.put(project.getHashId(), project);
+							this.hashes.put(orNode.getHashId(), orNode);
+							for (Node r : toRecompute) {
+								this.hashes.put(r.getHashId(), r);
+								// recompute parents?
+
+								setParentsNeedRecompute(r);
+							}
 						}
+
+						project.addDescendantBaseTable(alias);
+						orNode.addDescendantBaseTable(alias);
+
 					}
-
-					project.addDescendantBaseTable(alias);
-					orNode.addDescendantBaseTable(alias);
-
 				}
-			}
-			}
-			else{
-				log.debug("Cannot create projection for base table "+t+". Probably table"
-						+ "from nested subquery.");
+			} else {
+				log.debug(
+						"Cannot create projection for base table " + t + ". Probably table" + "from nested subquery.");
 			}
 		}
 	}
@@ -2419,19 +2419,18 @@ public class QueryDecomposer {
 	}
 
 	public String getDotPrint() {
-		Set<Node> visited=new HashSet<Node>();
+		Set<Node> visited = new HashSet<Node>();
 		return root.dotPrint(visited).toString();
 	}
 
 	public void addRefCols(Map<String, Set<String>> refCols2) {
-		for(String t:refCols2.keySet()){
-			if(refCols.containsKey(t)){
+		for (String t : refCols2.keySet()) {
+			if (refCols.containsKey(t)) {
 				refCols.get(t).addAll(refCols2.get(t));
-			}
-			else{
+			} else {
 				refCols.put(t, refCols2.get(t));
 			}
 		}
-		
+
 	}
 }
