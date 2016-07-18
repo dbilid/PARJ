@@ -25,8 +25,8 @@ import java.util.ArrayList;
 public class AdpDBArtJobMonitor implements Runnable {
 
     private static final Logger log = Logger.getLogger(AdpDBArtJobMonitor.class);
-    private static final int statsUpdateSecs =
-        AdpDBProperties.getAdpDBProps().getInt("db.client.statisticsUpdate_sec");
+    private static final int statsUpdateMSecs =
+        AdpDBProperties.getAdpDBProps().getInt("db.client.statusCheckInterval");
     private static int statsOldOP = 0;
     private static int statsOldDT = 0;
     private static int statsOldER = 0;
@@ -61,7 +61,7 @@ public class AdpDBArtJobMonitor implements Runnable {
 
             while (sessionManager.hasFinished() == false && sessionManager.hasError() == false) {
 
-                Thread.sleep(1000 * statsUpdateSecs);
+                Thread.sleep(statsUpdateMSecs);
                 boolean updateProgressStatistics = updateProgressStatistics();
                 sessionManager = sessionPlan.getPlanSessionStatusManagerProxy();
                 statsManager = sessionPlan.getPlanSessionStatisticsManagerProxy();
