@@ -534,10 +534,11 @@ public class QueryDecomposer {
 			}
 
 		}
-
+		boolean isNestedSelectAll=false;
 		if (s.isSelectAll() && s.getBinaryWhereConditions().isEmpty() && s.getUnaryWhereConditions().isEmpty()
 				&& s.getGroupBy().isEmpty() && s.getOrderBy().isEmpty() && s.getNestedSelectSubqueries().size() == 1
 				&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries()) {
+			isNestedSelectAll=true;
 			SQLQuery nested = s.getNestedSubqueries().iterator().next();
 			// push limit
 			if (s.getLimit() > -1) {
@@ -553,14 +554,12 @@ public class QueryDecomposer {
 		// Collection<SQLQuery> nestedSubs=s.getNestedSubqueries();
 		if (!s.getNestedSubqueries().isEmpty()) {
 			for (SQLQuery nested : s.getNestedSubqueries()) {
-				addNestedToDAG(nested, s);
+				addNestedToDAG(nested, s, isNestedSelectAll);
 			}
 
 			// if s is an "empty" select * do not add it and rename the nested
 			// with the s table name??
-			if (s.isSelectAll() && s.getBinaryWhereConditions().isEmpty() && s.getUnaryWhereConditions().isEmpty()
-					&& s.getGroupBy().isEmpty() && s.getOrderBy().isEmpty() && s.getNestedSelectSubqueries().size() == 1
-					&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries()) {
+			if (isNestedSelectAll) {
 				union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
 			} else {
 				// decompose s changing the nested from tables
@@ -589,22 +588,26 @@ public class QueryDecomposer {
 
 	}
 
-	public void addNestedToDAG(SQLQuery nested, SQLQuery parent) throws Exception {
+	public void addNestedToDAG(SQLQuery nested, SQLQuery parent, boolean isNestedSelectAll) throws Exception {
 		nested.normalizeWhereConditions();
 		if (nested.hasNestedSuqueries()) {
 			decomposeSubquery(nested);
 		} else {
 
 			// rename outputs
-			if (!(parent.isSelectAll() && parent.getBinaryWhereConditions().isEmpty()
-					&& parent.getUnaryWhereConditions().isEmpty() && parent.getNestedSelectSubqueries().size() == 1
-					&& !parent.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries())) {
+			if (!isNestedSelectAll) {
 				// rename outputs
 				String alias = parent.getNestedSubqueryAlias(nested);
 				for (Output o : nested.getOutputs()) {
 					String name = o.getOutputName();
 					o.setOutputName(alias + "_" + name);
 				}
+			}
+			else{
+				List<List<String>> aliases = nested.getListOfAliases(n2a, true);
+				// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
+				List<String> firstAliases = aliases.get(0);
+				nested.renameTables(firstAliases);
 			}
 
 			Node nestedNodeOr = new Node(Node.AND, Node.NESTED);
@@ -643,7 +646,14 @@ public class QueryDecomposer {
 			} else {
 				hashes.put(hc, nestedNode);
 			}
-			nested.putNestedNode(nestedNode);
+			if(isNestedSelectAll){
+				nested.putNestedNode(topSubquery);
+				nestedNodeOr.removeAllChildren();
+			}
+			else{
+				nested.putNestedNode(nestedNode);
+			}
+			
 			// nestedNode.removeAllChildren();
 
 		}
