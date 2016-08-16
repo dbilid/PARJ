@@ -239,10 +239,19 @@ public class QueryDecomposer {
 					// DecomposerUtils.ADD_TO_REGISTRY;
 					boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
-					StringBuilder createTableSQL = new StringBuilder();
+					//StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
 						log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
 						// return;
+					}
+					if(res.size()==1){
+						s.setTemporaryTableName(this.initialQuery.getTemporaryTableName());
+						if(!this.initialQuery.getTemporaryTableName().startsWith("table")){
+							//query insert into table ....
+							//check to drop from regisrty
+							Registry reg = Registry.getInstance(this.db);
+							reg.removePhysicalTable(s.getTemporaryTableName());
+						}
 					}
 					DataImporter di = new DataImporter(s, this.db, dbinfo);
 					di.setAddToRegisrty(addToregistry);
@@ -264,6 +273,7 @@ public class QueryDecomposer {
 			boolean finished = es.awaitTermination(160, TimeUnit.MINUTES);
 
 		}
+		res.get(res.size()-1).setTemporaryTableName(this.initialQuery.getTemporaryTableName());
 		return res;
 	}
 
