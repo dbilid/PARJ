@@ -207,7 +207,7 @@ public class QueryDecomposer {
 			if (i == res.size() - 1) {
 				s.setTemporary(false);
 			}
-			if (s.isFederated() && !this.initialQuery.isUnionAll() && DecomposerUtils.PUSH_DISTINCT) {
+			if (s.isFederated() && !(this.initialQuery.isUnionAll()||!this.initialQuery.isOutputColumnsDinstict() ) && DecomposerUtils.PUSH_DISTINCT) {
 				s.setOutputColumnsDinstict(true);
 			}
 		}
