@@ -33,6 +33,7 @@ public class DataImporter implements Runnable {
 		this.s = q;
 		this.dbPath = db;
 		this.addToRegistry=false;
+		correspondingOutputs=new HashMap<String, String>();
 		if (this.db.getDriver().contains("OracleDriver")) {
 			correspondingOutputs=s.renameOracleOutputs();
 		}

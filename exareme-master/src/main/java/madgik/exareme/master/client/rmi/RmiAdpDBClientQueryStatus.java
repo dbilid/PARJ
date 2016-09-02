@@ -413,7 +413,7 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
                 System.out.println("dinw to "+"distributed drop table " + evictedTable+";");
                 while (queryStatus.hasFinished() == false && queryStatus.hasError() == false) {
                     try {
-                        Thread.sleep(10 * 1000);
+                        Thread.sleep(40);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
