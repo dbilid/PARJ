@@ -66,7 +66,7 @@ public class SQLQuery {
 	private String createSipTables = null;
 
 	private boolean existsInCache;
-	private boolean isDrop;
+    private boolean isDrop;
 
 	private Node joinNode;
 
@@ -156,8 +156,8 @@ public class SQLQuery {
 			
 			output.append(DecomposerUtils.EXTERNAL_KEY);
 			output.append(" ");
-		//} else if (this.noOfPartitions>1){
-		} else {
+        //} else if (this.noOfPartitions>1){
+        } else {
 			output.append("direct ");
 		}
 		output.append("\n");
@@ -2551,21 +2551,21 @@ public class SQLQuery {
 		return result;
 	}
 
-	public boolean isDrop() {
-		return isDrop;
-	}
+    public boolean isDrop() {
+        return isDrop;
+    }
 
-	public void setDrop(boolean isDrop) {
-		this.isDrop = isDrop;
-	}
+    public void setDrop(boolean isDrop) {
+        this.isDrop = isDrop;
+    }
 
-	public boolean isSelectAllFromInternal() {
-		return ((this.isSelectAll() || this.getOutputs().isEmpty())&&this.inputTables.size()==1&&this.binaryWhereConditions.isEmpty()
-				&&this.unaryWhereConditions.isEmpty()&&this.nestedSelectSubqueries.isEmpty()
-				&&this.unionqueries.isEmpty()&&!this.getInputTables().get(0).isFederated()
-				&&this.orderBy.isEmpty()&&this.groupBy.isEmpty()&& this.nestedNode==null);
-	}
-	
-	
+    public boolean isSelectAllFromInternal() {
+        return ((this.isSelectAll() || this.getOutputs().isEmpty())&&!this.isFederated&&this.inputTables.size()==1&&this.binaryWhereConditions.isEmpty()
+                &&this.unaryWhereConditions.isEmpty()&&this.nestedSelectSubqueries.isEmpty()
+                &&this.unionqueries.isEmpty()&&!this.getInputTables().get(0).isFederated()
+                &&this.orderBy.isEmpty()&&this.groupBy.isEmpty()&& this.nestedNode==null);
+    }
+
+
 
 }
