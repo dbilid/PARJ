@@ -421,17 +421,24 @@ public class ConjunctiveQueryDecomposer {
 			join.setObject(bwc);
 
 			if (bwc.getLeftOp() instanceof Column && bwc.getRightOp() instanceof Column) {
-				Node lchild = c2n.getTablenameForColumn((Column) bwc.getLeftOp());
+				Node lchild = c2n.getTablenameForColumn( bwc.getLeftOp().getAllColumnRefs().get(0));
 				join.addChild(lchild);
 				join.addAllDescendantBaseTables(lchild.getDescendantBaseTables());
 
-				Node rchild = c2n.getTablenameForColumn((Column) bwc.getRightOp());
+				Node rchild = c2n.getTablenameForColumn((Column) bwc.getRightOp().getAllColumnRefs().get(0));
 				join.addChild(rchild);
 				join.addAllDescendantBaseTables(rchild.getDescendantBaseTables());
 
 			} else {
 
 				log.error(bwc.toString() + ":operand not Column");
+				Node lchild = c2n.getTablenameForColumn( bwc.getLeftOp().getAllColumnRefs().get(0));
+				join.addChild(lchild);
+				join.addAllDescendantBaseTables(lchild.getDescendantBaseTables());
+
+				Node rchild = c2n.getTablenameForColumn((Column) bwc.getRightOp().getAllColumnRefs().get(0));
+				join.addChild(rchild);
+				join.addAllDescendantBaseTables(rchild.getDescendantBaseTables());
 
 			}
 			if (bwc.getOperator().contains(">") || bwc.getOperator().contains(">")) {
@@ -469,8 +476,8 @@ public class ConjunctiveQueryDecomposer {
 			// ConcurrentHashMap();
 
 			// for (Node toChange : join.getChildren()) {
-			c2n.changeColumns(c2n.getTablenameForColumn((Column) bwc.getLeftOp()), table);
-			c2n.changeColumns(c2n.getTablenameForColumn((Column) bwc.getRightOp()), table);
+			c2n.changeColumns(c2n.getTablenameForColumn(bwc.getLeftOp().getAllColumnRefs().get(0)), table);
+			c2n.changeColumns(c2n.getTablenameForColumn( bwc.getRightOp().getAllColumnRefs().get(0)), table);
 			// }
 
 			if (remainingWhereConditions.size() == 1) {
