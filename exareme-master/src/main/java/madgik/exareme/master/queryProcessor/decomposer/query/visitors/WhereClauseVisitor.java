@@ -39,13 +39,13 @@ public class WhereClauseVisitor extends AbstractVisitor {
 		} else if (node instanceof BinaryRelationalOperatorNode) {
 			BinaryRelationalOperatorNode binOp = (BinaryRelationalOperatorNode) node;
 			// Do nothing in the inner nodes of the tree
-			
 			Operand left = QueryUtils.getOperandFromNode(binOp.getLeftOperand());
 			Operand right = QueryUtils.getOperandFromNode(binOp.getRightOperand());
 			query.getBinaryWhereConditions().add(new NonUnaryWhereCondition(left, right, binOp.getOperator()));
 		} else if (node instanceof OrNode) {
 			OrNode orOp = (OrNode) node;
 			// Do nothing in the inner nodes of the tree
+
 			Operand left = QueryUtils.getOperandFromNode(orOp.getLeftOperand());
 			Operand right = QueryUtils.getOperandFromNode(orOp.getRightOperand());
 			query.getBinaryWhereConditions().add(new NonUnaryWhereCondition(left, right, orOp.getOperator()));
@@ -85,9 +85,9 @@ public class WhereClauseVisitor extends AbstractVisitor {
 	@Override
 	public boolean skipChildren(Visitable node) {
 		return FromSubquery.class.isInstance(node) || (node instanceof JoinNode) || (node instanceof OrNode)||
-				node instanceof BinaryRelationalOperatorNode||node instanceof LikeEscapeOperatorNode
-				||node instanceof NotNode;
-	}
+            node instanceof BinaryRelationalOperatorNode||node instanceof LikeEscapeOperatorNode
+            || node instanceof NotNode;
+    }
 
 	public void setVisitedJoin(boolean b) {
 		this.hasVisitedJoin = b;

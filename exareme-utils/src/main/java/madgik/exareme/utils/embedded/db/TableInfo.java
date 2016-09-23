@@ -14,7 +14,7 @@ public class TableInfo implements Serializable {
     private String tableName = null;
     private String sqlDefinition = null;
     private String sqlQuery;
-    private Integer sizeInBytes = null;
+    private Long sizeInBytes = null;
     private String location = null;
 
     public TableInfo(String tableName) {
@@ -29,7 +29,7 @@ public class TableInfo implements Serializable {
         this.sqlDefinition = sqlDefinition;
     }
 
-    public void setSizeInBytes(Integer size) {
+    public void setSizeInBytes(Long size) {
         this.sizeInBytes = size;
     }
 
@@ -45,7 +45,7 @@ public class TableInfo implements Serializable {
         return sqlDefinition;
     }
 
-    public int getSizeInBytes() {
+    public long getSizeInBytes() {
         return sizeInBytes;
     }
 

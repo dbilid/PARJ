@@ -312,7 +312,7 @@ public class SQLQuery {
 					output.append(localName + " " + t.getAlias());
 					separator = ", \n";
 				}
-			} else {
+			} else if (this.isFederated()) {
 				for (Table t : getInputTables()) {
 					output.append(separator);
 					if (this.isFederated) {
@@ -323,6 +323,18 @@ public class SQLQuery {
 					separator = ", \n";
 				}
 			}
+			else{
+				for (Table t : getInputTables()) {
+                                        output.append(separator);
+                                        if (this.isFederated) {
+                                                output.append(t.toString());
+                                        } else {
+                                                output.append(t.toString().toLowerCase());
+                                        }
+                                        separator = " CROSS JOIN \n";
+                                }
+
+				}
 		}
 		separator = "";
 		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()

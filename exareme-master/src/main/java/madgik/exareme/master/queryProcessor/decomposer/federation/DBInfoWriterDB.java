@@ -114,6 +114,7 @@ public class DBInfoWriterDB {
                 directory += "/";
             }
             connection = DriverManager.getConnection("jdbc:sqlite:" + directory + "endpoints.db");
+            connection.setAutoCommit(false);
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
@@ -128,7 +129,7 @@ public class DBInfoWriterDB {
 
            
             for(String tablename:n2a.getTables()){
-            	System.out.println(tablename);
+            	//System.out.println(tablename);
             	statement.executeUpdate("DELETE FROM aliases WHERE tablename = '" +tablename + "';");
             	String aliasesForTable="";
             	String del="";
@@ -149,6 +150,7 @@ public class DBInfoWriterDB {
         } finally {
             try {
                 if (connection != null) {
+                	connection.commit();
                     connection.close();
                 }
             } catch (SQLException e) {

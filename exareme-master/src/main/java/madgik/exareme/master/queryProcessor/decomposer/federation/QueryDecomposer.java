@@ -98,13 +98,19 @@ public class QueryDecomposer {
 		this.db = database;
 		// DBInfoReader.read("./conf/dbinfo.properties");
 		union = new Node(Node.AND);
-		if (initialQuery.isUnionAll()) {
-			union.setObject(("UNIONALL"));
-			union.setOperator(Node.UNIONALL);
-			this.useSIP = false;
-		} else {
+		if (!initialQuery.isUnionAll()) {
 			union.setObject(("UNION"));
 			union.setOperator(Node.UNION);
+			//this.useSIP = false;
+		} else {
+			if (initialQuery.isOutputColumnsDinstict()) {
+				union.setObject(("UNION"));
+				union.setOperator(Node.UNION);
+			} else {
+				union.setObject(("UNIONALL"));
+				union.setOperator(Node.UNIONALL);
+				//this.useSIP = false;
+			}
 		}
 
 		root = new Node(Node.OR);
@@ -207,7 +213,7 @@ public class QueryDecomposer {
 			if (i == res.size() - 1) {
 				s.setTemporary(false);
 			}
-			if (s.isFederated() && !(this.initialQuery.isUnionAll()||!this.initialQuery.isOutputColumnsDinstict() ) && DecomposerUtils.PUSH_DISTINCT) {
+			if (s.isFederated() && union.getObject().equals("UNION") && DecomposerUtils.PUSH_DISTINCT) {
 				s.setOutputColumnsDinstict(true);
 			}
 		}
@@ -239,16 +245,16 @@ public class QueryDecomposer {
 					// DecomposerUtils.ADD_TO_REGISTRY;
 					boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
 					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
-					//StringBuilder createTableSQL = new StringBuilder();
+					StringBuilder createTableSQL = new StringBuilder();
 					if (dbinfo == null) {
 						log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
 						// return;
 					}
-					if(res.size()==1){
+					if (res.size() == 1) {
 						s.setTemporaryTableName(this.initialQuery.getTemporaryTableName());
-						if(!this.initialQuery.getTemporaryTableName().startsWith("table")){
-							//query insert into table ....
-							//check to drop from regisrty
+						if (!this.initialQuery.getTemporaryTableName().startsWith("table")) {
+							// query insert into table ....
+							// check to drop from regisrty
 							Registry reg = Registry.getInstance(this.db);
 							reg.removePhysicalTable(s.getTemporaryTableName());
 						}
@@ -273,7 +279,7 @@ public class QueryDecomposer {
 			boolean finished = es.awaitTermination(160, TimeUnit.MINUTES);
 
 		}
-		res.get(res.size()-1).setTemporaryTableName(this.initialQuery.getTemporaryTableName());
+		res.get(res.size() - 1).setTemporaryTableName(this.initialQuery.getTemporaryTableName());
 		return res;
 	}
 
@@ -400,8 +406,9 @@ public class QueryDecomposer {
 						best.setCost(best.getCost() + matCost);
 						System.out.println(shareable.get(shareable.size() - (i + 1)).getObject().toString());
 						System.out.println(best.getCost());
-						System.out.println("size:"
-								+ (shareable.get(shareable.size() - (i + 1)).getNodeInfo().getNumberOfTuples()));
+						// System.out.println("size:"
+						// + (shareable.get(shareable.size() - (i +
+						// 1)).getNodeInfo().getNumberOfTuples()));
 						greedyToMat.remove(shareable.get(shareable.size() - (i + 1)));
 						if (best.getCost() < finalCost) {
 							indexOfBest = shareable.size() - (i + 1);
@@ -544,12 +551,23 @@ public class QueryDecomposer {
 			}
 
 		}
-		boolean isNestedSelectAll=false;
+
+		boolean isNestedSelectAll = false;
 		if (s.isSelectAll() && s.getBinaryWhereConditions().isEmpty() && s.getUnaryWhereConditions().isEmpty()
-				&& s.getGroupBy().isEmpty() && s.getOrderBy().isEmpty() && s.getNestedSelectSubqueries().size() == 1
+				&& s.getNestedSelectSubqueries().size() == 1
 				&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries()) {
-			isNestedSelectAll=true;
+			isNestedSelectAll = true;
 			SQLQuery nested = s.getNestedSubqueries().iterator().next();
+			if (!s.getGroupBy().isEmpty()) {
+				nested.setGroupBy(s.getGroupBy());
+			}
+			if (!s.getOrderBy().isEmpty()) {
+				nested.setOrderBy(s.getOrderBy());
+			}
+			if(s.isOutputColumnsDinstict()||!s.isUnionAll()){
+				union.setObject("UNION");
+				union.setOperator(Node.UNION);
+			}
 			// push limit
 			if (s.getLimit() > -1) {
 				if (nested.getLimit() == -1) {
@@ -612,8 +630,7 @@ public class QueryDecomposer {
 					String name = o.getOutputName();
 					o.setOutputName(alias + "_" + name);
 				}
-			}
-			else{
+			} else {
 				List<List<String>> aliases = nested.getListOfAliases(n2a, true);
 				// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
 				List<String> firstAliases = aliases.get(0);
@@ -656,14 +673,12 @@ public class QueryDecomposer {
 			} else {
 				hashes.put(hc, nestedNode);
 			}
-			if(isNestedSelectAll){
+			if (isNestedSelectAll) {
 				nested.putNestedNode(topSubquery);
 				nestedNodeOr.removeAllChildren();
-			}
-			else{
+			} else {
 				nested.putNestedNode(nestedNode);
 			}
-			
 			// nestedNode.removeAllChildren();
 
 		}
@@ -1018,7 +1033,8 @@ public class QueryDecomposer {
 										Node table = new Node(Node.OR);
 										table.setObject(new Table("table" + Util.createUniqueId(), null));
 
-										if (hashes.containsKey(associativity.getHashId())) {
+										if (hashes.containsKey(associativity.getHashId())
+												&& !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
 											Node assocInHashes = hashes.get(associativity.getHashId());
 											table = assocInHashes.getFirstParent();
 											if (useGreedy) {

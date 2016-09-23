@@ -108,9 +108,11 @@ public class Util {
 
 	public static boolean planContainsLargerResult(Node n, Memo finalMemo, double distributedLimit) {
 		try {
-			if ((n.getNodeInfo().getTupleLength() * n.getNodeInfo().getNumberOfTuples()) > (distributedLimit * 1000000)) {
-				System.out.println("size::::"+n.getNodeInfo().getTupleLength());
-				System.out.println( n.getNodeInfo().getNumberOfTuples());
+			double size=n.getNodeInfo().getTupleLength() * n.getNodeInfo().getNumberOfTuples();
+			if (size > (distributedLimit * 1000000)) {
+				System.out.println("tuple length::::"+n.getNodeInfo().getTupleLength());
+				System.out.println("tuple cardinality::::"+ n.getNodeInfo().getNumberOfTuples());
+				System.out.println("size::::"+size);
 				System.out.println(distributedLimit * 1000000);
 				return true;
 			}
@@ -120,6 +122,13 @@ public class Util {
 		if(n.getChildren().isEmpty()){
 			return false;
 		}
+        if (finalMemo.getMemoValue(new MemoKey(n, null))==null) {
+            return false;
+        }
+        if (finalMemo.getMemoValue(new MemoKey(n, null)).getPlan()==null){
+            return false;
+        }
+
 		Node op = n.getChildAt(finalMemo.getMemoValue(new MemoKey(n, null)).getPlan().getChoice());
 		for (Node child : op.getChildren()) {
 			if (planContainsLargerResult(child, finalMemo, distributedLimit)) {

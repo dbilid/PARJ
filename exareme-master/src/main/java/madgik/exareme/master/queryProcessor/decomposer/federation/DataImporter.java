@@ -33,7 +33,7 @@ public class DataImporter implements Runnable {
 		this.s = q;
 		this.dbPath = db;
 		this.addToRegistry=false;
-		correspondingOutputs=new HashMap<String, String>();
+        correspondingOutputs=new HashMap<String, String>();
 		if (this.db.getDriver().contains("OracleDriver")) {
 			correspondingOutputs=s.renameOracleOutputs();
 		}
@@ -157,6 +157,8 @@ public class DataImporter implements Runnable {
 				sql += ")";
 				createTableSQL.append(")");
 				Statement creatSt = sqliteConnection.createStatement();
+				log.debug("dropping table if exists");
+				creatSt.execute("drop table if exists "+s.getTemporaryTableName());
 				log.debug("executing:" +createTableSQL);
 				creatSt.execute(createTableSQL.toString());
 				creatSt.close();

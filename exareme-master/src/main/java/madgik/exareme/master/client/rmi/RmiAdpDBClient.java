@@ -20,6 +20,7 @@ import madgik.exareme.master.engine.AdpDBOptimizer;
 import madgik.exareme.master.engine.AdpDBQueryExecutionPlan;
 import madgik.exareme.master.engine.historicalData.AdpDBHistoricalQueryData;
 import madgik.exareme.master.engine.parser.AdpDBParser;
+import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.graph.ConcreteOperator;
 import madgik.exareme.master.queryProcessor.graph.ExportToDotty;
 import madgik.exareme.master.queryProcessor.graph.Link;
@@ -259,7 +260,11 @@ public class RmiAdpDBClient implements AdpDBClient {
 
 		// execute
 		AdpDBStatus status = executor.executeScript(plan, properties);
-		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		if (!properties.isCachedEnable()) {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		} else {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status, this);
+		}
 	}
 
 	@Override
@@ -325,8 +330,13 @@ public class RmiAdpDBClient implements AdpDBClient {
 		Pair<byte[], String> sqlInfo;
 		for (PhysicalTable table : ptables) {
 			sqlInfo = hashQueryMap.get(table.getTable().getName());
-			table.getTable().setHashID(sqlInfo.getA());
-			table.addPartitionColumn(sqlInfo.getB());
+			if (sqlInfo == null) {
+				table.getTable().setHashID(null);
+				table.addPartitionColumn(null);
+			} else {
+				table.getTable().setHashID(sqlInfo.getA());
+				table.addPartitionColumn(sqlInfo.getB());
+			}
 		}
 
 		log.trace("Optimized.");
@@ -362,13 +372,17 @@ public class RmiAdpDBClient implements AdpDBClient {
 
 		// execute
 		AdpDBStatus status = executor.executeScript(plan, properties);
-		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		if (!properties.isCachedEnable()) {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		} else {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status, this);
+		}
 	}
 
 	@Override
 	public AdpDBClientQueryStatus query(String queryID, String queryScript,
-			HashMap<String, Pair<byte[], String>> hashQueryMap, Map<String, String> extraCommands)
-					throws RemoteException {
+			HashMap<String, Pair<byte[], String>> hashQueryMap, Map<String, String> extraCommands,
+			List<SQLQuery> subQueries) throws RemoteException {
 		// parse
 		AdpDBQueryID queryId = createNewQueryID();
 		QueryScript script = parser.parse(queryScript, registry);
@@ -401,14 +415,25 @@ public class RmiAdpDBClient implements AdpDBClient {
 		Pair<byte[], String> sqlInfo;
 		for (PhysicalTable table : ptables) {
 			sqlInfo = hashQueryMap.get(table.getTable().getName());
-			table.getTable().setHashID(sqlInfo.getA());
-			table.addPartitionColumn(sqlInfo.getB());
+			if (sqlInfo == null) {
+				table.getTable().setHashID(null);
+				table.addPartitionColumn(null);
+			} else {
+				System.out.println("mpikaaa");
+				table.getTable().setHashID(sqlInfo.getA());
+				table.addPartitionColumn(sqlInfo.getB());
+				System.out.println("name " + table.getTable().getName());
+			}
 		}
 
 		log.trace("Optimized.");
 
 		// execute
 		AdpDBStatus status = executor.executeScript(plan, properties);
-		return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		if (!properties.isCachedEnable()) {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status);
+		} else {
+			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status, this, subQueries);
+		}
 	}
 }

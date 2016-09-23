@@ -160,11 +160,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 					filterValue = StatUtils.hashString(con);
 					String newSt = "";
-					if (con.startsWith("\'")) {
-						newSt = con.replaceAll("\'", "");
+					
+					//if (con.startsWith("\'")) {
+						newSt = con.replaceAll("\'", "").replaceAll("%", "");
+						if(uwc.getOperand().toString().toLowerCase().contains("lower")){
+							newSt=newSt.toUpperCase();
+						}
+						if(uwc.getOperand().toString().toLowerCase().contains("upper")){
+							newSt=newSt.toLowerCase();
+						}
 						filterValue = StatUtils.hashString(newSt);
-					}
-
+					//}
+					log.debug("LIKE operator, removing % :"+newSt);
 					resultHistogram.equal(filterValue);
 
 					ni.getResultRel().adjustRelation(col.getName(), resultHistogram);

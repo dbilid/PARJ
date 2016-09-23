@@ -74,6 +74,8 @@ public class MadisProcessExecutor {
 				script.append(additionalCommands + "\n");
 			}
 			script.append("\n");
+			
+			String oneTableloc=null;
 
 			HashMap<String, ArrayList<String>> nonLocalTableDatabases = new HashMap<>();
 
@@ -155,6 +157,7 @@ public class MadisProcessExecutor {
 						}
 
 						attachedDBs.append("attach database '" + loc + "' as " + dbName + "; \n");
+						oneTableloc=loc;
 						attachedDBs.append(".schema " + dbName + "." + input + "; \n");
 						numInputDatabases++;
 					} else {
@@ -181,12 +184,14 @@ public class MadisProcessExecutor {
 				String loc = nonLocalTablePartLocations.get(input).get(0);
 				if (nonLocalTablePartLocations.get(input).size() == 1) {
 					attachedDBs.append("attach database '" + loc + "' as " + input + "; \n");
+					oneTableloc=loc;
 					attachedDBs.append(".schema " + input + "." + input + "; \n");
 					numInputDatabases++;
 				} else {
 					ArrayList<String> locations = nonLocalTablePartLocations.get(input);
 					for (int part = 0; part < locations.size(); ++part) {
 						String dbName = input + part;
+						oneTableloc=locations.get(part);
 						createTables.append("attach database '" + locations.get(part) + "' as " + dbName + "; \n");
 						if (part == 0) {
 							createTables.append("create temp table " + input + " as select * from " + dbName + "."
@@ -290,6 +295,16 @@ public class MadisProcessExecutor {
 				String input = state.getOperator().getInputTables().iterator().next();
 				if (nonLocalTablePartLocations.get(input) == null) {
 					log.warn("input non local & non remote ?");
+					log.warn("input:"+input);
+					log.warn("non local"+nonLocalTablePartLocations);
+					log.warn("table loc:"+oneTableloc);
+					Pair<String, String> stdOutErr = procManager.createAndRunProcess(directory, "ln", oneTableloc,
+							directory.getAbsolutePath() + "/" + madisMainDB);
+
+					if (stdOutErr.b.trim().isEmpty() == false) {
+						throw new ServerException("Cannot execute ln: " + stdOutErr.b);
+					}
+					log.debug(stdOutErr.a);
 				} else {
 					String loc = nonLocalTablePartLocations.get(input).get(0);
 					Pair<String, String> stdOutErr = procManager.createAndRunProcess(directory, "ln", loc,

@@ -26,7 +26,7 @@ public class AdpDBArtJobMonitor implements Runnable {
 
     private static final Logger log = Logger.getLogger(AdpDBArtJobMonitor.class);
     private static final int statsUpdateMSecs =
-        AdpDBProperties.getAdpDBProps().getInt("db.client.statusCheckInterval");
+            +        AdpDBProperties.getAdpDBProps().getInt("db.client.statusCheckInterval");
     private static int statsOldOP = 0;
     private static int statsOldDT = 0;
     private static int statsOldER = 0;

@@ -426,7 +426,7 @@ public class ExecuteQueryState {
 
                     log.debug("Try to put : " + file.getAbsolutePath() + " to " + tableFile);
                     storageClient.put(file.getAbsolutePath(), tableFile);
-                    this.getExitMessage().outTableInfo.setSizeInBytes((int) new File(tableFile).length());
+                    this.getExitMessage().outTableInfo.setSizeInBytes((long) new File(tableFile).length());
 
                 } catch (Exception e) {
                     throw new ServerException("Cannot save table: " + tableFile, e);

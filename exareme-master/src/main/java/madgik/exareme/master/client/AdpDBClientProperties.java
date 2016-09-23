@@ -27,7 +27,7 @@ public class AdpDBClientProperties implements Serializable {
 	private int maxNumberOfContainers;
 	private int statisticsUpdateSEC;
 
-	private boolean cache = false;
+	private boolean cache = true;
 
 	private SLA sla;
 
@@ -54,7 +54,8 @@ public class AdpDBClientProperties implements Serializable {
 		this.username = username;
 		this.password = password;
 
-		this.cache = cache;
+        System.out.println("cache is "+cache);
+        this.cache = cache;
 		this.tree = tree;
 		this.useHistory = useHistory;
 		this.validate = validate;

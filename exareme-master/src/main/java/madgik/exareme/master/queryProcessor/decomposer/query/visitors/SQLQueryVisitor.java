@@ -350,10 +350,10 @@ public class SQLQueryVisitor extends AbstractVisitor {
 		Operand op = QueryUtils.getOperandFromNode(node.getJoinClause());
 		for (Column c : op.getAllColumnRefs()) {
 			if (projectRefCols.containsKey(aliasesToTables.get(c.getAlias()))) {
-				projectRefCols.get(aliasesToTables.get(c.getAlias())).add(c.getAlias());
+				projectRefCols.get(aliasesToTables.get(c.getAlias())).add(c.getColumnName());
 			} else {
 				Set<String> aliasesForTable = new HashSet<String>();
-				aliasesForTable.add(c.getAlias());
+				aliasesForTable.add(c.getColumnName());
 				projectRefCols.put(aliasesToTables.get(c.getAlias()), aliasesForTable);
 			}
 			op.changeColumn(c, new Column(correspondingAliases.get(c.getAlias()), c.getColumnName()));

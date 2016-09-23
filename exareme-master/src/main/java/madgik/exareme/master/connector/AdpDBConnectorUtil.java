@@ -132,7 +132,7 @@ public class AdpDBConnectorUtil {
         PlanSessionStatusManagerProxy sessionManager =
             sessionPlan.getPlanSessionStatusManagerProxy();
         int waifForMs =
-            AdpDBProperties.getAdpDBProps().getInt("db.client.statusCheckInterval");
+                AdpDBProperties.getAdpDBProps().getInt("db.client.statusCheckInterval");
         try {
             NetSession net = new NetSessionSimple();
             InputStream inputStream = net.openInputStream(socketBuffer);

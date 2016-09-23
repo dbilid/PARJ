@@ -16,7 +16,7 @@ public class Table implements Serializable {
     private String sqlQuery = null;
     private byte[] hashID;
     private boolean temp = false;
-    private int totalSize = 0;
+    private long totalSize = 0;
     private int pin = 0;
     private String last_access;
     private int numOfAccess;
@@ -39,12 +39,16 @@ public class Table implements Serializable {
         return name;
     }
 
-    public void setSize(int size) {
+    public void setSize(long size) {
         totalSize = size;
     }
 
     public void setHashID(byte[] hashID) {
-        this.hashID = hashID;
+        if(hashID != null) {
+            this.hashID = hashID;
+        }else{
+            this.hashID = null;
+        }
     }
 
     public void setSqlQuery(String query) {
@@ -67,7 +71,7 @@ public class Table implements Serializable {
         this.benefit = benefit;
     }
 
-    public int getSize() {
+    public long getSize() {
         return totalSize;
     }
 

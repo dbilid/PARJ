@@ -140,7 +140,7 @@ public class Registry {
 								+ "partition_number) " + "VALUES(?, ?, ?, ?)")) {
 			insertSqlStatement.setString(1, table.getTable().getName());
 			insertSqlStatement.setString(2, table.getTable().getSqlDefinition());
-			insertSqlStatement.setInt(3, table.getTable().getSize());
+			insertSqlStatement.setLong(3, table.getTable().getSize());
 
 			if (properties != null && properties.isCachedEnable()) {
 				if (table.getTable().isTemp())
@@ -181,7 +181,7 @@ public class Registry {
 						insertPartitionStatement.setString(2, partition.getLocations().get(i));
 						insertPartitionStatement.setString(3, null);
 						insertPartitionStatement.setInt(4, partition.getpNum());
-						insertPartitionStatement.setInt(5, partition.getSize());
+						insertPartitionStatement.setLong(5, partition.getSize());
 						insertPartitionStatement.addBatch();
 					} else {
 						for (int j = 0; j < partition.getPartitionColumns().size(); ++j) {
@@ -189,7 +189,7 @@ public class Registry {
 							insertPartitionStatement.setString(2, partition.getLocations().get(i));
 							insertPartitionStatement.setString(3, partition.getPartitionColumns().get(j));
 							insertPartitionStatement.setInt(4, partition.getpNum());
-							insertPartitionStatement.setInt(5, partition.getSize());
+							insertPartitionStatement.setLong(5, partition.getSize());
 							insertPartitionStatement.addBatch();
 						}
 
@@ -273,7 +273,8 @@ public class Registry {
 		String psString = "UPDATE sql SET last_access=?, num_of_access=num_of_access+1 " + "WHERE table_name=?";
 		for (Table table : tables) {
 
-			try (PreparedStatement ps = regConn.prepareStatement(psString)) {
+            System.out.println("updatess "+table.getName());
+            try (PreparedStatement ps = regConn.prepareStatement(psString)) {
 				ps.setString(2, table.getName());
 				ps.setString(1, madgik.exareme.master.engine.remoteQuery.impl.utility.Date.getCurrentDateTime());
 				ps.executeUpdate();
@@ -283,9 +284,9 @@ public class Registry {
 		}
 	}
 
-	public Map<String, Integer> getWorkersSize() {
+	public Map<String, Long> getWorkersSize() {
 
-		Map<String, Integer> sizeMap = new HashMap<>();
+		Map<String, Long> sizeMap = new HashMap<>();
 
 		try (Statement statement = regConn.createStatement()) {
 			ResultSet rs = statement
@@ -294,19 +295,52 @@ public class Registry {
 							+ " GROUP BY `location` ORDER BY `location`;");
 
 			while (rs.next())
-				sizeMap.put(rs.getString(1), rs.getInt(2));
+				sizeMap.put(rs.getString(1), rs.getLong(2));
 
-		} catch (SQLException ex) {
+        } catch (SQLException ex) {
 			log.error(ex.getMessage(), ex);
 		}
 
 		return sizeMap;
 	}
 
-	public Map<String, Map<String, Integer>> getSizePerQuery() {
+    public Map<String, Long> getWorkersSize(List<String> evictedTables) {
 
-		Map<String, Map<String, Integer>> sizeMap = new HashMap<>();
-		Map<String, Integer> map;
+        Map<String, Long> sizeMap = new HashMap<>();
+
+        StringBuilder query = new StringBuilder("SELECT `location`, SUM(partition.`size`) " +
+                "AS `size` FROM partition, sql " +
+                "WHERE partition.`table_name`=sql.`table_name` AND sql.`isTemporary`=1 " +
+                " AND sql.`table_name` not in (");
+        boolean firstEvictedTAble = true;
+        for(String evictedTable : evictedTables){
+            if(!firstEvictedTAble){
+                query.append(" union select \"" + evictedTable +"\"");
+            }else{
+                firstEvictedTAble = false;
+                query.append(" select \"" + evictedTable +"\"");
+            }
+        }
+        query.append(") GROUP BY `location` ORDER BY `location`;");
+        System.out.println("query pou dinw "+query);
+
+        try (Statement statement = regConn.createStatement()) {
+            ResultSet rs = statement.executeQuery(query.toString());
+
+            while (rs.next())
+                sizeMap.put(rs.getString(1), rs.getLong(2));
+
+        } catch (SQLException ex) {
+            log.error(ex.getMessage(), ex);
+        }
+
+        return sizeMap;
+    }
+
+	public Map<String, Map<String, Long>> getSizePerQuery() {
+
+		Map<String, Map<String, Long>> sizeMap = new HashMap<>();
+		Map<String, Long> map;
 
 		try (Statement statement = regConn.createStatement()) {
 			ResultSet rs = statement
@@ -316,10 +350,10 @@ public class Registry {
 			while (rs.next()) {
 				if (sizeMap.containsKey(rs.getString(1))) {
 					map = sizeMap.get(rs.getString(1));
-					map.put(rs.getString(2), rs.getInt(3));
+					map.put(rs.getString(2), rs.getLong(3));
 				} else {
 					map = new HashMap<>();
-					map.put(rs.getString(2), rs.getInt(3));
+					map.put(rs.getString(2), rs.getLong(3));
 					sizeMap.put(rs.getString(1), map);
 				}
 			}
@@ -475,7 +509,7 @@ public class Registry {
 				Table table = new Table(rs.getString("table_name"));
 				table.setSqlDefinition(rs.getString("sql_definition"));
 				table.setHashID(rs.getBytes("hashID"));
-				table.setSize(rs.getInt("size"));
+				table.setSize(rs.getLong("size"));
 				table.setPin(rs.getInt("pin"));
 				table.setLastAccess(rs.getString("last_access"));
 				table.setStorageTime(rs.getString("storage_time"));
@@ -509,7 +543,7 @@ public class Registry {
 				}
 
 				part.addLocation(rs.getString("location"));
-				part.setSize(rs.getInt("size"));
+				part.setSize(rs.getLong("size"));
 				part.addPartitionColumn(rs.getString("partition_column"));
 			}
 			if (part != null)

@@ -10,6 +10,7 @@ import madgik.exareme.master.connector.AdpDBConnector;
 import madgik.exareme.master.connector.AdpDBConnectorFactory;
 import madgik.exareme.master.connector.local.AdpDBQueryExecutorThread;
 import madgik.exareme.master.connector.rmi.AdpDBNetReaderThread;
+import madgik.exareme.master.engine.intermediateCache.Cache;
 import madgik.exareme.utils.association.Pair;
 import madgik.exareme.utils.embedded.db.DBUtils;
 import madgik.exareme.utils.properties.AdpDBProperties;
@@ -62,24 +63,21 @@ import java.util.concurrent.Executors;
  * @author Dimitris
  * @since 0.1
  */
-public class HttpAsyncDecomposerHandler implements
-		HttpAsyncRequestHandler<HttpRequest> {
+public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpRequest> {
 
-	private static final Logger log = Logger
-			.getLogger(HttpAsyncDecomposerHandler.class);
-	private static final AdpDBManager manager = AdpDBManagerLocator
-			.getDBManager();
-	private static final boolean useCache = AdpDBProperties.getAdpDBProps()
-			.getString("db.cache").equals("true");
-	private static NamesToAliases n2a = new NamesToAliases();
+    private static final Logger log = Logger.getLogger(HttpAsyncDecomposerHandler.class);
+    private static final AdpDBManager manager = AdpDBManagerLocator.getDBManager();
+    private static final boolean useCache = AdpDBProperties.getAdpDBProps()
+            .getString("db.cache").equals("true");
+    private static NamesToAliases n2a = new NamesToAliases();
 
 	public HttpAsyncDecomposerHandler() {
 	}
 
 	@Override
-	public HttpAsyncRequestConsumer<HttpRequest> processRequest(
-			final HttpRequest request, final HttpContext context)
-			throws HttpException, IOException {
+    public HttpAsyncRequestConsumer<HttpRequest> processRequest(final HttpRequest request,
+                                                                final HttpContext context)
+            throws HttpException, IOException {
 		return new BasicAsyncRequestConsumer();
 	}
 
@@ -333,6 +331,7 @@ public class HttpAsyncDecomposerHandler implements
 							Map<String, Set<String>> refCols=new HashMap<String, Set<String>>();
 							squery = SQLQueryParser.parse(query.substring(8, query.length()), hashes, n2a, refCols);
 							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes);
+							d.addRefCols(refCols);
 							d.setN2a(n2a);
 							log.debug("SQL Query Decomposing ...");
 							log.debug("Number of workers: " + workers);
@@ -403,29 +402,29 @@ public class HttpAsyncDecomposerHandler implements
 									tablename=tablename.substring(4);
 								}
 								Table tab = new Table(tablename, tablename);
-								Set<String> attrs = new HashSet<String>();
-								for (int i = 1; i < t.length; i++) {
-									attrs.add(t[i]);
-								}
-								if (!tab.isFederated()) {
-									//trying to analyze internal table
-									log.debug("trying to analyze internal table: "+tab.getName());
-									log.debug("will try to analyze only 0 partition");
-									//TODO distributed analyzer
-									conn = DriverManager.getConnection("jdbc:sqlite:" +path + tablename + ".0.db");
-									ExternalAnalyzer fa = new ExternalAnalyzer(dbname, conn, "main");
 
-									Schema sch = fa.analyzeAttrs(tablename, attrs);
-									// change table name back to adding DB id
-									log.debug("Saving stats to file");
-									StatUtils.addSchemaToFile(path + "histograms.json", sch);
-									conn.close();
+                                Set<String> attrs = new HashSet<String>();
+                                for (int i = 1; i < t.length; i++) {
+                                    attrs.add(t[i]);
+                                }
+                                if (!tab.isFederated()) {
+                                    //trying to analyze internal table
+                                    log.debug("trying to analyze internal table: "+tab.getName());
+                                    log.debug("will try to analyze only 0 partition");
+                                    //TODO distributed analyzer
+                                    conn = DriverManager.getConnection("jdbc:sqlite:" +path + tablename + ".0.db");
+                                    ExternalAnalyzer fa = new ExternalAnalyzer(dbname, conn, "main");
+
+                                    Schema sch = fa.analyzeAttrs(tablename, attrs);
+                                    // change table name back to adding DB id
+                                    log.debug("Saving stats to file");
+                                    StatUtils.addSchemaToFile(path + "histograms.json", sch);
+                                    conn.close();
 								} else {
 									String endpointID = tab.getDBName();
 									String localTblName = tablename.substring(endpointID.length() + 1);
 									DB db = DBInfoReaderDB.dbInfo.getDB(endpointID);
 
-									
 									Class.forName(db.getDriver());
 									conn = DriverManager.getConnection(db.getURL(), db.getUser(), db.getPass());
 									ExternalAnalyzer fa = new ExternalAnalyzer(dbname, conn, db.getSchema());
@@ -460,7 +459,7 @@ public class HttpAsyncDecomposerHandler implements
 						log.debug("Sending 1 : " + se.toString());
 						httpResponse.setEntity(se);
 					} else if (!query.startsWith("distributed")) {
-						boolean send1=false;
+                        boolean send1=false;
 						int timeoutMs = 0;
 						try {
 							timeoutMs = Integer.parseInt(inputContent.get(ExaremeGatewayUtils.REQUEST_TIMEOUT)) * 1000;
@@ -489,110 +488,112 @@ public class HttpAsyncDecomposerHandler implements
 							if (DecomposerUtils.WRITE_ALIASES) {
 								n2a = DBInfoReaderDB.readAliases(path);
 							}
-							
-							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", useCache, false,
-									false, false, -1, 10, null);
-							AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
-							AdpDBClientQueryStatus status = null;
-							
-							Map<String, String> extraCommands = new HashMap<String, String>();
-							String decomposedQuery = "";
-							String resultTblName = "";
-							String finalQuery = null;
-							Set<String> referencedTables = new HashSet<String>();
-							boolean a = false;
+
+                            AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", useCache, false,
+                                    false, false, -1, 10, null);
+                            AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
+                            AdpDBClientQueryStatus status = null;
+
+                            Map<String, String> extraCommands = new HashMap<String, String>();
+                            String decomposedQuery = "";
+                            String resultTblName = "";
+                            String finalQuery = null;
+                            Set<String> referencedTables = new HashSet<String>();
+                            boolean a = false;
+
 							squery = SQLQueryParser.parse(query, hashes, n2a, refCols);
-							if(squery.isDrop()){
-								String drop="distributed drop table "+squery.getTemporaryTableName()+";";
-								status = dbClient.query("dquery", drop, extraCommands);
-								send1=true;
-							}
-							else{
-							QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes, useCache);
-							d.addRefCols(refCols);
-							d.setN2a(n2a);
-							log.debug("n2a:" + n2a.toString());
-							log.debug("SQL Query Decomposing ...");
-							log.debug("Number of workers: " + workers);
-							subqueries = d.getSubqueries();
-							
-							if (DecomposerUtils.WRITE_ALIASES) {
-								DBInfoWriterDB.writeAliases(n2a, path);
-							}
-							//squery = null;
-							d = null;
-							nse = null;
-							hashes = null;
-							HashMap<String, Pair<byte[], String>> hashQueryMap = new HashMap<>();
-							
-							
 
-							
-							if (a) {
-								SQLQuery last = subqueries.get(subqueries.size() - 1);
-								finalQuery = last.toSQL();
-								for (Table t : last.getAllAttachedTables()) {
-									referencedTables.add(t.getName());
-								}
+                            if(squery.isDrop()){
+                                String drop="distributed drop table "+squery.getTemporaryTableName()+";";
+                                status = dbClient.query("dquery", drop, extraCommands);
+                                send1=true;
+                            }
+                            else{
+                                QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes, useCache);
+                                d.addRefCols(refCols);
+                                d.setN2a(n2a);
+                                log.debug("n2a:" + n2a.toString());
+                                log.debug("SQL Query Decomposing ...");
+                                log.debug("Number of workers: " + workers);
+                                subqueries = d.getSubqueries();
 
-							}
-							if (subqueries.size() == 1 && subqueries.get(0).existsInCache()) {
-								resultTblName = subqueries.get(0).getInputTables().get(0).getAlias();
-							} else if(subqueries.size() == 1 && subqueries.get(0).isSelectAllFromInternal()) {
-								resultTblName = subqueries.get(0).getInputTables().get(0).getName();
-							}
-							else{
-								
-								
-								for (SQLQuery q : subqueries) {
-									if (a && !q.isTemporary()) {
-										continue;
-										// don't add last table
-									}
-									if (referencedTables.contains(q.getTemporaryTableName())) {
-										q.setTemporary(false);
-									}
-									String ptnCol = null;
-									if (q.getPartitionColumn() != null) {
-										ptnCol = q.getPartitionColumn().toString();
-									}
-									try {
-										hashQueryMap.put(q.getResultTableName(),
-												new Pair(q.getHashId().asBytes(), ptnCol));
-									} catch (NullPointerException we) {
-										log.error("null hash id");
-									}
-									String dSQL = q.toDistSQL();
-									decomposedQuery += dSQL + "\n\n";
-									if (!q.isTemporary()) {
-										resultTblName = q.getTemporaryTableName();
-										if(!resultTblName.startsWith("table")){
-											//insert into command
-											send1=true;
-										}
-									}
-									if (q.getCreateSipTables() != null) {
-										extraCommands.put(q.getTemporaryTableName(), q.getCreateSipTables());
-									}
+                                if (DecomposerUtils.WRITE_ALIASES) {
+                                    DBInfoWriterDB.writeAliases(n2a, path);
+                                }
+                                squery = null;
+                                d = null;
+                                nse = null;
+                                hashes = null;
 
-								}
-								log.debug("Decomposed Query : " + decomposedQuery);
-								log.debug("Result Table : " + resultTblName);
-								log.debug("Executing decomposed query ...");
-								
 
-								// when using cache
-								if (useCache) {
-									status = dbClient.query("dquery", decomposedQuery, hashQueryMap, extraCommands);
-								} else {
-									status = dbClient.query("dquery", decomposedQuery, extraCommands);
-								}
+                                HashMap<String, Pair<byte[], String>> hashQueryMap = new HashMap<>();
+                                if (a) {
+                                    SQLQuery last = subqueries.get(subqueries.size() - 1);
+                                    finalQuery = last.toSQL();
+                                    for (Table t : last.getAllAttachedTables()) {
+                                        referencedTables.add(t.getName());
+                                    }
+
+                                }
+                                if (subqueries.size() == 1 && subqueries.get(0).existsInCache()) {
+                                    resultTblName = subqueries.get(0).getInputTables().get(0).getAlias();
+                                    //System.out.println("namesss "+resultTblName);
+                                    Cache cache = new Cache(props);
+                                    List<madgik.exareme.common.schema.Table> tables = new ArrayList<>(1);
+                                    tables.add(new madgik.exareme.common.schema.Table(resultTblName));
+                                    cache.updateCacheForTableUse(tables);
+
+                                } else if(subqueries.size() == 1 && subqueries.get(0).isSelectAllFromInternal()) {
+                                    resultTblName = subqueries.get(0).getInputTables().get(0).getName();
+                                }
+                                else{
+
+                                    for (SQLQuery q : subqueries) {
+                                        if (a && !q.isTemporary()) {
+                                            continue;
+                                            // don't add last table
+                                        }
+                                        if (referencedTables.contains(q.getTemporaryTableName())) {
+                                            q.setTemporary(false);
+                                        }
+                                        String ptnCol = null;
+                                        if (q.getPartitionColumn() != null) {
+                                            ptnCol = q.getPartitionColumn().toString();
+                                        }
+                                        try {
+                                            hashQueryMap.put(q.getResultTableName(),
+                                                    new Pair(q.getHashId().asBytes(), ptnCol));
+                                            //log.debug("giving hash id for: "+q.getResultTableName());
+                                        } catch (NullPointerException we) {
+                                            log.error("null hash id");
+                                        }
+                                        String dSQL = q.toDistSQL();
+                                        decomposedQuery += dSQL + "\n\n";
+                                        if (!q.isTemporary()) {
+                                            resultTblName = q.getTemporaryTableName();
+                                        }
+                                        if (q.getCreateSipTables() != null) {
+                                            extraCommands.put(q.getTemporaryTableName(), q.getCreateSipTables());
+                                        }
+
+                                    }
+                                    log.debug("Decomposed Query : " + decomposedQuery);
+                                    log.debug("Result Table : " + resultTblName);
+                                    log.debug("Executing decomposed query ...");
+
+                                    // when using cache
+                                    if (useCache) {
+                                        status = dbClient.query("dquery", decomposedQuery, hashQueryMap, extraCommands, subqueries);
+                                    } else {
+                                        status = dbClient.query("dquery", decomposedQuery, extraCommands);
+                                    }
 								// AdpDBClientQueryStatus status =
 								// dbClient.query("dquery", decomposedQuery,
 								// hashIDMap);
-							}
-							}
-							if(status!=null){
+
+                                }
+                            }
+                            if(status!=null){
 								while (status.hasFinished() == false && status.hasError() == false) {
 									if (timeoutMs > 0) {
 										long timePassed = System.currentTimeMillis() - start;
@@ -608,7 +609,6 @@ public class HttpAsyncDecomposerHandler implements
 									throw new RuntimeException(status.getError());
 								}
 							}
-							
 
 							if (a) {
 								HashMap<String, Object> additionalProps = new HashMap<String, Object>();
@@ -622,15 +622,15 @@ public class HttpAsyncDecomposerHandler implements
 								log.debug("Sending Result Table : " + resultTblName);
 								httpResponse.setEntity(new InputStreamEntity(new PipedInputStream(out)));
 							} else {
-								if(!send1){
-									log.debug("Sending Result Table : " + resultTblName);
-									httpResponse.setEntity(new InputStreamEntity(dbClient.readTable(resultTblName)));
-								}
-								else{
-									InputStreamEntity se = new InputStreamEntity(create1ResultStream(), -1, ContentType.TEXT_PLAIN);
-									log.debug("Sending 1 : " + se.toString());
-									httpResponse.setEntity(se);
-								}
+                                if(!send1){
+                                    log.debug("Sending Result Table : " + resultTblName);
+                                    httpResponse.setEntity(new InputStreamEntity(dbClient.readTable(resultTblName)));
+                                }
+                                else{
+                                    InputStreamEntity se = new InputStreamEntity(create1ResultStream(), -1, ContentType.TEXT_PLAIN);
+                                    log.debug("Sending 1 : " + se.toString());
+                                    httpResponse.setEntity(se);
+                                }
 							}
 						} catch (Exception e) {
 							log.error("Error:", e);
@@ -709,12 +709,12 @@ public class HttpAsyncDecomposerHandler implements
 	private Connection createDummyDB(String path) {
 		try {
 			Class.forName("org.sqlite.JDBC");
-			Connection c = DriverManager.getConnection("jdbc:sqlite:" + path
-					+ "registry.db");
+            Connection c = DriverManager.getConnection("jdbc:sqlite:" + path
+                                + "registry.db");
 			Statement stmt = c.createStatement();
 			ResultSet rs;
-			Connection c2 = DriverManager.getConnection("jdbc:sqlite:" + path
-					+ "dummy.db");
+            Connection c2 = DriverManager.getConnection("jdbc:sqlite:" + path
+                     					+ "dummy.db");
 			try {
 				rs = stmt.executeQuery("SELECT sql_definition FROM sql");
 			} catch (Exception e) {
@@ -729,8 +729,8 @@ public class HttpAsyncDecomposerHandler implements
 			String create = "";
 			while (rs.next()) {
 				create = rs.getString(1);
-				create = create.replace("CREATE TABLE",
-						"CREATE TABLE IF NOT EXISTS");
+                create = create.replace("CREATE TABLE",
+                        						"CREATE TABLE IF NOT EXISTS");
 				statement.executeUpdate(create);
 			}
 			rs.close();

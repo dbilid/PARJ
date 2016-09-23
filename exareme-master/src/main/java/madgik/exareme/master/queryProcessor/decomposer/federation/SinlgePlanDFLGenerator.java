@@ -2090,9 +2090,9 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.GROUPBY) {
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			
-			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
-			current.setOrderBy(orderCols);
-			for(Column c:orderCols){
+			List<Column> groupCols = (ArrayList<Column>) op.getObject();
+			current.setGroupBy(groupCols);
+			for(Column c:groupCols){
 				c.setAlias(null);
 			}
 			if(!tempResult.getLastTable().getAlias().equals(current.getTemporaryTableName())){
