@@ -101,7 +101,7 @@ public class QueryDecomposer {
 		if (!initialQuery.isUnionAll()) {
 			union.setObject(("UNION"));
 			union.setOperator(Node.UNION);
-			//this.useSIP = false;
+			// this.useSIP = false;
 		} else {
 			if (initialQuery.isOutputColumnsDinstict()) {
 				union.setObject(("UNION"));
@@ -109,7 +109,7 @@ public class QueryDecomposer {
 			} else {
 				union.setObject(("UNIONALL"));
 				union.setOperator(Node.UNIONALL);
-				//this.useSIP = false;
+				// this.useSIP = false;
 			}
 		}
 
@@ -373,6 +373,18 @@ public class QueryDecomposer {
 			best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
 			finalCost = best.getCost();
 			System.out.println("found with cost " + finalCost);
+			boolean printCosts = true;
+			if (printCosts) {
+				for (Node u : greedyToMat.keySet()) {
+					try {
+						log.debug("for Result " + u.getObject().toString() + ":");
+						log.debug("cardinality:" + u.getNodeInfo().getNumberOfTuples());
+						log.debug("Cost:" + finalMemo.getMemoValue(new MemoKey(u, null)).getPlan().getCost());
+					} catch (Exception e) {
+						log.debug("could not print cost info");
+					}
+				}
+			}
 
 		}
 		if (this.noOfparts == 1) {
@@ -422,7 +434,7 @@ public class QueryDecomposer {
 
 		} else if (DecomposerUtils.CHOOSE_MODE) {
 			System.out.println("choosing mode...");
-			if (Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)) {
+			if (DecomposerUtils.REPARTITION&&Util.planContainsLargerResult(root, finalMemo, DecomposerUtils.DISTRIBUTED_LIMIT)) {
 				System.out.println("distributed...");
 				nce.setPartitionNo(this.noOfparts);
 				finalMemo = new Memo();
@@ -496,6 +508,7 @@ public class QueryDecomposer {
 		//
 		// Plan best = findBestPlan(root, cost, memo, new HashSet<Node>(), cel);
 		// System.out.println(best.getPath().toString());
+
 		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, finalMemo, registry, useCache);
 		dsql.setN2a(n2a);
 		if (this.useSIP) {
@@ -564,7 +577,7 @@ public class QueryDecomposer {
 			if (!s.getOrderBy().isEmpty()) {
 				nested.setOrderBy(s.getOrderBy());
 			}
-			if(s.isOutputColumnsDinstict()||!s.isUnionAll()){
+			if (s.isOutputColumnsDinstict() || !s.isUnionAll()) {
 				union.setObject("UNION");
 				union.setOperator(Node.UNION);
 			}

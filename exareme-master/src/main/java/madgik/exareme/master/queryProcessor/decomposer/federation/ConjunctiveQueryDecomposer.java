@@ -38,6 +38,7 @@ public class ConjunctiveQueryDecomposer {
 	private static final boolean useGreedy = DecomposerUtils.USE_GREEDY;
 	private static int counter = 0;
 	private static final Logger log = Logger.getLogger(ConjunctiveQueryDecomposer.class);
+	private List<NonUnaryWhereCondition> rangeJoins;
 
 	public ConjunctiveQueryDecomposer(SQLQuery initial, boolean centralized, boolean addRedundantIsNotNull) {
 		this.initialQuery = initial;
@@ -399,9 +400,11 @@ public class ConjunctiveQueryDecomposer {
 				}
 			}
 			if (!joinsForTablesWithInequality.isEmpty()) {
+				rangeJoins=new ArrayList<NonUnaryWhereCondition>();
 				for (Set<NonUnaryWhereCondition> filters : joinsForTablesWithInequality.values()) {
 					for (NonUnaryWhereCondition f : filters) {
 						remainingWhereConditions.add(f);
+						rangeJoins.add(f);
 					}
 				}
 
@@ -414,6 +417,39 @@ public class ConjunctiveQueryDecomposer {
 	private Node addRemainingJoins(ColumnsToTableNames<Node> c2n2, NodeHashValues hashes, List<Set<String>> joinSets, Node root, boolean useJoinSets) throws SQLException {
 		while (!this.remainingWhereConditions.isEmpty()) {
 			NonUnaryWhereCondition bwc = this.remainingWhereConditions.get(0);
+			if(rangeJoins!=null){
+				for(NonUnaryWhereCondition range:rangeJoins){
+					//make sure that all columns for each operand come from the same node
+					boolean allColumnComeFromSameNode=true;
+				Node lchild = c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(0));
+				for(int i=1;i<range.getLeftOp().getAllColumnRefs().size();i++){
+					if(!c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(i)).getObject().equals(lchild.getObject())){
+						allColumnComeFromSameNode=false;
+						break;
+					}
+				}
+				if(!allColumnComeFromSameNode){
+					continue;
+				}
+				Node rchild = c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(0));
+				for(int i=1;i<range.getRightOp().getAllColumnRefs().size();i++){
+					//Node llll=c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i));
+					if(!c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i)).getObject().equals(rchild.getObject())){
+						allColumnComeFromSameNode=false;
+						break;
+					}
+				}
+				if(!allColumnComeFromSameNode)
+				{
+					continue;
+				}
+				rangeJoins.remove(range);
+				bwc=range;
+				break;
+				}
+				
+			}
+			
 			if(useJoinSets){
 				mergeJoinSets(joinSets, bwc);
 			}
@@ -502,7 +538,7 @@ public class ConjunctiveQueryDecomposer {
 
 			}
 
-			this.remainingWhereConditions.remove(0);
+			this.remainingWhereConditions.remove(bwc);
 
 		}
 

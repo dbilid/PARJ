@@ -293,9 +293,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	public void estimateJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {
 		// NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) n.getObject();
 		NodeInfo ni = new NodeInfo();
-		Column l = (Column) nuwc.getLeftOp();
-		Column r = (Column) nuwc.getRightOp();
-		// String equals = nuwc.getOperator();
+		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
+		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
+		if(!(nuwc.getLeftOp() instanceof Column)){
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getLeftOp());
+		}
+		if(!(nuwc.getRightOp() instanceof Column)){
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getRightOp());
+		}
 
 		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);
 		// RelInfo rRel = this.schema.getTableIndex().get(r.tableAlias);
@@ -350,8 +355,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	public void estimateFilterJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {
 		// NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) n.getObject();
 		NodeInfo ni = new NodeInfo();
-		Column l = (Column) nuwc.getLeftOp();
-		Column r = (Column) nuwc.getRightOp();
+		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
+		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
+		if(!(nuwc.getLeftOp() instanceof Column)){
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getLeftOp());
+		}
+		if(!(nuwc.getRightOp() instanceof Column)){
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getRightOp());
+		}
 		// String equals = nuwc.getOperator();
 
 		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);

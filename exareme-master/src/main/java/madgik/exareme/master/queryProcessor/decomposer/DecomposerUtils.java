@@ -45,6 +45,10 @@ public class DecomposerUtils {
 	public static final long ONLY_LEFT_TIME;
 	public static final double DISTRIBUTED_LIMIT;
 	public static final boolean CHOOSE_MODE;
+	public static final int MERGE_UNIONS;
+	public static final boolean USE_ROWID;
+	public static final boolean USE_CROSS_JOIN;
+	public static final boolean REPARTITION;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -87,7 +91,11 @@ public class DecomposerUtils {
         ONLY_LEFT_TIME=properties.getLong("only.left.time");
         DISTRIBUTED_LIMIT=properties.getLong("distributed.limit");
         CHOOSE_MODE = properties.getBoolean("choose.mode");
-        
+        MERGE_UNIONS=properties.getInt("merge.unions");
+    	USE_ROWID=properties.getBoolean("use.rowid");
+    	USE_CROSS_JOIN=properties.getBoolean("use.cross.join");
+    	REPARTITION=properties.getBoolean("repartition");
+    	
         log.trace("Decomposer Properties Loaded.");
     }
 

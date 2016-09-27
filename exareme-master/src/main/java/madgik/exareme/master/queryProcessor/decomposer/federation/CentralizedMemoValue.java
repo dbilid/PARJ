@@ -7,6 +7,7 @@ public class CentralizedMemoValue implements MemoValue {
     private boolean materialized;
     private boolean federated;
     private int matUnion;
+    private boolean multiUsed;
 
     public CentralizedMemoValue(SinglePlan p) {
         this.p = p;
@@ -34,6 +35,12 @@ public class CentralizedMemoValue implements MemoValue {
 
     public void addUsed(int b) {
         used+=b;
+        if(used>1){
+        	this.multiUsed=true;
+        }
+        else{
+        	this.multiUsed=false;
+        }
     }
 
     public int getUsed() {
@@ -56,5 +63,8 @@ public class CentralizedMemoValue implements MemoValue {
 		this.matUnion = matUnion;
 	}
     
+	public boolean isMultiUsed() {
+		return multiUsed;
+	}
 
 }

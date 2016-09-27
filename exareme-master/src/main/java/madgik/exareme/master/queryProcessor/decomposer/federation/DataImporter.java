@@ -120,7 +120,8 @@ public class DataImporter implements Runnable {
 	            count=(int)copyManager.copyOut("COPY ("+fedSQLTrue+") TO STDOUT WITH DELIMITER '#'", swriter);
 	            swriter.close();
 			} else {
-
+				StringBuffer primaryKeySQL=new StringBuffer();
+				primaryKeySQL.append(", PRIMARY KEY(");
 				resultSet = statement.executeQuery(fedSQLTrue);
 
 				ResultSetMetaData rsmd = resultSet.getMetaData();
@@ -148,6 +149,8 @@ public class DataImporter implements Runnable {
 					} else if (JdbcDatatypesToSQLite.BLOB == type) {
 						coltype = "BLOB";
 					}
+					primaryKeySQL.append(comma);
+					primaryKeySQL.append(l);
 					createTableSQL.append(comma);
 					createTableSQL.append(l);
 					createTableSQL.append(" ");
@@ -155,7 +158,14 @@ public class DataImporter implements Runnable {
 					comma = ",";
 				}
 				sql += ")";
-				createTableSQL.append(")");
+				if(DecomposerUtils.USE_ROWID&&s.isOutputColumnsDinstict()&&rsmd.getColumnCount()==1){
+					primaryKeySQL.append(") ) without rowid");
+					createTableSQL.append(primaryKeySQL);
+				}
+				else{
+					createTableSQL.append(")");
+				}
+				
 				Statement creatSt = sqliteConnection.createStatement();
 				log.debug("dropping table if exists");
 				creatSt.execute("drop table if exists "+s.getTemporaryTableName());

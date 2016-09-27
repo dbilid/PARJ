@@ -21,6 +21,8 @@ public interface MemoValue {
 	public int getUsed();
 	
 	public boolean isFederated();
+	
+	public boolean isMultiUsed();
 
 }
 

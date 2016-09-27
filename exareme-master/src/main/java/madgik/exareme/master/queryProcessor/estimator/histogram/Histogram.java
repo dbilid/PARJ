@@ -683,7 +683,7 @@ public final class Histogram {
 
                 if (nodv > combinerSubBucketDiffVals)
                     nodv = combinerSubBucketDiffVals;
-            double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            double resultFreq=combiningBucket.getFrequency() > combinerBucket.getFrequency()?combinerBucket.getFrequency():combiningBucket.getFrequency();
 
             //double nodv = combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues()/(combinerBucket.getFrequency()*combinerBucket.getDiffValues()/(maxCombinerBucketVal-minCombinerBucketVal)):combinerBucket.getDiffValues()/(combiningBucket.getFrequency()*combiningBucket.getDiffValues()/(maxCombiningBucketVal-minCombiningBucketVal));
 

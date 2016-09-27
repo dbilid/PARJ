@@ -28,7 +28,7 @@ public class SQLQuery {
 	private Column partitionColumn;
 	// public final List<Function> outputFunctions = new ArrayList<>();
 	private List<Table> inputTables;
-	//private boolean isNested;
+	// private boolean isNested;
 	// public final List<Filter> filters = new ArrayList<>();
 	// public final List<Join> joins = new ArrayList<>();
 	private List<UnaryWhereCondition> unaryWhereConditions;
@@ -66,7 +66,7 @@ public class SQLQuery {
 	private String createSipTables = null;
 
 	private boolean existsInCache;
-    private boolean isDrop;
+	private boolean isDrop;
 
 	private Node joinNode;
 
@@ -131,7 +131,7 @@ public class SQLQuery {
 
 		if (this.isStringSQL) {
 			output.append(" as ");
-			if (this.noOfPartitions>1){
+			if (this.noOfPartitions > 1) {
 				output.append("direct ");
 			}
 			output.append(sql);
@@ -153,11 +153,11 @@ public class SQLQuery {
 		output.append(" \n");
 		output.append("as ");
 		if (this.isFederated()) {
-			
+
 			output.append(DecomposerUtils.EXTERNAL_KEY);
 			output.append(" ");
-        //} else if (this.noOfPartitions>1){
-        } else {
+			// } else if (this.noOfPartitions>1){
+		} else {
 			output.append("direct ");
 		}
 		output.append("\n");
@@ -235,11 +235,11 @@ public class SQLQuery {
 				output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
 			}
 			output.append(" on ");
-			separator="";
+			separator = "";
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
 				output.append(separator);
 				output.append(joinOperands.get(joinOp).toString());
-				separator=" and ";
+				separator = " and ";
 				// output.append(")");
 
 			}
@@ -322,28 +322,31 @@ public class SQLQuery {
 					}
 					separator = ", \n";
 				}
-			}
-			else{
-				for (Table t : getInputTables()) {
-                                        output.append(separator);
-                                        if (this.isFederated) {
-                                                output.append(t.toString());
-                                        } else {
-                                                output.append(t.toString().toLowerCase());
-                                        }
-                                        separator = " CROSS JOIN \n";
-                                }
-
+			} else {
+				String joinKeyword = " JOIN \n";
+				if (DecomposerUtils.USE_CROSS_JOIN) {
+					joinKeyword = " CROSS JOIN \n";
 				}
+				for (Table t : getInputTables()) {
+					output.append(separator);
+					if (this.isFederated) {
+						output.append(t.toString());
+					} else {
+						output.append(t.toString().toLowerCase());
+					}
+					separator = joinKeyword;
+				}
+
+			}
 		}
 		separator = "";
 		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()
 				|| (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle "))) {
-			//if (this.getJoinType() != null) {
-			//	output.append(" on (");
-			//} else {
-				output.append(" \nwhere \n");
-			//}
+			// if (this.getJoinType() != null) {
+			// output.append(" on (");
+			// } else {
+			output.append(" \nwhere \n");
+			// }
 		}
 		for (NonUnaryWhereCondition wc : getBinaryWhereConditions()) {
 			output.append(separator);
@@ -360,7 +363,6 @@ public class SQLQuery {
 			output.append("rownum <=");
 			output.append(this.limit);
 		}
-		
 
 		if (!groupBy.isEmpty()) {
 			separator = "";
@@ -588,11 +590,11 @@ public class SQLQuery {
 		for (UnaryWhereCondition wc : this.getUnaryWhereConditions()) {
 			result.add(wc.getAllColumnRefs().get(0));
 		}
-		if(repartitionColumn!=null){
+		if (repartitionColumn != null) {
 			result.add(repartitionColumn);
 		}
-		for(Operand o:joinOperands){
-			for(Column c:o.getAllColumnRefs()){
+		for (Operand o : joinOperands) {
+			for (Column c : o.getAllColumnRefs()) {
 				result.add(c);
 			}
 		}
@@ -703,10 +705,10 @@ public class SQLQuery {
 		}
 		return result;
 	}
-	
+
 	public Set<String> getTableAliases() {
-		Set<String> result=new HashSet<String>();
-		for(Table t:this.inputTables){
+		Set<String> result = new HashSet<String>();
+		for (Table t : this.inputTables) {
 			result.add(t.getAlias());
 		}
 		return result;
@@ -762,18 +764,14 @@ public class SQLQuery {
 				c.setName(c.getName().toUpperCase());
 			}
 
-		} /*else if (this.getMadisFunctionString().startsWith("postgres ")) {
+		} else if (this.getMadisFunctionString().startsWith("postgres ")) {
 			for (Column c : this.getAllColumns()) {
 				if (!c.getName().startsWith("\"")) {
 					c.setName("\"" + c.getName() + "\"");
 				}
 			}
-			for (Table t : this.inputTables) {
-				if (!t.getName().startsWith("\"")) {
-					t.setName("\"" + t.getName() + "\"");
-				}
-			}
-		}*/
+			
+		}
 
 	}
 
@@ -1171,59 +1169,58 @@ public class SQLQuery {
 			NonUnaryWhereCondition bwc = null;
 			if (op instanceof NonUnaryWhereCondition) {
 				bwc = (NonUnaryWhereCondition) op;
-				
-				
 
 				if (bwc.getOperator().equals("or")) {
-					
-					if(!bwc.referencesAtMostOneTable()){
-						//if yes, leave as is, it will be pushed to a base table
-					
-					for (List<Operand> tempResult : normalized) {
-						tempResult.remove(bwc);
-					}
-					// in.remove(bwc);
-					// i--;
-					// List<Operand> second = new
-					// ArrayList<Operand>(in);
-					// normalized.add(second);
-					List<List<Operand>> tempBeforeAddingLeftNested = new ArrayList<List<Operand>>(normalized);
-					normalized.clear();
-					Operand left = bwc.getLeftOp();
-					Operand right = bwc.getRightOp();
-					ArrayList<Operand> l = new ArrayList<Operand>();
-					l.add(left);
-					ArrayList<Operand> r = new ArrayList<Operand>();
-					r.add(right);
-					List<List<Operand>> nested = normalize(l);
-					// normalized.remove(in);
-					for (List<Operand> t : tempBeforeAddingLeftNested) {
-						for (int j = 0; j < nested.size(); j++) {
-							List<Operand> leftL = nested.get(j);
 
-							List<Operand> nestedOr = new ArrayList<Operand>(t);
-							normalized.add(nestedOr);
-							for (Operand bl : leftL) {
+					if (!bwc.referencesAtMostOneTable()) {
+						// if yes, leave as is, it will be pushed to a base
+						// table
 
-								nestedOr.add(bl);
-							}
-
+						for (List<Operand> tempResult : normalized) {
+							tempResult.remove(bwc);
 						}
-					}
-					nested = normalize(r);
-					for (List<Operand> t : tempBeforeAddingLeftNested) {
-						// normalized.remove(second);
-						for (int j = 0; j < nested.size(); j++) {
-							List<Operand> rightR = nested.get(j);
+						// in.remove(bwc);
+						// i--;
+						// List<Operand> second = new
+						// ArrayList<Operand>(in);
+						// normalized.add(second);
+						List<List<Operand>> tempBeforeAddingLeftNested = new ArrayList<List<Operand>>(normalized);
+						normalized.clear();
+						Operand left = bwc.getLeftOp();
+						Operand right = bwc.getRightOp();
+						ArrayList<Operand> l = new ArrayList<Operand>();
+						l.add(left);
+						ArrayList<Operand> r = new ArrayList<Operand>();
+						r.add(right);
+						List<List<Operand>> nested = normalize(l);
+						// normalized.remove(in);
+						for (List<Operand> t : tempBeforeAddingLeftNested) {
+							for (int j = 0; j < nested.size(); j++) {
+								List<Operand> leftL = nested.get(j);
 
-							List<Operand> nestedOr = new ArrayList<Operand>(t);
-							normalized.add(nestedOr);
-							for (Operand br : rightR) {
+								List<Operand> nestedOr = new ArrayList<Operand>(t);
+								normalized.add(nestedOr);
+								for (Operand bl : leftL) {
 
-								nestedOr.add(br);
+									nestedOr.add(bl);
+								}
+
 							}
 						}
-					}
+						nested = normalize(r);
+						for (List<Operand> t : tempBeforeAddingLeftNested) {
+							// normalized.remove(second);
+							for (int j = 0; j < nested.size(); j++) {
+								List<Operand> rightR = nested.get(j);
+
+								List<Operand> nestedOr = new ArrayList<Operand>(t);
+								normalized.add(nestedOr);
+								for (Operand br : rightR) {
+
+									nestedOr.add(br);
+								}
+							}
+						}
 					}
 					// in.add(left);
 					// second.add(right);
@@ -1304,7 +1301,7 @@ public class SQLQuery {
 	 * unary where conditions. Different table name. shallow cloning of outputs
 	 */
 	public SQLQuery createNormalizedQueryForConditions(List<Operand> conditions, SQLQuery normalized) {
-		//SQLQuery normalized = new SQLQuery();
+		// SQLQuery normalized = new SQLQuery();
 		for (Operand op : conditions) {
 			if (op instanceof BinaryOperand) {
 				BinaryOperand bo = (BinaryOperand) op;
@@ -1368,7 +1365,8 @@ public class SQLQuery {
 					for (NonUnaryWhereCondition nuwc : bwcs) {
 						ops.add(nuwc);
 					}
-					normalized.nestedSelectSubqueries.put(nested.createNormalizedQueryForConditions(ops, new SQLQuery()),
+					normalized.nestedSelectSubqueries.put(
+							nested.createNormalizedQueryForConditions(ops, new SQLQuery()),
 							this.nestedSelectSubqueries.get(nested));
 				}
 			}
@@ -1501,17 +1499,17 @@ public class SQLQuery {
 		}
 
 	}
-	
+
 	public void traverseTables(int i, NamesToAliases n2a, List<String> partialResult, List<List<String>> result,
 			boolean getOnlyFirst, Map<String, Integer> counts) {
 		i++;
 		Table t = this.inputTables.get(i - 1);
-		int previousCounts=0;
-		if(counts.containsKey(t.getName())){
-			previousCounts=1+counts.get(t.getName());
+		int previousCounts = 0;
+		if (counts.containsKey(t.getName())) {
+			previousCounts = 1 + counts.get(t.getName());
 		}
-		for (int a=previousCounts;a<n2a.getAllAliasesForBaseTable(t.getlocalName()).size();a++) {
-			String alias=n2a.getAllAliasesForBaseTable(t.getlocalName()).get(a);
+		for (int a = previousCounts; a < n2a.getAllAliasesForBaseTable(t.getlocalName()).size(); a++) {
+			String alias = n2a.getAllAliasesForBaseTable(t.getlocalName()).get(a);
 			if (partialResult.contains(alias)) {
 				continue;
 			}
@@ -1886,7 +1884,7 @@ public class SQLQuery {
 				// not federated
 				return;
 			}
-			
+
 			for (int i = 0; i < this.getInputTables().size(); i++) {
 				Table t = this.getInputTables().get(i);
 				Table replace = new Table();
@@ -1894,8 +1892,22 @@ public class SQLQuery {
 				String schema = DBInfoReaderDB.dbInfo.getDB(db).getSchema();
 				replace.setName(t.getName().substring(db.length() + 1));
 				replace.setAlias(t.getAlias());
-				if (!replace.getName().startsWith(schema + ".")) {
-					replace.setName(schema + "." + replace.getName());
+				if (this.getMadisFunctionString().startsWith("postgres")) {
+					if (!replace.getName().endsWith("\"")){
+						if(!replace.getName().startsWith(schema + ".")) {
+							replace.setName(schema + "."+"\""+replace.getName()+"\"");
+					}
+						else{
+							String name=replace.getName().replace(schema + ".", "");
+							name=schema + "."+"\""+name+"\"";
+							replace.setName(name);
+						}
+						
+					}
+				} else {
+					if (!replace.getName().startsWith(schema + ".")) {
+						replace.setName(schema + "." + replace.getName());
+					}
 				}
 				this.inputTables.remove(i);
 				this.inputTables.add(i, replace);
@@ -2057,8 +2069,6 @@ public class SQLQuery {
 	public Column getRepartition() {
 		return this.repartitionColumn;
 	}
-
-	
 
 	public void setExistsInCache(boolean b) {
 		this.existsInCache = b;
@@ -2237,10 +2247,14 @@ public class SQLQuery {
 				boolean newb = true;
 				if (newb) {
 					// output.append("(");
+					String joinKeyword = " JOIN ";
+					if (DecomposerUtils.USE_CROSS_JOIN) {
+						joinKeyword = " CROSS JOIN ";
+					}
 					for (Table t : getInputTables()) {
 
 						if (t.getAlias().startsWith("siptable")) {
-							separator = " CROSS JOIN  ";
+							separator = joinKeyword;
 						}
 						output.append(separator);
 						output.append(t.toString());
@@ -2511,19 +2525,20 @@ public class SQLQuery {
 	}
 
 	public void addColumnAliases() {
-		//when we have only 1 input table, make sure all columns have table aliases
-		String alias=this.getInputTables().get(0).getAlias();
-		for(Column c:this.getAllColumns()){
-			if(c.getAlias()==null){
+		// when we have only 1 input table, make sure all columns have table
+		// aliases
+		String alias = this.getInputTables().get(0).getAlias();
+		for (Column c : this.getAllColumns()) {
+			if (c.getAlias() == null) {
 				c.setAlias(alias);
 			}
 		}
-		
+
 	}
 
 	public boolean containsIputTable(String alias) {
-		for(Table t:this.inputTables){
-			if (t.getAlias().equals(alias)){
+		for (Table t : this.inputTables) {
+			if (t.getAlias().equals(alias)) {
 				return true;
 			}
 		}
@@ -2532,7 +2547,7 @@ public class SQLQuery {
 
 	public List<List<String>> getListOfAliases(NamesToAliases n2a, boolean getOnlyFirst, Map<String, Integer> counts) {
 		List<List<String>> result = new ArrayList<List<String>>();
-		Map<String, Integer> countsCloned=new HashMap<String, Integer>(counts);
+		Map<String, Integer> countsCloned = new HashMap<String, Integer>(counts);
 		if (this.inputTables.isEmpty()) {
 			return result;
 		}
@@ -2548,8 +2563,7 @@ public class SQLQuery {
 				n2a.getGlobalAliasForBaseTable(t.getlocalName(), 0);
 			}
 		}
-		
-		
+
 		// for (int i=0;i<this.inputTables.size();i++) {
 		// Table t=this.inputTables.get(i);
 
@@ -2563,21 +2577,20 @@ public class SQLQuery {
 		return result;
 	}
 
-    public boolean isDrop() {
-        return isDrop;
-    }
+	public boolean isDrop() {
+		return isDrop;
+	}
 
-    public void setDrop(boolean isDrop) {
-        this.isDrop = isDrop;
-    }
+	public void setDrop(boolean isDrop) {
+		this.isDrop = isDrop;
+	}
 
-    public boolean isSelectAllFromInternal() {
-        return ((this.isSelectAll() || this.getOutputs().isEmpty())&&!this.isFederated&&this.inputTables.size()==1&&this.binaryWhereConditions.isEmpty()
-                &&this.unaryWhereConditions.isEmpty()&&this.nestedSelectSubqueries.isEmpty()
-                &&this.unionqueries.isEmpty()&&!this.getInputTables().get(0).isFederated()
-                &&this.orderBy.isEmpty()&&this.groupBy.isEmpty()&& this.nestedNode==null);
-    }
-
-
+	public boolean isSelectAllFromInternal() {
+		return ((this.isSelectAll() || this.getOutputs().isEmpty()) && !this.isFederated && this.inputTables.size() == 1
+				&& this.binaryWhereConditions.isEmpty() && this.unaryWhereConditions.isEmpty()
+				&& this.nestedSelectSubqueries.isEmpty() && this.unionqueries.isEmpty()
+				&& !this.getInputTables().get(0).isFederated() && this.orderBy.isEmpty() && this.groupBy.isEmpty()
+				&& this.nestedNode == null);
+	}
 
 }
