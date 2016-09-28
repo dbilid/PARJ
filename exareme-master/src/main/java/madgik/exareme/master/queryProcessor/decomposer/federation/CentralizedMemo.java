@@ -23,17 +23,7 @@ public class CentralizedMemo {
     }
 
 
-    public void setPlanUsed(MemoKey e) {
-        CentralizedMemoValue v = getMemoValue(e);
-        v.addUsed(1);
-        SinglePlan p = v.getPlan();
-        for (int i = 0; i < p.noOfInputPlans(); i++) {
-            MemoKey sp = p.getInputPlan(i);
-            setPlanUsed(sp);
-
-        }
-
-    }
+  
 
     public void put(Node e, SinglePlan resultPlan, Column c, int i) {
         MemoKey k = new MemoKey(e, c);

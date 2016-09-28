@@ -1830,16 +1830,16 @@ public class SinlgePlanDFLGenerator {
 		if (e.getDescendantBaseTables().size() == 1) {
 			return true;
 		}
-		return doesNotContainMultiUsedInput(v, visited);
+		return doesNotContainMoreUsedInput(v, visited, v.getUsed());
 	}
 
-	private boolean doesNotContainMultiUsedInput(MemoValue v, HashMap<MemoKey, SQLQuery> visited) {
+	private boolean doesNotContainMoreUsedInput(MemoValue v, HashMap<MemoKey, SQLQuery> visited, int times) {
 		for (int i = 0; i < v.getPlan().noOfInputPlans(); i++) {
 			MemoValue inputV =  memo.getMemoValue(v.getPlan().getInputPlan(i));
-			if (inputV.isMultiUsed() || visited.containsKey(v.getPlan().getInputPlan(i))) {
+			if (inputV.getUsed()>times || visited.containsKey(v.getPlan().getInputPlan(i))) {
 				return false;
 			}
-			if (!doesNotContainMultiUsedInput(inputV, visited)) {
+			if (!doesNotContainMoreUsedInput(inputV, visited, times)) {
 				return false;
 			}
 		}

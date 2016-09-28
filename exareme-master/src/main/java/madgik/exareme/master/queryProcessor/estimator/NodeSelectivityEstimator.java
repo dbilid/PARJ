@@ -102,8 +102,24 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				BinaryOperand bo = (BinaryOperand) o.getObject();
 				NonUnaryWhereCondition nuwc = QueryUtils.getJoinCondition(bo, o);
 				estimateJoin(n, nuwc, o.getChildAt(0), o.getChildAt(1));
+
+			} else if (o.getOpCode() == Node.ORDERBY) {
+				estimateOrderBy(n);
 			}
 		}
+
+	}
+
+	private void estimateOrderBy(Node n) {
+		NodeInfo nested = new NodeInfo();
+		RelInfo rel = n.getChildAt(0).getChildAt(0).getNodeInfo().getResultRel();
+		// RelInfo rel =
+		// this.planInfo.get(n.getHashId()).getResultRel();
+		RelInfo resultRel = new RelInfo(rel);
+		nested.setNumberOfTuples(rel.getNumberOfTuples());
+		nested.setTupleLength(rel.getTupleLength());
+		nested.setResultRel(resultRel);
+		n.setNodeInfo(nested);
 
 	}
 
@@ -160,18 +176,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 					filterValue = StatUtils.hashString(con);
 					String newSt = "";
-					
-					//if (con.startsWith("\'")) {
-						newSt = con.replaceAll("\'", "").replaceAll("%", "");
-						if(uwc.getOperand().toString().toLowerCase().contains("lower")){
-							newSt=newSt.toUpperCase();
-						}
-						if(uwc.getOperand().toString().toLowerCase().contains("upper")){
-							newSt=newSt.toLowerCase();
-						}
-						filterValue = StatUtils.hashString(newSt);
-					//}
-					log.debug("LIKE operator, removing % :"+newSt);
+
+					// if (con.startsWith("\'")) {
+					newSt = con.replaceAll("\'", "").replaceAll("%", "");
+					if (uwc.getOperand().toString().toLowerCase().contains("lower")) {
+						newSt = newSt.toUpperCase();
+					}
+					if (uwc.getOperand().toString().toLowerCase().contains("upper")) {
+						newSt = newSt.toLowerCase();
+					}
+					filterValue = StatUtils.hashString(newSt);
+					// }
+					log.debug("LIKE operator, removing % :" + newSt);
 					resultHistogram.equal(filterValue);
 
 					ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
@@ -295,11 +311,11 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		NodeInfo ni = new NodeInfo();
 		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
 		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
-		if(!(nuwc.getLeftOp() instanceof Column)){
-			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getLeftOp());
+		if (!(nuwc.getLeftOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getLeftOp());
 		}
-		if(!(nuwc.getRightOp() instanceof Column)){
-			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getRightOp());
+		if (!(nuwc.getRightOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getRightOp());
 		}
 
 		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);
@@ -357,11 +373,11 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		NodeInfo ni = new NodeInfo();
 		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
 		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
-		if(!(nuwc.getLeftOp() instanceof Column)){
-			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getLeftOp());
+		if (!(nuwc.getLeftOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getLeftOp());
 		}
-		if(!(nuwc.getRightOp() instanceof Column)){
-			log.debug("Operand not Column. Selectivity estimation may not be accurate:"+nuwc.getRightOp());
+		if (!(nuwc.getRightOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getRightOp());
 		}
 		// String equals = nuwc.getOperator();
 
@@ -460,6 +476,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		}
 		NodeInfo ni = new NodeInfo();
 		// TODO: fix nodeInfo
+		ni.setResultRel(children.get(0).getNodeInfo().getResultRel());
 		ni.setNumberOfTuples(numOfTuples);
 		ni.setTupleLength(tupleLength);
 		n.setNodeInfo(ni);

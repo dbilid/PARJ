@@ -601,7 +601,7 @@ public class QueryDecomposer {
 			// if s is an "empty" select * do not add it and rename the nested
 			// with the s table name??
 			if (isNestedSelectAll) {
-				union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
+				//union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
 			} else {
 				// decompose s changing the nested from tables
 
@@ -2012,7 +2012,7 @@ public class QueryDecomposer {
 				getUsedSips(e.getChildAt(memo.getMemoValue(new MemoKey(e, null)).getPlan().getChoice()), memo,
 						unionnumber);
 			}
-
+			memo.setPlanUsed(new MemoKey(e, null));
 			unionnumber++;
 			// e.setMaterialised(true);
 			// e.setPlanMaterialized(resultPlan.getPath().getPlanIterator());
