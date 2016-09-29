@@ -20,6 +20,7 @@ import org.apache.log4j.Logger;
 import com.google.common.hash.HashCode;
 
 import java.io.File;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -238,7 +239,7 @@ public class QueryDecomposer {
 				}
 			}
 			ExecutorService es = Executors.newFixedThreadPool(6);
-
+			List<DataImporter> dis=new ArrayList<DataImporter>();
 			for (int i = 0; i < res.size(); i++) {
 				SQLQuery s = res.get(i);
 				if (s.isFederated()) {
@@ -260,6 +261,7 @@ public class QueryDecomposer {
 						}
 					}
 					DataImporter di = new DataImporter(s, this.db, dbinfo);
+					dis.add(di);
 					di.setAddToRegisrty(addToregistry);
 					es.execute(di);
 					if (addToregistry) {
@@ -277,6 +279,11 @@ public class QueryDecomposer {
 			}
 			es.shutdown();
 			boolean finished = es.awaitTermination(160, TimeUnit.MINUTES);
+			for(DataImporter di:dis){
+				if(di.getError()!=null){
+					throw new SQLException(di.getError());
+				}
+			}
 
 		}
 		res.get(res.size() - 1).setTemporaryTableName(this.initialQuery.getTemporaryTableName());
@@ -601,7 +608,7 @@ public class QueryDecomposer {
 			// if s is an "empty" select * do not add it and rename the nested
 			// with the s table name??
 			if (isNestedSelectAll) {
-				//union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
+				union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
 			} else {
 				// decompose s changing the nested from tables
 
