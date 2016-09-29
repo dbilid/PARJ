@@ -417,7 +417,8 @@ public class ConjunctiveQueryDecomposer {
 	private Node addRemainingJoins(ColumnsToTableNames<Node> c2n2, NodeHashValues hashes, List<Set<String>> joinSets, Node root, boolean useJoinSets) throws SQLException {
 		while (!this.remainingWhereConditions.isEmpty()) {
 			NonUnaryWhereCondition bwc = this.remainingWhereConditions.get(0);
-			if(rangeJoins!=null){
+			boolean addRangeJoins=true;
+			if(addRangeJoins&&rangeJoins!=null){
 				for(NonUnaryWhereCondition range:rangeJoins){
 					//make sure that all columns for each operand come from the same node
 					boolean allColumnComeFromSameNode=true;

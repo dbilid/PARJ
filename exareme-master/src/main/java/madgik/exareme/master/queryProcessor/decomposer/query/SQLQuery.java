@@ -1912,6 +1912,20 @@ public class SQLQuery {
 				this.inputTables.remove(i);
 				this.inputTables.add(i, replace);
 			}
+			if (this.getMadisFunctionString().startsWith("oracle")) {
+				for(Column c:this.groupBy){
+					String n=c.getName();
+					if(!n.startsWith("\"")){
+						c.setName("\""+n+"\"");
+					}
+				}
+				for(ColumnOrderBy c:this.orderBy){
+					String n=c.getName();
+					if(!n.startsWith("\"")){
+						c.setName("\""+n+"\"");
+					}
+				}
+			}
 			this.setFederated(true);
 			this.setMadisFunctionString(DBInfoReaderDB.dbInfo.getDB(dbID).getMadisString());
 		}

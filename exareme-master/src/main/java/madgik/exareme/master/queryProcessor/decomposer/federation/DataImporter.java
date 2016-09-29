@@ -24,6 +24,7 @@ public class DataImporter implements Runnable {
 	private boolean addToRegistry;
 	private String fedSQLTrue;
 	private String fedSQLFalse;
+	private String error;
 	Map<String, String> correspondingOutputs;
 	
 	private static final Logger log = Logger.getLogger(DataImporter.class);
@@ -210,6 +211,8 @@ public class DataImporter implements Runnable {
 			e.printStackTrace();
 			log.error("Could not import data from endpoint\n" + e.getMessage() +
 					" from query:"+fedSQLTrue);
+			error="Could not import data from endpoint\n" + e.getMessage() +
+					" from query:"+fedSQLTrue;
 			return;
 		}
 
@@ -263,7 +266,9 @@ public class DataImporter implements Runnable {
 		this.fedSQLTrue = fedSQL;
 		this.fedSQLFalse = fedSQL;
 	}
-	
+	public String getError(){
+		return error;
+	}
 	
 
 }
