@@ -44,7 +44,7 @@ public class HttpAsyncOptiqueHistoricalQueriesHandler
     static {
         try {
             numberOfMachines = ArtRegistryLocator.getArtRegistryProxy().getContainers().length;
-            log.info("Number of machines: " + numberOfMachines);
+            //log.info("Number of machines: " + numberOfMachines);
         } catch (RemoteException ex) {
             log.error(ex.getMessage(), ex);
         }

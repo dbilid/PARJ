@@ -1889,6 +1889,7 @@ public class SQLQuery {
 				Table t = this.getInputTables().get(i);
 				Table replace = new Table();
 				String db = t.getDBName();
+				//System.out.println(db);
 				String schema = DBInfoReaderDB.dbInfo.getDB(db).getSchema();
 				replace.setName(t.getName().substring(db.length() + 1));
 				replace.setAlias(t.getAlias());
@@ -2607,4 +2608,31 @@ public class SQLQuery {
 				&& this.nestedNode == null);
 	}
 
+	public Set<Column> getAllJoinColumns() {
+		Set<Column> result = new HashSet<Column>();
+		for (NonUnaryWhereCondition nuwc : this.getBinaryWhereConditions()) {
+			if (nuwc.getOperator().equals("=")) {
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())){
+					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
+				}
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
+					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
+				}
+				
+			}
+			else{
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())&&!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
+					//range join
+					return result;
+				}
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())){
+					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
+				}
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
+					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
+				}
+			}
+		}
+		return result;
+	}
 }

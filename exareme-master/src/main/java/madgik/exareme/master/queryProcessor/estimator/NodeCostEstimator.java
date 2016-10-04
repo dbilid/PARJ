@@ -35,6 +35,7 @@ public class NodeCostEstimator {
                 return estimateJoin(nuwc, o.getChildAt(0), o.getChildAt(1));
             } catch (Exception ex) {
                 log.error("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
+                
                 //System.out.println("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
                 return 1.0;
             }

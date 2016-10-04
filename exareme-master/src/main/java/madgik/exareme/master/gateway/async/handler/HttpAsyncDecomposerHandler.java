@@ -38,14 +38,21 @@ import org.apache.http.*;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.nio.DefaultNHttpClientConnection;
+import org.apache.http.impl.nio.DefaultNHttpServerConnection;
+import org.apache.http.nio.NHttpConnection;
 import org.apache.http.nio.protocol.*;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
+import org.mortbay.jetty.HttpStatus;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.sql.Connection;
@@ -70,6 +77,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
     private static final boolean useCache = AdpDBProperties.getAdpDBProps()
             .getString("db.cache").equals("true");
     private static NamesToAliases n2a = new NamesToAliases();
+    private static boolean killPython=false;
 
 	public HttpAsyncDecomposerHandler() {
 	}
@@ -86,6 +94,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 			throws HttpException, IOException {
 		final HttpResponse httpResponse = httpExchange.getResponse();
 		log.trace("Parsing request ...");
+		
 		String method = httpRequest.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
 		if (!"GET".equals(method) && !"POST".equals(method))
 			throw new UnsupportedHttpVersionException(method + "not supported.");
@@ -110,6 +119,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 		new Thread() {
 			@Override
 			public void run() {
+				DefaultNHttpServerConnection serverCon=(DefaultNHttpServerConnection)context.getAttribute("http.connection");
 				try {
 					if (query.startsWith("addFederatedEndpoint")) {
 
@@ -524,7 +534,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
                                 d = null;
                                 nse = null;
                                 hashes = null;
-
+                                
 
                                 HashMap<String, Pair<byte[], String>> hashQueryMap = new HashMap<>();
                                 if (a) {
@@ -535,7 +545,11 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
                                     }
 
                                 }
-                                if (subqueries.size() == 1 && subqueries.get(0).existsInCache()) {
+                                if((timeoutMs>0&& System.currentTimeMillis() - start > timeoutMs)||serverCon.getStatus()==NHttpConnection.CLOSED){
+                                	log.debug("query time out or cancel");
+                                	resultTblName=null;
+                                }
+                                else if (subqueries.size() == 1 && subqueries.get(0).existsInCache()) {
                                     resultTblName = subqueries.get(0).getInputTables().get(0).getAlias();
                                     //System.out.println("namesss "+resultTblName);
                                     Cache cache = new Cache(props);
@@ -593,12 +607,45 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
                                 }
                             }
+                            
+                    		
                             if(status!=null){
 								while (status.hasFinished() == false && status.hasError() == false) {
-									if (timeoutMs > 0) {
+									//System.out.println("Status:::"+c.getStatus());
+									if (timeoutMs > 0||serverCon.getStatus()==NHttpConnection.CLOSED) {
 										long timePassed = System.currentTimeMillis() - start;
-										if (timePassed > timeoutMs) {
-											status.close();
+										
+										if (timePassed > timeoutMs||serverCon.getStatus()==NHttpConnection.CLOSED) {
+											
+											//status.close();
+											if(killPython){
+												log.debug("killing python");
+												String[] command = {"/bin/sh", "bin/killPython.sh"};
+										        ProcessBuilder probuilder = new ProcessBuilder( command );
+
+										        //You can set up your work directory
+										        probuilder.directory(new File("/opt/exareme/ADPControl/"));
+										        
+										        Process process = probuilder.start();
+										        
+										        //Read out dir output
+										        InputStream is = process.getInputStream();
+										        InputStreamReader isr = new InputStreamReader(is);
+										        BufferedReader br = new BufferedReader(isr);
+										        String line;
+										        while ((line = br.readLine()) != null) {
+										            log.debug(line);
+										        }
+										        
+										        //Wait to get exit value
+										        try {
+										            int exitValue = process.waitFor();
+										            log.debug("exit value:"+exitValue);
+										        } catch (InterruptedException e) {
+										            // TODO Auto-generated catch block
+										            e.printStackTrace();
+										        }
+											}
 											log.warn("Time out:" + timeoutMs + " ms passed");
 											throw new RuntimeException("Time out:" + timeoutMs + " ms passed");
 										}

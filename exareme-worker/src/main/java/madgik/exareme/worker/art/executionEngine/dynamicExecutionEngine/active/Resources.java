@@ -36,7 +36,10 @@ public class Resources {
     public void releaseMemory(OperatorEntity op) {
         synchronized (lock) {
             memory += op.memory;
-            Check.True(memory <= 100, "Memory not set correctly: " + memory);
+            if(memory>100){
+            	memory=100;
+            }
+            //Check.True(memory <= 100, "Memory not set correctly: " + memory);
         }
     }
 

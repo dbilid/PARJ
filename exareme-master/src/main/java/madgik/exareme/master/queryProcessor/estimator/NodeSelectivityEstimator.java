@@ -106,8 +106,25 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			} else if (o.getOpCode() == Node.ORDERBY) {
 				estimateOrderBy(n);
 			}
+		 else if (o.getOpCode() == Node.LIMIT) {
+				estimateLimit(n);
+		}
 		}
 
+	}
+
+	private void estimateLimit(Node n) {
+		NodeInfo nested = new NodeInfo();
+		RelInfo rel = n.getChildAt(0).getChildAt(0).getNodeInfo().getResultRel();
+		// RelInfo rel =
+		// this.planInfo.get(n.getHashId()).getResultRel();
+		Integer limit = (Integer)n.getChildAt(0).getObject();
+		RelInfo resultRel = new RelInfo(rel);
+		nested.setNumberOfTuples(limit.doubleValue());
+		nested.setTupleLength(rel.getTupleLength());
+		nested.setResultRel(resultRel);
+		n.setNodeInfo(nested);
+		
 	}
 
 	private void estimateOrderBy(Node n) {

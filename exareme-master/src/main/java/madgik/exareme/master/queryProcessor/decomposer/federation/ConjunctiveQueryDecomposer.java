@@ -91,8 +91,6 @@ public class ConjunctiveQueryDecomposer {
 		// column of the initial query
 		c2n = new ColumnsToTableNames<Node>();
 
-		
-
 		if (initialQuery.getJoinNode() != null) {
 			for(String alias:initialQuery.getJoinNode().getDescendantBaseTables()){
 				c2n.addTable(alias, initialQuery.getJoinNode());
@@ -417,7 +415,7 @@ public class ConjunctiveQueryDecomposer {
 	private Node addRemainingJoins(ColumnsToTableNames<Node> c2n2, NodeHashValues hashes, List<Set<String>> joinSets, Node root, boolean useJoinSets) throws SQLException {
 		while (!this.remainingWhereConditions.isEmpty()) {
 			NonUnaryWhereCondition bwc = this.remainingWhereConditions.get(0);
-			boolean addRangeJoins=true;
+			boolean addRangeJoins=false;
 			if(addRangeJoins&&rangeJoins!=null){
 				for(NonUnaryWhereCondition range:rangeJoins){
 					//make sure that all columns for each operand come from the same node
@@ -933,4 +931,8 @@ public class ConjunctiveQueryDecomposer {
 	List<Table> getInputTables() {
 		return this.initialQuery.getInputTables();
 	}
+	
+
+	
+	
 }

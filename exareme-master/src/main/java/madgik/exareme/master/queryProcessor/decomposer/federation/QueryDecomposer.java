@@ -573,16 +573,20 @@ public class QueryDecomposer {
 		}
 
 		boolean isNestedSelectAll = false;
+		boolean nestedHasSubueries=false;
 		if (s.isSelectAll() && s.getBinaryWhereConditions().isEmpty() && s.getUnaryWhereConditions().isEmpty()
 				&& s.getNestedSelectSubqueries().size() == 1
 				&& !s.getNestedSelectSubqueries().keySet().iterator().next().hasNestedSuqueries()) {
 			isNestedSelectAll = true;
 			SQLQuery nested = s.getNestedSubqueries().iterator().next();
+			nestedHasSubueries=s.hasNestedSuqueries();
 			if (!s.getGroupBy().isEmpty()) {
 				nested.setGroupBy(s.getGroupBy());
+				s.setGroupBy(new ArrayList<Column>());
 			}
 			if (!s.getOrderBy().isEmpty()) {
 				nested.setOrderBy(s.getOrderBy());
+				s.setOrderBy(new ArrayList<ColumnOrderBy>());
 			}
 			if (s.isOutputColumnsDinstict() || !s.isUnionAll()) {
 				union.setObject("UNION");
@@ -607,7 +611,7 @@ public class QueryDecomposer {
 
 			// if s is an "empty" select * do not add it and rename the nested
 			// with the s table name??
-			if (isNestedSelectAll) {
+			if (isNestedSelectAll&&!nestedHasSubueries) {
 				union.addChild(s.getNestedSelectSubqueries().keySet().iterator().next().getNestedNode());
 			} else {
 				// decompose s changing the nested from tables

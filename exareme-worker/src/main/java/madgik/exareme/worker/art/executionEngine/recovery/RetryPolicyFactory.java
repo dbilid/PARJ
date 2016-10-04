@@ -11,7 +11,7 @@ import madgik.exareme.worker.art.executionEngine.recovery.retryPolicy.SimpleRetr
  */
 public class RetryPolicyFactory {
 
-    private static RetryPolicy defaultRetryPolicy = new SimpleRetryPolicy(3);
+    private static RetryPolicy defaultRetryPolicy = new SimpleRetryPolicy(1);
 
     private RetryPolicyFactory() {
     }

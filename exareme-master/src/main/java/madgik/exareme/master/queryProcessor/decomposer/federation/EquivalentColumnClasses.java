@@ -142,5 +142,9 @@ public class EquivalentColumnClasses {
     	return this.classes.keySet();
     }
 
+	public boolean isEmpty() {
+		return this.classes.isEmpty();
+	}
+
 
 }

@@ -462,6 +462,7 @@ public final class Histogram {
                 nodv = combinerSubBucketDiffVals;
 
             combiningBucket.setDiffValues(nodv);
+            
             combiningBucket.setFrequency(resultFreq);
         }
     }
@@ -689,6 +690,7 @@ public final class Histogram {
 
 
             combiningBucket.setDiffValues(nodv);
+            
             combiningBucket.setFrequency(resultFreq);
         }
     }
@@ -745,6 +747,7 @@ public final class Histogram {
                 nodv = combinerSubBucketDiffVals;
 
             combiningBucket.setDiffValues(nodv);
+           
             combiningBucket.setFrequency(resultFreq);
         }
 	}

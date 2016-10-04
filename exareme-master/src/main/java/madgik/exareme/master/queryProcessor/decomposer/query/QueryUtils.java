@@ -102,7 +102,7 @@ public class QueryUtils {
 			CastNode cNode = (CastNode) node;
 			// parses for some reason parses CAST AS CHAR -> CAST AS CHAR(1)
 			if (cNode.getType().getSQLstring().equalsIgnoreCase("char(1)")) {
-				CastOperand co = new CastOperand(QueryUtils.getOperandFromNode(cNode.getCastOperand()), "CHAR(8000)");
+				CastOperand co = new CastOperand(QueryUtils.getOperandFromNode(cNode.getCastOperand()), "CHAR(1000)");
 				result = co;
 			} else {
 				CastOperand co = new CastOperand(QueryUtils.getOperandFromNode(cNode.getCastOperand()),
