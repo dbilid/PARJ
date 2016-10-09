@@ -84,7 +84,7 @@ public class SQLQuery {
 		temporary = true;
 		outputColumnsDinstict = false;
 		noOfPartitions = 1;
-		isUnionAll = false;
+		isUnionAll = true;
 		hasUnionRootNode = false;
 		isStringSQL = false;
 		isBaseTable = false;
@@ -1142,7 +1142,7 @@ public class SQLQuery {
 				unions.add(next);
 			}
 			// this.setUnionAlias(this.getResultTableName());
-			this.setUnionAll(true);
+			//this.setUnionAll(true);
 			this.setUnionqueries(unions);
 			this.setSelectAll(true);
 			this.setBinaryWhereConditions(new ArrayList<NonUnaryWhereCondition>());

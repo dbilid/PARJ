@@ -107,6 +107,7 @@ public class QueryDecomposer {
 			if (initialQuery.isOutputColumnsDinstict()) {
 				union.setObject(("UNION"));
 				union.setOperator(Node.UNION);
+				initialQuery.setIsUnionAll(false);
 			} else {
 				union.setObject(("UNIONALL"));
 				union.setOperator(Node.UNIONALL);
@@ -542,6 +543,7 @@ public class QueryDecomposer {
 				}
 			}
 			u.normalizeWhereConditions();
+			u.setUnionAll(this.initialQuery.isUnionAll());
 			if (u.hasNestedSuqueries()) {
 				decomposeSubquery(u);
 			} else {
@@ -642,6 +644,7 @@ public class QueryDecomposer {
 
 	public void addNestedToDAG(SQLQuery nested, SQLQuery parent, boolean isNestedSelectAll) throws Exception {
 		nested.normalizeWhereConditions();
+		nested.setUnionAll(parent.isUnionAll());
 		if (nested.hasNestedSuqueries()) {
 			decomposeSubquery(nested);
 		} else {

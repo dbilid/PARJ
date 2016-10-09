@@ -717,8 +717,8 @@ public class SinlgePlanDFLGenerator {
 			if (unions.size() > 1) {
 				tempResult.add(current);
 				current.setUnionqueries(unions);
-				if (op.getOpCode() == Node.UNIONALL) {
-					current.setUnionAll(true);
+				if (op.getOpCode() == Node.UNION) {
+					current.setUnionAll(false);
 				}
 				visited.put(k, current);
 				current.setHashId(e.getHashId());
@@ -1119,8 +1119,8 @@ public class SinlgePlanDFLGenerator {
 			if (op.getChildren().size() > 1) {
 				tempResult.add(current);
 				current.setUnionqueries(unions);
-				if (op.getOpCode() == Node.UNIONALL) {
-					current.setUnionAll(true);
+				if (op.getOpCode() == Node.UNION) {
+					current.setUnionAll(false);
 				}
 				visited.put(k, current);
 				current.setHashId(e.getHashId());
@@ -1622,8 +1622,8 @@ public class SinlgePlanDFLGenerator {
 			if (unions.size() > 1) {
 				tempResult.add(current);
 				current.setUnionqueries(unions);
-				if (op.getOpCode() == Node.UNIONALL) {
-					current.setUnionAll(true);
+				if (op.getOpCode() == Node.UNION) {
+					current.setUnionAll(false);
 				}
 				visited.put(k, current);
 				current.setHashId(e.getHashId());
@@ -2103,8 +2103,8 @@ public class SinlgePlanDFLGenerator {
 			if (op.getChildren().size() > 1) {
 				tempResult.add(current);
 				current.setUnionqueries(unions);
-				if (op.getOpCode() == Node.UNIONALL) {
-					current.setUnionAll(true);
+				if (op.getOpCode() == Node.UNION) {
+					current.setUnionAll(false);
 				}
 				visited.put(k, current);
 				current.setHashId(e.getHashId());
