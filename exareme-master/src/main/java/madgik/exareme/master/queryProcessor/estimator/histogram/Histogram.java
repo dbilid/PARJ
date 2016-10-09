@@ -441,6 +441,7 @@ public final class Histogram {
             .lastKey()) {
 
             double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency();
+            
             if(Double.isInfinite(resultFreq)){
             	log.error("Result Frequency is Infinite");
             	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();

@@ -179,7 +179,11 @@ public class RelInfo {
 		for (AttrInfo attr : this.attrIndex.values()) {
 			if (!attr.getAttrName().equals(attrName)) {
 				recTableDiff = numOfTuples - attr.getHistogram().numberOfTuples();
+				//if(recTableDiff<0){
+				//	recTableDiff=0;
+				//}
 				percentage = recTableDiff / attr.getHistogram().numberOfTuples();
+				
 				if (Double.isInfinite(percentage)) {
 					percentage = Double.MAX_VALUE;
 				}
@@ -196,7 +200,9 @@ public class RelInfo {
 						if (!entry.getValue().equals(Bucket.FINAL_HISTOGRAM_BUCKET)) {
 							double frequency = entry.getValue().getFrequency()
 									+ percentage * entry.getValue().getFrequency();
-
+							//if(frequency<1.0){
+							//	frequency=1.0;
+							//}
 							entry.getValue().setFrequency(frequency);
 						}
 					}

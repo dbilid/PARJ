@@ -1142,7 +1142,7 @@ public class SQLQuery {
 				unions.add(next);
 			}
 			// this.setUnionAlias(this.getResultTableName());
-			this.setUnionAll(false);
+			this.setUnionAll(true);
 			this.setUnionqueries(unions);
 			this.setSelectAll(true);
 			this.setBinaryWhereConditions(new ArrayList<NonUnaryWhereCondition>());

@@ -1834,6 +1834,7 @@ public class SinlgePlanDFLGenerator {
 	}
 
 	private boolean doesNotContainMoreUsedInput(MemoValue v, HashMap<MemoKey, SQLQuery> visited, int times) {
+		
 		for (int i = 0; i < v.getPlan().noOfInputPlans(); i++) {
 			MemoValue inputV =  memo.getMemoValue(v.getPlan().getInputPlan(i));
 			if (inputV.getUsed()>times || visited.containsKey(v.getPlan().getInputPlan(i))) {

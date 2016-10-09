@@ -120,7 +120,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		// this.planInfo.get(n.getHashId()).getResultRel();
 		Integer limit = (Integer)n.getChildAt(0).getObject();
 		RelInfo resultRel = new RelInfo(rel);
-		nested.setNumberOfTuples(limit.doubleValue());
+		if(limit.doubleValue()>rel.getNumberOfTuples()){
+			nested.setNumberOfTuples(rel.getNumberOfTuples());
+		}
+		else{
+			nested.setNumberOfTuples(limit.doubleValue());
+		}
+		
 		nested.setTupleLength(rel.getTupleLength());
 		nested.setResultRel(resultRel);
 		n.setNodeInfo(nested);

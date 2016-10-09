@@ -42,9 +42,15 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
         	try{
             nse.makeEstimationForNode(value);
         	 }catch(Exception ex){
-        		nse=null;
+        		//nse=null;
      			// System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
      			log.error("cannot compute selectivity for node "+value.getObject().toString()+":"+ ex.getMessage());
+     			if(!value.getChildren().isEmpty()){
+     				log.error("with child Operand:"+value.getChildAt(0).getObject().toString());
+     			}
+     			if(!value.getParents().isEmpty()&&value.getFirstParent()!=null){
+     				log.error("with parent Operand:"+value.getFirstParent().getObject().toString());
+     			}
      		 }
         }
         return super

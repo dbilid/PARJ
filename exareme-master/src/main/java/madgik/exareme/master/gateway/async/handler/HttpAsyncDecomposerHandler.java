@@ -100,7 +100,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 			throw new UnsupportedHttpVersionException(method + "not supported.");
 		String content = "";
 		if (httpRequest instanceof HttpEntityEnclosingRequest) {
-			log.debug("Stream ...");
+			//log.debug("Stream ...");
 			HttpEntity entity = ((HttpEntityEnclosingRequest) httpRequest).getEntity();
 			content = EntityUtils.toString(entity);
 		}
@@ -113,7 +113,9 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 		final int workers = ArtRegistryLocator.getArtRegistryProxy().getContainers().length;
 
 		log.debug("--DB " + dbname);
-		log.debug("--Query " + query);
+		if(!query.startsWith("addFederatedEndpoint(")){
+			log.debug("--Query " + query);
+		}
 
 		log.trace("Decomposing ...");
 		new Thread() {

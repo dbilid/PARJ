@@ -207,6 +207,11 @@ public class SQLQueryVisitor extends AbstractVisitor {
 				leftSubquery.addColumnAliases();
 			}
 			pushFiltersToQuery(leftSubquery);
+			if(fs.getCorrelationName()!=null){
+				for(Output o:leftSubquery.getOutputs()){
+					o.setOutputName(fs.getCorrelationName()+"_"+o.getOutputName());
+				}
+			}
 			// List<List<String>> aliases = leftSubquery.getListOfAliases(n2a,
 			// true);
 			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){
@@ -301,6 +306,11 @@ public class SQLQueryVisitor extends AbstractVisitor {
 				rightSubquery.addColumnAliases();
 			}
 			pushFiltersToQuery(rightSubquery);
+			if(fs.getCorrelationName()!=null){
+				for(Output o:rightSubquery.getOutputs()){
+					o.setOutputName(fs.getCorrelationName()+"_"+o.getOutputName());
+				}
+			}
 			// List<List<String>> aliases = rightSubquery.getListOfAliases(n2a,
 			// true);
 			// for(List<String> aliases:initialQuery.getListOfAliases(n2a)){

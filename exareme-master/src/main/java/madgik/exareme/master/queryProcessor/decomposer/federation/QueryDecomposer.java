@@ -763,8 +763,9 @@ public class QueryDecomposer {
 						boolean useCommutativity = true;
 						if (onlyLeft) {
 							for (Node cc : commutativity.getChildren()) {
-								Table t = (Table) cc.getObject();
-								if (t.getName().startsWith("table")) {
+								//Table t = (Table) cc.getObject();
+                                                                //if (t.getName().startsWith("table")) {
+								if (cc.getDescendantBaseTables().size()>1) {
 									useCommutativity = false;
 									break;
 								}
