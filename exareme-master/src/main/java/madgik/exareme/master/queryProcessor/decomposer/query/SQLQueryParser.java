@@ -64,7 +64,8 @@ public class SQLQueryParser {
         if (node instanceof InsertNode) {
             InsertNode in = (InsertNode) node;
             ResultSetNode a = in.getResultSetNode();
-            SQLQueryVisitor visitor = new SQLQueryVisitor(query, hashes);
+            SQLQueryVisitor visitor = new SQLQueryVisitor(query, hashes, n2a,
+                    refCols);
             a.accept(visitor);
             query.setTemporaryTableName(in.getTargetTableName().getTableName());
             return query;

@@ -2101,7 +2101,7 @@ public class SQLQuery {
 				while (result.containsKey(shortOutput)) {
 					shortOutput = shortOutput.substring(0, shortOutput.length() - 1);
 				}
-				result.put(shortOutput.toUpperCase(), o.getOutputName().toUpperCase());
+				result.put(shortOutput.toUpperCase(), o.getOutputName());
 				o.setOutputName(shortOutput);
 			}
 		}

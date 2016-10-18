@@ -9,6 +9,7 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.PartitionCols;
 import madgik.exareme.master.queryProcessor.decomposer.dag.ResultList;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
+import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 import madgik.exareme.utils.properties.AdpDBProperties;
 
 import java.util.*;
@@ -190,22 +191,31 @@ public class SinlgePlanDFLGenerator {
 			if (qs.size() > 1) {
 				List<SQLQuery> unions = qs.get(qs.size() - 1).getUnionqueries();
 				for (int i = qs.size() - 2; i > -1; i--) {
-
+					//Set<SQLQuery> queriesUsingQ=new HashSet<SQLQuery>();
 					SQLQuery q = qs.get(i);
 					if (unions.contains(q)) {
 						continue;
 					}
+					//log.debug("removing from:"+q.getTemporaryTableName());
+					//log.debug("number:"+i);
 					List<Column> outputs = new ArrayList<Column>();
 					for (Output o : q.getOutputs()) {
 						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
 					}
+					//log.debug("outputs:"+outputs);
 					for (int j = qs.size() - 1; j > i; j--) {
-						if(qs.get(j).getOutputs().isEmpty()&&qs.get(j).containsIputTable(q.getTemporaryTableName())){
+						if(qs.get(j).containsIputTable(q.getTemporaryTableName())){
+						if(qs.get(j).getOutputs().isEmpty()){
 							outputs.clear();
 							break;
 						}
+						//else{
+						///	queriesUsingQ.add(qs.get(j));
+						//}
+						}
 						List<Column> cols = qs.get(j).getAllColumns();
 						for (Column c2 : cols) {
+							//log.debug(c2);
 							if (c2.getBaseTable() != null) {
 								outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
 							} else {
@@ -222,6 +232,7 @@ public class SinlgePlanDFLGenerator {
 							Output o = q.getOutputs().get(k);
 							if (o.getOutputName().equals(c3.getName())) {
 								Output out=q.getOutputs().get(k);
+								log.debug("removing output:"+o);
 								q.getOutputs().remove(k);
 								removedOutputs.add(out.getHashID());
 								//q.setHashId(null);
@@ -229,20 +240,46 @@ public class SinlgePlanDFLGenerator {
 							}
 						}
 					}
-					if(!removedOutputs.isEmpty()){
+					if(!removedOutputs.isEmpty()&&q.getHashId()!=null){
 						HashCode outputsAll=Hashing.combineUnordered(removedOutputs);
 						List<HashCode> newHashForQuery=new ArrayList<HashCode>();
 						newHashForQuery.add(q.getHashId());
 						newHashForQuery.add(Hashing.sha1().hashBytes("removing outputs".getBytes()));
 						newHashForQuery.add(outputsAll);
 						q.setHashId(Hashing.combineOrdered(newHashForQuery));
+						/*for(SQLQuery using:queriesUsingQ){
+							List<HashCode> newHashForQueryUsing=new ArrayList<HashCode>();
+							newHashForQueryUsing.add(using.getHashId());
+							newHashForQueryUsing.add(Hashing.sha1().hashBytes("removing outputs".getBytes()));
+							newHashForQueryUsing.add(outputsAll);
+							using.setHashId(Hashing.combineOrdered(newHashForQueryUsing));
+						}*/
 						if (useCache && registry.containsKey(newHashForQuery)) {
 							String tableInRegistry = registry.get(newHashForQuery).getName();
-							//make q select * from query in cache
-							q.setHashId(null);
-							q.removeInfo();
-							q.getInputTables().add(new Table(tableInRegistry, tableInRegistry));
+							String qName= q.getTemporaryTableName();
+							for (int j = qs.size() - 1; j > i; j--) {
+								for(Table t:qs.get(j).getInputTables()){
+									if(t.getName().equals(qName)){
+										t.setName(tableInRegistry);
+									}
+								}
+							}
+							qs.remove(i);
 						}
+						
+					}
+					if(removedOutputs.isEmpty()&&q.existsInCache()){
+						//remove q and replace with the cached tablename
+						String tablename=q.getInputTables().get(0).getName();
+						String qName= q.getTemporaryTableName();
+						for (int j = qs.size() - 1; j > i; j--) {
+							for(Table t:qs.get(j).getInputTables()){
+								if(t.getName().equals(qName)){
+									t.setName(tablename);
+								}
+							}
+						}
+						qs.remove(i);
 						
 					}
 				}
@@ -905,24 +942,6 @@ public class SinlgePlanDFLGenerator {
 
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
-
-		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			String tableInRegistry = registry.get(e.getHashId()).getName();
-			Table t = new Table(tableInRegistry, tableInRegistry);
-			tempResult.setLastTable(t);
-			SQLQuery cached = new SQLQuery();
-			cached.setTemporaryTableName(tableInRegistry);
-			visited.put(k, cached);
-			cached.setHashId(e.getHashId());
-			current.setExistsInCache(true);
-
-			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tableInRegistry);
-			}
-
-			return;
-		}
-
 		if (visited.containsKey(k) && visited.get(k).isMaterialised()) {
 			tempResult.setLastTable(visited.get(k));
 			tempResult.remove(current);
@@ -931,6 +950,39 @@ public class SinlgePlanDFLGenerator {
 			}
 			return;
 		}
+
+		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
+			madgik.exareme.common.schema.Table t=registry.get(e.getHashId());
+			SQLQuery dummy=new SQLQuery();
+			dummy.setMaterialised(true);
+			String tableInRegistry = t.getName();
+			List<Output> out=Util.getOutputForTable(t.getSqlDefinition(), tableInRegistry);
+			Table r = new Table(tableInRegistry, tableInRegistry);
+			dummy.addInputTable(r);
+			dummy.setOutputs(out);
+			dummy.setOutputColumnsDistinct(true);
+			tempResult.add(dummy);
+			log.debug("adding dummy query:"+dummy.getTemporaryTableName()+" for table in registry:"+tableInRegistry);
+			log.debug("outs:"+out);
+			//tempResult.setLastTable();
+			// tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
+			//SQLQuery cached = new SQLQuery();
+			//cached.setTemporaryTableName(tableInRegistry);
+			visited.put(k, dummy);
+			//dummy.setHashId(null);
+			dummy.setExistsInCache(true);
+			// current.setTemporaryTableName(tableInRegistry);
+			tempResult.setCurrent(current);
+			current.setExistsInCache(true);
+
+			for (String alias : e.getDescendantBaseTables()) {
+				tempResult.trackBaseTableFromQuery(alias, dummy.getTemporaryTableName());
+			}
+
+			return;
+		}
+
+		
 
 		if (!e.getObject().toString().startsWith("table")) {
 			Table t = (Table) k.getNode().getObject();
@@ -1408,19 +1460,27 @@ public class SinlgePlanDFLGenerator {
 		}
 
 		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			String tableInRegistry = registry.get(e.getHashId()).getName();
-			Table t = new Table(tableInRegistry, tableInRegistry);
-			tempResult.setLastTable(t);
+			madgik.exareme.common.schema.Table t=registry.get(e.getHashId());
+			SQLQuery dummy=new SQLQuery();
+			String tableInRegistry = t.getName();
+			List<Output> out=Util.getOutputForTable(t.getSqlDefinition(), tableInRegistry);
+			Table r = new Table(tableInRegistry, tableInRegistry);
+			dummy.addInputTable(r);
+			dummy.setOutputs(out);
+			dummy.setOutputColumnsDistinct(true);
+			tempResult.add(dummy);
+			log.debug("adding dummy query:"+dummy.getTemporaryTableName()+" for table in registry:"+tableInRegistry);
+			//tempResult.setLastTable();
 			// tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
-			SQLQuery cached = new SQLQuery();
-			cached.setTemporaryTableName(tableInRegistry);
-			visited.put(k, cached);
-			cached.setHashId(e.getHashId());
+			//SQLQuery cached = new SQLQuery();
+			//cached.setTemporaryTableName(tableInRegistry);
+			visited.put(k, dummy);
+			dummy.setHashId(e.getHashId());
 			// current.setTemporaryTableName(tableInRegistry);
 			current.setExistsInCache(true);
 
 			for (String alias : e.getDescendantBaseTables()) {
-				tempResult.trackBaseTableFromQuery(alias, tableInRegistry);
+				tempResult.trackBaseTableFromQuery(alias, dummy.getTemporaryTableName());
 			}
 
 			return;
