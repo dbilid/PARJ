@@ -11,6 +11,7 @@ import madgik.exareme.master.queryProcessor.decomposer.federation.Memo;
 import madgik.exareme.master.queryProcessor.decomposer.federation.MemoKey;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
+import madgik.exareme.master.queryProcessor.decomposer.query.Output;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQueryParser;
 import org.apache.log4j.Logger;
@@ -148,6 +149,29 @@ public class Util {
 		for(Node e2:op.getChildren()){
 			setDescNotMaterialised(e2, memo);
 		}
+	}
+
+	public static List<Output> getOutputForTable(String sql, String name) {
+		Connection memory;
+		List<Output> result=new ArrayList<Output>();
+		try {
+			memory = DriverManager.getConnection("jdbc:sqlite::memory:");
+		
+		Statement st=memory.createStatement();
+		st.execute(sql);
+		ResultSet re=memory.getMetaData().getColumns(null, null, name, "%");
+		while(re.next()){
+		result.add(new Output(re.getString(4), new Column(name, re.getString(4))));
+		}
+		re.close();
+		st.close();
+		memory.close();
+		} catch (SQLException e) {
+			log.debug(e.getMessage());
+			return result;
+		}
+		return result;
+		
 	}
 
 }
