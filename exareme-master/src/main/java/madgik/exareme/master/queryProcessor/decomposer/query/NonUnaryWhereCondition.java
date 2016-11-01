@@ -233,7 +233,8 @@ public class NonUnaryWhereCondition implements Operand {
 	@Override
 	public HashCode getHashID() {
 		if(hash==null){
-		List<HashCode> codes=new ArrayList<HashCode>();
+			hash=Hashing.sha1().hashBytes(this.toString().getBytes());
+		/*List<HashCode> codes=new ArrayList<HashCode>();
 		for(Operand o:this.ops){
 			codes.add(o.getHashID());
 		}
@@ -248,7 +249,7 @@ public class NonUnaryWhereCondition implements Operand {
 			HashCode filterAll=Hashing.combineUnordered(filters);
 			codes.add(filterAll);
 		}
-		hash=Hashing.combineOrdered(codes);
+		hash=Hashing.combineOrdered(codes);*/
 	}
 		return hash;
 	}

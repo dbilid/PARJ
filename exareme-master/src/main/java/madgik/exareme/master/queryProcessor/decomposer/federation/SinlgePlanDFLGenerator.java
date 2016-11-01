@@ -76,8 +76,8 @@ public class SinlgePlanDFLGenerator {
 		// }
 
 		if (qs.isEmpty()) {
-			if (useCache && registry.containsKey(rootkey.getNode().getHashId())) {
-				String tableInCache = registry.get(rootkey.getNode().getHashId()).getName();
+			if (useCache && registry.containsKey(rootkey.getNode().computeHashIDExpand())) {
+				String tableInCache = registry.get(rootkey.getNode().computeHashIDExpand()).getName();
 				SQLQuery res = new SQLQuery();
 				res.addInputTable(new Table(tableInCache, tableInCache));
 				res.setExistsInCache(true);
@@ -450,7 +450,7 @@ public class SinlgePlanDFLGenerator {
 
 		SQLQuery last = qs.get(qs.size() - 1);
 		int merge=DecomposerUtils.MERGE_UNIONS;
-		if (merge>0 && last.getUnionqueries().size() > merge) {
+		while (merge>0 && last.getUnionqueries().size() > merge) {
 
 			SQLQuery current = new SQLQuery();
 			// random hash, to fix
@@ -526,15 +526,15 @@ public class SinlgePlanDFLGenerator {
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
 
-		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			String tableInRegistry = registry.get(e.getHashId()).getName();
+		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+			String tableInRegistry = registry.get(e.computeHashIDExpand()).getName();
 			Table t = new Table(tableInRegistry, tableInRegistry);
 			tempResult.setLastTable(t);
 			// tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			SQLQuery cached = new SQLQuery();
 			cached.setTemporaryTableName(tableInRegistry);
 			visited.put(k, cached);
-			cached.setHashId(e.getHashId());
+			cached.setHashId(e.computeHashIDExpand());
 			// current.setTemporaryTableName(tableInRegistry);
 			current.setExistsInCache(true);
 
@@ -562,7 +562,7 @@ public class SinlgePlanDFLGenerator {
 
 			// if (memo.getMemoValue(k).isMaterialised()) {
 			// current.setMaterialised(true);
-			// current.setHashId(e.getHashId());
+			// current.setHashId(e.computeHashIDExpand());
 			// }
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
@@ -576,7 +576,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised()) {
 
 			SQLQuery q2 = new SQLQuery();
-			q2.setHashId(e.getHashId());
+			q2.setHashId(e.computeHashIDExpand());
 			tempResult.setCurrent(q2);
 			current = q2;
 			current.setMaterialised(true);
@@ -701,7 +701,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 			}
 			// boolean existsPartitioned = false;
 			// boolean existsNonPartitioned = false;
@@ -726,7 +726,7 @@ public class SinlgePlanDFLGenerator {
 					tempResult.add(u);
 				}
 
-				u.setHashId(p.getInputPlan(l).getNode().getHashId());
+				u.setHashId(p.getInputPlan(l).getNode().computeHashIDExpand());
 				if (useCache && u.existsInCache()) {
 					String tableInCache = registry.get(u.getHashId()).getName();
 					tempResult.remove(u);
@@ -758,7 +758,7 @@ public class SinlgePlanDFLGenerator {
 					current.setUnionAll(false);
 				}
 				visited.put(k, current);
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
@@ -785,7 +785,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
@@ -844,7 +844,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
-			current.setHashId(p.getInputPlan(0).getNode().getHashId());
+			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 			combineOperatorsAndOutputQueries(p.getInputPlan(0), tempResult, visited);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
@@ -922,7 +922,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised()) {
 			tempResult.add(current);
 			tempResult.setLastTable(current);
-			current.setHashId(e.getHashId());
+			current.setHashId(e.computeHashIDExpand());
 			for (String alias : e.getDescendantBaseTables()) {
 				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
@@ -951,8 +951,8 @@ public class SinlgePlanDFLGenerator {
 			return;
 		}
 
-		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			madgik.exareme.common.schema.Table t=registry.get(e.getHashId());
+		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+			madgik.exareme.common.schema.Table t=registry.get(e.computeHashIDExpand());
 			SQLQuery dummy=new SQLQuery();
 			dummy.setMaterialised(true);
 			String tableInRegistry = t.getName();
@@ -991,7 +991,7 @@ public class SinlgePlanDFLGenerator {
 				// visited.put(k, current);
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
-					current.setHashId(e.getHashId());
+					current.setHashId(e.computeHashIDExpand());
 				}
 			}
 
@@ -1005,7 +1005,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised()) {
 
 			SQLQuery q2 = new SQLQuery();
-			q2.setHashId(e.getHashId());
+			q2.setHashId(e.computeHashIDExpand());
 
 			tempResult.setCurrent(q2);
 			current = q2;
@@ -1129,7 +1129,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 			}
 			for (int l = 0; l < op.getChildren().size(); l++) {
 				SQLQuery u = new SQLQuery();
@@ -1151,7 +1151,7 @@ public class SinlgePlanDFLGenerator {
 					// visited.put(p.getInputPlan(l), u);
 					tempResult.add(u);
 				}
-				u.setHashId(p.getInputPlan(l).getNode().getHashId());
+				u.setHashId(p.getInputPlan(l).getNode().computeHashIDExpand());
 				if (useCache && u.existsInCache()) {
 					String tableInCache = registry.get(u.getHashId()).getName();
 					tempResult.remove(u);
@@ -1175,13 +1175,13 @@ public class SinlgePlanDFLGenerator {
 					current.setUnionAll(false);
 				}
 				visited.put(k, current);
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
@@ -1251,7 +1251,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
-			current.setHashId(p.getInputPlan(0).getNode().getHashId());
+			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
@@ -1341,7 +1341,7 @@ public class SinlgePlanDFLGenerator {
 			tempResult.add(current);
 			tempResult.setLastTable(current);
 			// }
-			current.setHashId(e.getHashId());
+			current.setHashId(e.computeHashIDExpand());
 			log.debug("cardinality estimation for "+current.getTemporaryTableName()+":");
 			if(e.getNodeInfo()!=null){
 				log.debug(e.getNodeInfo().getNumberOfTuples());
@@ -1450,7 +1450,7 @@ public class SinlgePlanDFLGenerator {
 			if (!(e.getFirstParent() != null && e.getFirstParent().getOpCode() == Node.NESTED)) {
 				v.setMaterialized(true);
 				SQLQuery q2 = new SQLQuery();
-				q2.setHashId(e.getHashId());
+				q2.setHashId(e.computeHashIDExpand());
 				tempResult.setCurrent(q2);
 				current = q2;
 				current.setMaterialised(true);
@@ -1459,8 +1459,8 @@ public class SinlgePlanDFLGenerator {
 			// visited.put(k, current);
 		}
 
-		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			madgik.exareme.common.schema.Table t=registry.get(e.getHashId());
+		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+			madgik.exareme.common.schema.Table t=registry.get(e.computeHashIDExpand());
 			SQLQuery dummy=new SQLQuery();
 			String tableInRegistry = t.getName();
 			List<Output> out=Util.getOutputForTable(t.getSqlDefinition(), tableInRegistry);
@@ -1475,7 +1475,7 @@ public class SinlgePlanDFLGenerator {
 			//SQLQuery cached = new SQLQuery();
 			//cached.setTemporaryTableName(tableInRegistry);
 			visited.put(k, dummy);
-			dummy.setHashId(e.getHashId());
+			dummy.setHashId(e.computeHashIDExpand());
 			// current.setTemporaryTableName(tableInRegistry);
 			current.setExistsInCache(true);
 
@@ -1493,7 +1493,7 @@ public class SinlgePlanDFLGenerator {
 
 			// if (memo.getMemoValue(k).isMaterialised()) {
 			// current.setMaterialised(true);
-			// current.setHashId(e.getHashId());
+			// current.setHashId(e.computeHashIDExpand());
 			// }
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 			return;
@@ -1507,7 +1507,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised()) {
 			if (!toPushChildrenToEndpoint) {
 				SQLQuery q2 = new SQLQuery();
-				q2.setHashId(e.getHashId());
+				q2.setHashId(e.computeHashIDExpand());
 				tempResult.setCurrent(q2);
 				current = q2;
 				current.setMaterialised(true);
@@ -1636,7 +1636,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 			}
 			boolean existsPartitioned = false;
 			boolean existsNonPartitioned = false;
@@ -1661,7 +1661,7 @@ public class SinlgePlanDFLGenerator {
 					tempResult.add(u);
 				}
 
-				u.setHashId(p.getInputPlan(l).getNode().getHashId());
+				u.setHashId(p.getInputPlan(l).getNode().computeHashIDExpand());
 				if (useCache && u.existsInCache()) {
 					String tableInCache = registry.get(u.getHashId()).getName();
 					tempResult.remove(u);
@@ -1686,7 +1686,7 @@ public class SinlgePlanDFLGenerator {
 					current.setUnionAll(false);
 				}
 				visited.put(k, current);
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
@@ -1713,7 +1713,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
@@ -1773,7 +1773,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
-			current.setHashId(p.getInputPlan(0).getNode().getHashId());
+			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 			combineOperatorsAndOutputQueriesPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
@@ -1856,7 +1856,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised() && !pushToEndpoint) {
 			tempResult.add(current);
 			tempResult.setLastTable(current);
-			current.setHashId(e.getHashId());
+			current.setHashId(e.computeHashIDExpand());
 			for (String alias : e.getDescendantBaseTables()) {
 				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
@@ -1939,7 +1939,7 @@ public class SinlgePlanDFLGenerator {
 			if (!(e.getFirstParent() != null && e.getFirstParent().getOpCode() == Node.NESTED)) {
 				v.setMaterialized(true);
 				SQLQuery q2 = new SQLQuery();
-				q2.setHashId(e.getHashId());
+				q2.setHashId(e.computeHashIDExpand());
 				tempResult.setCurrent(q2);
 				current = q2;
 				current.setMaterialised(true);
@@ -1949,14 +1949,14 @@ public class SinlgePlanDFLGenerator {
 		}
 
 		
-		if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-			String tableInRegistry = registry.get(e.getHashId()).getName();
+		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+			String tableInRegistry = registry.get(e.computeHashIDExpand()).getName();
 			Table t = new Table(tableInRegistry, tableInRegistry);
 			tempResult.setLastTable(t);
 			SQLQuery cached = new SQLQuery();
 			cached.setTemporaryTableName(tableInRegistry);
 			visited.put(k, cached);
-			cached.setHashId(e.getHashId());
+			cached.setHashId(e.computeHashIDExpand());
 			current.setExistsInCache(true);
 
 			for (String alias : e.getDescendantBaseTables()) {
@@ -1982,7 +1982,7 @@ public class SinlgePlanDFLGenerator {
 				// visited.put(k, current);
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
-					current.setHashId(e.getHashId());
+					current.setHashId(e.computeHashIDExpand());
 				}
 			}
 
@@ -1996,7 +1996,7 @@ public class SinlgePlanDFLGenerator {
 		if (memo.getMemoValue(k).isMaterialised()) {
 			if (!toPushChildrenToEndpoint) {
 			SQLQuery q2 = new SQLQuery();
-			q2.setHashId(e.getHashId());
+			q2.setHashId(e.computeHashIDExpand());
 
 			tempResult.setCurrent(q2);
 			current = q2;
@@ -2121,7 +2121,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
 			if (e.getParents().isEmpty()) {
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 			}
 			for (int l = 0; l < op.getChildren().size(); l++) {
 				SQLQuery u = new SQLQuery();
@@ -2143,7 +2143,7 @@ public class SinlgePlanDFLGenerator {
 					// visited.put(p.getInputPlan(l), u);
 					tempResult.add(u);
 				}
-				u.setHashId(p.getInputPlan(l).getNode().getHashId());
+				u.setHashId(p.getInputPlan(l).getNode().computeHashIDExpand());
 				if (useCache && u.existsInCache()) {
 					String tableInCache = registry.get(u.getHashId()).getName();
 					tempResult.remove(u);
@@ -2167,13 +2167,13 @@ public class SinlgePlanDFLGenerator {
 					current.setUnionAll(false);
 				}
 				visited.put(k, current);
-				current.setHashId(e.getHashId());
+				current.setHashId(e.computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					current.setMaterialised(true);
 				}
 			} else {
 				visited.put(k, unions.get(0));
-				unions.get(0).setHashId(p.getInputPlan(0).getNode().getHashId());
+				unions.get(0).setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 				if (memo.getMemoValue(k).isMaterialised()) {
 					unions.get(0).setMaterialised(true);
 				}
@@ -2243,7 +2243,7 @@ public class SinlgePlanDFLGenerator {
 
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
-			current.setHashId(p.getInputPlan(0).getNode().getHashId());
+			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
 			combineOperatorsAndOutputQueriesCentralizedPush(p.getInputPlan(0), tempResult, visited, toPushChildrenToEndpoint);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
@@ -2333,7 +2333,7 @@ public class SinlgePlanDFLGenerator {
 			tempResult.add(current);
 			tempResult.setLastTable(current);
 			// }
-			current.setHashId(e.getHashId());
+			current.setHashId(e.computeHashIDExpand());
 			log.debug("cardinality estimation for "+current.getTemporaryTableName()+":");
 			if(e.getNodeInfo()!=null){
 				log.debug(e.getNodeInfo().getNumberOfTuples());

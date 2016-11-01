@@ -19,6 +19,7 @@ import com.google.common.hash.Hashing;
 public class Projection implements Operand {
     private List<Output> ops;
     private boolean distinct;
+    private HashCode hash;
 
     public Projection(List<Output> operands) {
         this.ops = operands;
@@ -130,7 +131,11 @@ public class Projection implements Operand {
     
     @Override
 	public HashCode getHashID() {
-    	List<HashCode> codes=new ArrayList<HashCode>();
+    	if(hash==null){
+    		hash=Hashing.sha1().hashBytes(this.toString().getBytes());
+    	}
+    	return hash;
+    	/*List<HashCode> codes=new ArrayList<HashCode>();
 		for(Output o:this.ops){
 			codes.add(o.getHashID());
 		}
@@ -140,6 +145,6 @@ public class Projection implements Operand {
 		else{
 			codes.add(Hashing.sha1().hashBytes("false".getBytes()));
 		}
-		return Hashing.combineUnordered(codes);
+		return Hashing.combineUnordered(codes);*/
 	}
 }

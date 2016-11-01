@@ -770,7 +770,7 @@ public class SQLQuery {
 					c.setName("\"" + c.getName() + "\"");
 				}
 			}
-			
+
 		}
 
 	}
@@ -1142,7 +1142,7 @@ public class SQLQuery {
 				unions.add(next);
 			}
 			// this.setUnionAlias(this.getResultTableName());
-			//this.setUnionAll(true);
+			// this.setUnionAll(true);
 			this.setUnionqueries(unions);
 			this.setSelectAll(true);
 			this.setBinaryWhereConditions(new ArrayList<NonUnaryWhereCondition>());
@@ -1751,10 +1751,22 @@ public class SQLQuery {
 					separator = ", ";
 				} // }
 			} // else {
-			for (Table t : getInputTables()) {
-				output.append(separator);
-				output.append(t.toString());
-				separator = ", ";
+			if (this.getMadisFunctionString().startsWith("postgres")) {
+				for (Table t : getInputTables()) {
+					output.append(separator);
+					String localName = t.getlocalName();
+					if (localName.contains(".")) {
+						localName = localName.split("\\.")[1];
+					}
+					output.append(localName + " " + t.getAlias());
+					separator = ", \n";
+				}
+			} else {
+				for (Table t : getInputTables()) {
+					output.append(separator);
+					output.append(t.toString());
+					separator = ", \n";
+				}
 			}
 		}
 		separator = "";
@@ -1889,21 +1901,20 @@ public class SQLQuery {
 				Table t = this.getInputTables().get(i);
 				Table replace = new Table();
 				String db = t.getDBName();
-				//System.out.println(db);
+				// System.out.println(db);
 				String schema = DBInfoReaderDB.dbInfo.getDB(db).getSchema();
 				replace.setName(t.getName().substring(db.length() + 1));
 				replace.setAlias(t.getAlias());
 				if (this.getMadisFunctionString().startsWith("postgres")) {
-					if (!replace.getName().endsWith("\"")){
-						if(!replace.getName().startsWith(schema + ".")) {
-							replace.setName(schema + "."+"\""+replace.getName()+"\"");
-					}
-						else{
-							String name=replace.getName().replace(schema + ".", "");
-							name=schema + "."+"\""+name+"\"";
+					if (!replace.getName().endsWith("\"")) {
+						if (!replace.getName().startsWith(schema + ".")) {
+							replace.setName(schema + "." + "\"" + replace.getName() + "\"");
+						} else {
+							String name = replace.getName().replace(schema + ".", "");
+							name = schema + "." + "\"" + name + "\"";
 							replace.setName(name);
 						}
-						
+
 					}
 				} else {
 					if (!replace.getName().startsWith(schema + ".")) {
@@ -1914,16 +1925,16 @@ public class SQLQuery {
 				this.inputTables.add(i, replace);
 			}
 			if (this.getMadisFunctionString().startsWith("oracle")) {
-				for(Column c:this.groupBy){
-					String n=c.getName();
-					if(!n.startsWith("\"")){
-						c.setName("\""+n+"\"");
+				for (Column c : this.groupBy) {
+					String n = c.getName();
+					if (!n.startsWith("\"")) {
+						c.setName("\"" + n + "\"");
 					}
 				}
-				for(ColumnOrderBy c:this.orderBy){
-					String n=c.getName();
-					if(!n.startsWith("\"")){
-						c.setName("\""+n+"\"");
+				for (ColumnOrderBy c : this.orderBy) {
+					String n = c.getName();
+					if (!n.startsWith("\"")) {
+						c.setName("\"" + n + "\"");
 					}
 				}
 			}
@@ -2612,23 +2623,23 @@ public class SQLQuery {
 		Set<Column> result = new HashSet<Column>();
 		for (NonUnaryWhereCondition nuwc : this.getBinaryWhereConditions()) {
 			if (nuwc.getOperator().equals("=")) {
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())){
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
 					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
 				}
-				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
 					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
 				}
-				
-			}
-			else{
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())&&!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
-					//range join
+
+			} else {
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())
+						&& !(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
+					// range join
 					return result;
 				}
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())){
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
 					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
 				}
-				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())){
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
 					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
 				}
 			}

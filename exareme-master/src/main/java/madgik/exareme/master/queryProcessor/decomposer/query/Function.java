@@ -134,7 +134,8 @@ public class Function implements Operand {
 
 	@Override
 	public HashCode getHashID() {
-		List<HashCode> codes=new ArrayList<HashCode>();
+		return Hashing.sha1().hashBytes(this.toString().getBytes());
+		/*List<HashCode> codes=new ArrayList<HashCode>();
 		for(Operand o:this.params){
 			codes.add(o.getHashID());
 		}
@@ -145,6 +146,6 @@ public class Function implements Operand {
 		else{
 			codes.add(Hashing.sha1().hashBytes("false".getBytes()));
 		}
-		return Hashing.combineOrdered(codes);
+		return Hashing.combineOrdered(codes);*/
 	}
 }

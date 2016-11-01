@@ -77,7 +77,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
     private static final boolean useCache = AdpDBProperties.getAdpDBProps()
             .getString("db.cache").equals("true");
     private static NamesToAliases n2a = new NamesToAliases();
-    private static boolean killPython=false;
+    private static boolean killPython=true;
 
 	public HttpAsyncDecomposerHandler() {
 	}
@@ -258,7 +258,66 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 						InputStreamEntity se = new InputStreamEntity(new ByteArrayInputStream(sb.toString().getBytes()),
 								-1, ContentType.TEXT_PLAIN);
 						httpResponse.setEntity(se);
-					} else if (query.startsWith("getColumns")) {
+					}else if (query.startsWith("getPrimaryKeys")) {
+						Class.forName("org.sqlite.JDBC");
+						String path = dbname;
+						if (!path.endsWith("/")) {
+							path += "/";
+						}
+
+						Connection c = createDummyDB(path);
+
+						// Connection c = cons.get(path);
+						// Connection c = DriverManager
+						// .getConnection("jdbc:sqlite:" + path+"registry.db");
+						String[] params = query.split(" ");
+						System.out.println("params:"+params);
+						for (int i = 1; i < params.length; i++) {
+							if (params[i].equalsIgnoreCase("null")) {
+								params[i] = null;
+							}
+						}
+						ResultSet first = c.getMetaData().getPrimaryKeys(params[1], null, params[3]);
+
+						ArrayList<ArrayList<String>> schema = new ArrayList<ArrayList<String>>();
+						for (int i = 1; i < first.getMetaData().getColumnCount() + 1; i++) {
+							ArrayList<String> nextCouple = new ArrayList<String>();
+							nextCouple.add(first.getMetaData().getColumnName(i).toUpperCase());
+							nextCouple.add(first.getMetaData().getColumnTypeName(i));
+							schema.add(nextCouple);
+						}
+						
+						HashMap<String, ArrayList<ArrayList<String>>> h = new HashMap<String, ArrayList<ArrayList<String>>>();
+						h.put("schema", schema);
+						h.put("errors", new ArrayList<ArrayList<String>>());
+						Gson g = new Gson();
+						StringBuilder sb = new StringBuilder();
+						sb.append(g.toJson(h, h.getClass()));
+						while (first.next()) {
+							sb.append("\n");
+							ArrayList<Object> res = new ArrayList<Object>();
+							for (int i = 1; i < first.getMetaData().getColumnCount() + 1; i++) {
+								if(i==5){
+									//sqlite jdbc bug, starts seq from 0, should be 1
+									int seq=first.getInt(5);
+									res.add(seq+1);
+								}
+								else{
+									res.add(first.getObject(i));
+								}
+							}
+							sb.append(g.toJson((ArrayList<Object>) res));
+
+						}
+						first.close();
+						// stmt.close();
+						c.close();
+
+						InputStreamEntity se = new InputStreamEntity(new ByteArrayInputStream(sb.toString().getBytes()),
+								-1, ContentType.TEXT_PLAIN);
+						httpResponse.setEntity(se);
+					} 
+					else if (query.startsWith("getColumns")) {
 						Class.forName("org.sqlite.JDBC");
 						String path = dbname;
 						if (!path.endsWith("/")) {

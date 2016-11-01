@@ -58,6 +58,8 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	private boolean expanded;
 	private boolean shareableComputed;
 	private boolean hashNeedsRecomputing;
+	private boolean commutativity=true;
+	private boolean swap=true;
 	private Set<PartitionCols> partitionedColumns;
 	private Set<PartitionCols> isBottomNodeForPruningColumns;
 	private PartitionRecord partitionRecord;
@@ -169,11 +171,52 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		// }
 
 	}
+	
+	public HashCode computeHashIDExpand() {
+		if(hash!=null){
+			return hash;
+		}
+		
+		if (o instanceof Table) {
+			Table t = (Table) o;
+			
+				hash=Hashing.sha1().hashBytes(t.getName().getBytes());
+			
+		} else if (o instanceof Operand) {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			Operand op = (Operand) o;
+			codes.add(op.getHashID());
+			this.hash = Hashing.combineOrdered(codes);
+		} else if (o instanceof String) {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			codes.add(Hashing.sha1().hashBytes(((String) o).getBytes()));
+			this.hash = Hashing.combineOrdered(codes);
+		} else {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			this.hash = Hashing.combineOrdered(codes);
+		}
+
+		return hash;
+		// }
+
+	}
 
 	public HashCode getHashId() {
-		if (hashNeedsRecomputing) {
+		//if (hashNeedsRecomputing) {
 			this.computeHashID();
-		}
+		//}
 		return this.hash;
 	}
 
@@ -338,23 +381,31 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 			Table t = (Table) o;
 			if (t.getAlias() == null) {
 				// object = "Intermediate Result";
+				
 				object = t.getName();
+				object="";
 				if (this.parents.isEmpty()) {
 					object = "Result";
 				}
 			} else {
-				if (t.getName().startsWith("RECALL_")) {
+				if (t.getName().toUpperCase().startsWith("COMPASS_")) {
 					fillcolor = " fillcolor=\"yellow\" style=\"filled\"";
-				} else if (t.getName().startsWith("SLEGGE_")) {
+				} else if (t.getName().toUpperCase().startsWith("SLEGGE")) {
+					fillcolor = " fillcolor=\"yellow\" style=\"filled\"";
+				} else if (t.getName().toUpperCase().startsWith("OPENWORKS")) {
 					fillcolor = " fillcolor=\"red\" style=\"filled\"";
-				} else if (t.getName().startsWith("SLEGGE1_")) {
-					fillcolor = " fillcolor=\"green\" style=\"filled\"";
-				} else if (t.getName().startsWith("OPENWORKSBRAGE_")) {
+				} else if (t.getName().toUpperCase().startsWith("RECALL")) {
 					fillcolor = " fillcolor=\"green\" style=\"filled\"";
 				}
+				else if (t.getName().toUpperCase().startsWith("COREDB")) {
+					fillcolor = " fillcolor=\"blue\" style=\"filled\"";
+				}
+				else if (t.getName().toUpperCase().startsWith("WELLBORE")) {
+					fillcolor = " fillcolor=\"purple\" style=\"filled\"";
+				}
 			}
-			if (this.nodeInfo != null)
-				object += "card:" + this.getNodeInfo().getNumberOfTuples();
+			//if (this.nodeInfo != null)
+			//	object += "card:" + this.getNodeInfo().getNumberOfTuples();
 		}
 		if (this.opCode == LEFTBROADCASTJOIN) {
 			object += "L:";
@@ -837,8 +888,94 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 		return "Node [opCode=" + opCode + ", o=" + o + "]";
 	}
 
+	public HashCode computeHashIDExpand(boolean recompute) {
+		if(hash!=null&&!recompute){
+			return hash;
+		}
+		
+		if (o instanceof Table) {
+			Table t = (Table) o;
+			
+				hash=Hashing.sha1().hashBytes(t.getName().getBytes());
+			
+		} else if (o instanceof Operand) {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			Operand op = (Operand) o;
+			codes.add(op.getHashID());
+			this.hash = Hashing.combineOrdered(codes);
+		} else if (o instanceof String) {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			codes.add(Hashing.sha1().hashBytes(((String) o).getBytes()));
+			this.hash = Hashing.combineOrdered(codes);
+		} else {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+				codes.add(c.computeHashIDExpand());
+			}
+			this.hash = Hashing.combineOrdered(codes);
+		}
+
+		return hash;
+		// }
+
+	}
+
+	public boolean isCommutativity() {
+		return commutativity;
+	}
+
+	public void setCommutativity(boolean commutativity) {
+		this.commutativity = commutativity;
+	}
+
+	public boolean isSwap() {
+		return swap;
+	}
+
+	public void setSwap(boolean swap) {
+		this.swap = swap;
+	}
+
 
 	
-	
+	public void addRefCols(Map<String, Set<String>> refColsAlias, Set<Node> visited) {
+		if(visited.contains(this)){
+			return;
+		}
+		visited.add(this);
+		
+		if(this.getDescendantBaseTables().size()==1){
+			//do not add in projection columns from base selections/projections
+			String alias=this.getDescendantBaseTables().iterator().next();
+			if(!refColsAlias.containsKey(alias)){
+				//add table with no ref cols, for example select *
+				refColsAlias.put(alias, new HashSet<String>());
+			}
+			return;
+		}
+		if(this.o instanceof Operand){
+			Operand op=(Operand)o;
+			for(Column c:op.getAllColumnRefs()){
+				if(!refColsAlias.containsKey(c.getAlias())){
+					refColsAlias.put(c.getAlias(), new HashSet<String>());
+				}
+				refColsAlias.get(c.getAlias()).add(c.getName());
+			}
+			
+		}
+		for(Node c:this.children){
+			c.addRefCols(refColsAlias, visited);
+		}
+		
+	}
 
 }

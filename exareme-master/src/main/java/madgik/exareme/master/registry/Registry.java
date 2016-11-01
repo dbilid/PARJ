@@ -142,7 +142,8 @@ public class Registry {
 			insertSqlStatement.setString(2, table.getTable().getSqlDefinition());
 			insertSqlStatement.setLong(3, table.getTable().getSize());
 
-			if (properties != null && properties.isCachedEnable()) {
+			//if (properties != null && properties.isCachedEnable()) {
+			//	log.debug("enabled");
 				if (table.getTable().isTemp())
 					insertSqlStatement.setInt(4, 1);
 				else
@@ -155,7 +156,8 @@ public class Registry {
 						madgik.exareme.master.engine.remoteQuery.impl.utility.Date.getCurrentDateTime());
 				insertSqlStatement.setString(10,
 						madgik.exareme.master.engine.remoteQuery.impl.utility.Date.getCurrentDateTime());
-			} else {
+			/*} else {
+				log.debug("not enabled");
 				insertSqlStatement.setInt(4, 0);
 				insertSqlStatement.setString(5, null);
 				insertSqlStatement.setBytes(6, null);
@@ -164,7 +166,7 @@ public class Registry {
 				insertSqlStatement.setString(9, null);
 				insertSqlStatement.setString(10, null);
 
-			}
+			}*/
 			insertSqlStatement.execute();
 
 			for (String partitionColumn : table.getPartitionColumns()) {

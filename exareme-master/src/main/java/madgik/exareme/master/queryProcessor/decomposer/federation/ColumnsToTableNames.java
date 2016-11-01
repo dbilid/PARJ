@@ -17,6 +17,7 @@ import java.util.Map;
 public class ColumnsToTableNames<T> extends HashMap<String, T> {
 	
 	private Map<String, T> tableToT;
+	private T lastT;
 
     public ColumnsToTableNames() {
         super();
@@ -63,5 +64,15 @@ public class ColumnsToTableNames<T> extends HashMap<String, T> {
     public void addTable(String s, T t){
     	this.tableToT.put(s, t);
     }
+
+	public T getLastT() {
+		return lastT;
+	}
+
+	public void setLastT(T lastT) {
+		this.lastT = lastT;
+	}
+    
+    
     
 }

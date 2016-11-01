@@ -66,7 +66,7 @@ public class QueryDecomposer {
     private NodeCostEstimator nce;
     private long startTime;
     private int workers;
-    private static boolean useSwap=false;
+    private static boolean useSwap=true;
 
     public QueryDecomposer(SQLQuery initial) throws ClassNotFoundException {
         this(initial, ".", 1, null);
@@ -296,11 +296,12 @@ public class QueryDecomposer {
         // String dot0 = root.dotPrint();
 
         if (projectRefCols) {
-            createProjections(root);
+            createProjectionsDAG(root);
+	    //createProjections(root);
             log.debug("Base projections created");
         }
-		// StringBuilder a = root.dotPrint(new HashSet<Node>());
-        // System.out.println(a.toString());
+		 StringBuilder a = root.dotPrint(new HashSet<Node>());
+         System.out.println(a.toString());
         // long b=System.currentTimeMillis();
         unionnumber = 0;
         sipToUnions = new SipToUnions();
@@ -310,13 +311,13 @@ public class QueryDecomposer {
         // cardinality::"+root.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples());
         expandDAG(root);
         log.debug("DAG expanded");
-		// System.out.println("expandtime:"+(System.currentTimeMillis()-b));
-        // System.out.println("noOfnode:"+root.count(0));
+        //System.out.println("expandtime:"+(System.currentTimeMillis()-startTime));
+        //System.out.println("noOfnode:"+root.count(0));
         if (this.useSIP) {
             sipInfo.removeNotNeededSIPs();
         }
 		// Set<Node> visited=new HashSet<Node>(new HashSet<Node>());
-        // StringBuilder a2 = root.dotPrint(new HashSet<Node>());
+         //StringBuilder a2 = root.dotPrint(new HashSet<Node>());
         // System.out.println(a2.toString());
         if (hashes.containsRangeJoin()) {
             this.noOfparts = 1;
@@ -328,22 +329,22 @@ public class QueryDecomposer {
             limit.setObject(new Integer(this.initialQuery.getLimit()));
             limit.addChild(root);
 
-            if (!hashes.containsKey(limit.getHashId())) {
-                hashes.put(limit.getHashId(), limit);
+            if (!hashes.containsKey(limit.computeHashIDExpand())) {
+                hashes.put(limit.computeHashIDExpand(), limit);
                 limit.addAllDescendantBaseTables(root.getDescendantBaseTables());
             } else {
-                limit = hashes.get(limit.getHashId());
+                limit = hashes.get(limit.computeHashIDExpand());
             }
 
             Node limitTable = new Node(Node.OR);
             limitTable.setObject(new Table("table" + Util.createUniqueId(), null));
             limitTable.addChild(limit);
 
-            if (!hashes.containsKey(limitTable.getHashId())) {
-                hashes.put(limitTable.getHashId(), limitTable);
+            if (!hashes.containsKey(limitTable.computeHashIDExpand())) {
+                hashes.put(limitTable.computeHashIDExpand(), limitTable);
                 limitTable.addAllDescendantBaseTables(limit.getDescendantBaseTables());
             } else {
-                limitTable = hashes.get(limitTable.getHashId());
+                limitTable = hashes.get(limitTable.computeHashIDExpand());
             }
             root = limitTable;
         }
@@ -362,13 +363,13 @@ public class QueryDecomposer {
             System.out.println(shareable.size());
             // add top union results
             Node u1 = root.getChildAt(0);
-            if (u1.getOpCode() == Node.UNION) {
+            if (u1.getOpCode() == Node.UNION||u1.getOpCode() == Node.UNION) {
                 for (Node u : u1.getChildren()) {
                     greedyToMat.put(u, 0.0);
                 }
             } else {
                 Node u2 = u1.getChildAt(0).getChildAt(0);
-                if (u2.getOpCode() == Node.UNION) {
+                if (u2.getOpCode() == Node.UNION||u1.getOpCode() == Node.UNION) {
                     for (Node u : u2.getChildren()) {
                         greedyToMat.put(u, 0.0);
                     }
@@ -746,7 +747,7 @@ public class QueryDecomposer {
 				// String a=op.getChildAt(0).dotPrint();
                 // aplly all possible transfromations to op
 				// join commutativity a join b -> b join a
-                if (op.getObject() instanceof NonUnaryWhereCondition) {
+                if (op.getObject() instanceof NonUnaryWhereCondition && op.isCommutativity()) {
                     boolean useCommutativity = true;
                     NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) op.getObject();
                     if (bwc.getOperator().equals("=")) {
@@ -772,17 +773,17 @@ public class QueryDecomposer {
                                 commutativity.addChild(op.getChildAt(1));
                             }
                             commutativity.addChild(op.getChildAt(0));
-
-                            if (!hashes.containsKey(commutativity.getHashId())) {
-                                hashes.put(commutativity.getHashId(), commutativity);
-                                hashes.remove(eq.getHashId());
-                                for (Node p : eq.getParents()) {
-                                    hashes.remove(p.getHashId());
-                                }
+                            
+                            if (!hashes.containsKey(commutativity.computeHashIDExpand())) {
+                                hashes.put(commutativity.computeHashIDExpand(), commutativity);
+                                //hashes.remove(eq.computeHashIDExpand());
+                                //for (Node p : eq.getParents()) {
+                                //    hashes.remove(p.computeHashIDExpand());
+                               // }
 
                                 eq.addChild(commutativity);
-
-                                hashes.put(eq.getHashId(), eq);
+                                commutativity.setCommutativity(false);
+                               // hashes.put(eq.computeHashIDExpand(), eq);
                                 commutativity.addAllDescendantBaseTables(op.getDescendantBaseTables());
                                 if (useGreedy) {
                                     for (Integer u : op.getUnions()) {
@@ -790,12 +791,13 @@ public class QueryDecomposer {
                                     }
                                 }
 
-                                for (Node p : eq.getParents()) {
-                                    hashes.put(p.computeHashID(), p);
-                                }
+                               // for (Node p : eq.getParents()) {
+                               //     hashes.put(p.computeHashID(), p);
+                               // }
                             } else {
-                                unify(eq, hashes.get(commutativity.getHashId()).getFirstParent());
+                                unify(eq, hashes.get(commutativity.computeHashIDExpand()).getFirstParent());
                                 commutativity.removeAllChildren();
+                                hashes.get(commutativity.computeHashIDExpand()).setCommutativity(false);
 
                             }
                         }
@@ -838,12 +840,12 @@ public class QueryDecomposer {
                                         }
                                         Node table = new Node(Node.OR);
                                         table.setObject(new Table("table" + Util.createUniqueId(), null));
-                                        if (hashes.containsKey(associativity.getHashId())
-                                                && !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
+                                        if (hashes.containsKey(associativity.computeHashIDExpand())
+                                                && !hashes.get(associativity.computeHashIDExpand()).getParents().isEmpty()) {
 											// if
-                                            // (hashes.containsKey(associativity.getHashId()))
+                                            // (hashes.containsKey(associativity.computeHashIDExpand()))
                                             // {
-                                            Node assocInHashes = hashes.get(associativity.getHashId());
+                                            Node assocInHashes = hashes.get(associativity.computeHashIDExpand());
                                             table = assocInHashes.getFirstParent();
 
                                             if (useGreedy) {
@@ -856,11 +858,11 @@ public class QueryDecomposer {
                                             // associativity = assocInHashes;
 
                                         } else {
-                                            hashes.put(associativity.getHashId(), associativity);
+                                            hashes.put(associativity.computeHashIDExpand(), associativity);
                                             table.addChild(associativity);
 
 											
-                                            hashes.put(table.getHashId(), table);
+                                            hashes.put(table.computeHashIDExpand(), table);
                                             associativity.addAllDescendantBaseTables(
                                                     op.getChildAt(0).getDescendantBaseTables());
                                             if (useGreedy) {
@@ -883,6 +885,7 @@ public class QueryDecomposer {
                                         }
 
                                         Node associativityTop = new Node(Node.AND, Node.JOIN);
+                                        //associativityTop.setSwap(false);
                                         NonUnaryWhereCondition newBwc2 = new NonUnaryWhereCondition();
                                         newBwc2.setOperator("=");
                                         if (comesFromLeftOp) {
@@ -905,15 +908,15 @@ public class QueryDecomposer {
 
                                         }
                                         // System.out.println(associativityTop.getObject().toString());
-                                        if (!hashes.containsKey(associativityTop.getHashId())
-                                                || hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
-                                            hashes.put(associativityTop.getHashId(), associativityTop);
+                                        if (!hashes.containsKey(associativityTop.computeHashIDExpand())
+                                                || hashes.get(associativityTop.computeHashIDExpand()).getParents().isEmpty()) {
+                                            hashes.put(associativityTop.computeHashIDExpand(), associativityTop);
 											// Node newTop =
                                             // hashes.checkAndPutWithChildren(associativityTop);
-                                            hashes.remove(eq.getHashId());
-                                            for (Node p : eq.getParents()) {
-                                                hashes.remove(p.getHashId());
-                                            }
+                                            //hashes.remove(eq.computeHashIDExpand());
+                                          //  for (Node p : eq.getParents()) {
+                                          //      hashes.remove(p.computeHashIDExpand());
+                                          //  }
                                             eq.addChild(associativityTop);
                                             associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
                                             if (useGreedy) {
@@ -922,33 +925,34 @@ public class QueryDecomposer {
                                                 }
                                             }
 											
-                                            hashes.put(eq.getHashId(), eq);
-                                            for (Node p : eq.getParents()) {
-                                                hashes.put(p.computeHashID(), p);
-                                            }
+                                           // hashes.put(eq.computeHashIDExpand(), eq);
+                                         ////   for (Node p : eq.getParents()) {
+                                         //       hashes.put(p.computeHashID(), p);
+                                          //  }
 											
                                         } else {
 
-                                            unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
+                                            unify(eq, hashes.get(associativityTop.computeHashIDExpand()).getFirstParent());
 											// same as unify(eq', eq)???
                                             // checking again children of eq?
+                                            //hashes.get(associativityTop.computeHashIDExpand()).setSwap(false);
                                             associativityTop.removeAllChildren();
                                             if (table.getParents().isEmpty()) {
-                                                if (hashes.get(table.getHashId()) == table) {
-                                                    hashes.remove(table.getHashId());
+                                                if (hashes.get(table.computeHashIDExpand()) == table) {
+                                                    hashes.remove(table.computeHashIDExpand());
                                                 }
                                                 for (Node n : table.getChildren()) {
                                                     if (n.getParents().size() == 1) {
-                                                        if (hashes.get(n.getHashId()) == n) {
-                                                            hashes.remove(n.getHashId());
+                                                        if (hashes.get(n.computeHashIDExpand()) == n) {
+                                                            hashes.remove(n.computeHashIDExpand());
                                                         }
                                                     }
                                                 }
                                                 table.removeAllChildren();
                                             }
                                             if (associativity.getParents().isEmpty()) {
-                                                if (hashes.get(associativity.getHashId()) == associativity) {
-                                                    hashes.remove(associativity.getHashId());
+                                                if (hashes.get(associativity.computeHashIDExpand()) == associativity) {
+                                                    hashes.remove(associativity.computeHashIDExpand());
                                                 }
                                                 associativity.removeAllChildren();
                                             }
@@ -1000,9 +1004,9 @@ public class QueryDecomposer {
                                         Node table = new Node(Node.OR);
                                         table.setObject(new Table("table" + Util.createUniqueId(), null));
 
-                                        if (hashes.containsKey(associativity.getHashId())
-                                                && !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
-                                            Node assocInHashes = hashes.get(associativity.getHashId());
+                                        if (hashes.containsKey(associativity.computeHashIDExpand())
+                                                && !hashes.get(associativity.computeHashIDExpand()).getParents().isEmpty()) {
+                                            Node assocInHashes = hashes.get(associativity.computeHashIDExpand());
                                             table = assocInHashes.getFirstParent();
                                             if (useGreedy) {
                                                 for (Integer u : eq.getUnions()) {
@@ -1014,12 +1018,12 @@ public class QueryDecomposer {
                                             // associativity = assocInHashes;
 
                                         } else {
-                                            hashes.put(associativity.getHashId(), associativity);
+                                            hashes.put(associativity.computeHashIDExpand(), associativity);
                                             table.addChild(associativity);
 
 											// table.setPartitionedOn(new
                                             // PartitionCols(newBwc.getAllColumnRefs()));
-                                            hashes.put(table.getHashId(), table);
+                                            hashes.put(table.computeHashIDExpand(), table);
 
                                             if (useGreedy) {
                                                 for (Integer u : eq.getUnions()) {
@@ -1049,15 +1053,15 @@ public class QueryDecomposer {
                                         associativityTop.setExpanded(true);
 
                                         // System.out.println(associativityTop.getObject().toString());
-                                        if (!hashes.containsKey(associativityTop.getHashId())
-                                                || hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
-                                            hashes.put(associativityTop.getHashId(), associativityTop);
+                                        if (!hashes.containsKey(associativityTop.computeHashIDExpand())
+                                                || hashes.get(associativityTop.computeHashIDExpand()).getParents().isEmpty()) {
+                                            hashes.put(associativityTop.computeHashIDExpand(), associativityTop);
 											// Node newTop =
                                             // hashes.checkAndPutWithChildren(associativityTop);
-                                            hashes.remove(eq.getHashId());
-                                            for (Node p : eq.getParents()) {
-                                                hashes.remove(p.getHashId());
-                                            }
+                                            //hashes.remove(eq.computeHashIDExpand());
+                                           // for (Node p : eq.getParents()) {
+                                           //     hashes.remove(p.computeHashIDExpand());
+                                           // }
                                             eq.addChild(associativityTop);
                                             associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
                                             if (useGreedy) {
@@ -1069,33 +1073,33 @@ public class QueryDecomposer {
                                             // eq.setPartitionedOn(new
                                             // PartitionCols(newBwc.getAllColumnRefs()));
                                             // if(!h.containsKey(eq.computeHashID())){
-                                            hashes.put(eq.getHashId(), eq);
-                                            for (Node p : eq.getParents()) {
-                                                hashes.put(p.computeHashID(), p);
-                                            }
+                                           // hashes.put(eq.computeHashIDExpand(), eq);
+                                          //  for (Node p : eq.getParents()) {
+                                         //       hashes.put(p.computeHashID(), p);
+                                          //  }
 
                                         } else {
 
-                                            unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
+                                            unify(eq, hashes.get(associativityTop.computeHashIDExpand()).getFirstParent());
 											// same as unify(eq', eq)???
                                             // checking again children of eq?
                                             associativityTop.removeAllChildren();
                                             if (table.getParents().isEmpty()) {
-                                                if (hashes.get(table.getHashId()) == table) {
-                                                    hashes.remove(table.getHashId());
+                                                if (hashes.get(table.computeHashIDExpand()) == table) {
+                                                    hashes.remove(table.computeHashIDExpand());
                                                 }
                                                 for (Node n : table.getChildren()) {
                                                     if (n.getParents().size() == 1) {
-                                                        if (hashes.get(n.getHashId()) == n) {
-                                                            hashes.remove(n.getHashId());
+                                                        if (hashes.get(n.computeHashIDExpand()) == n) {
+                                                            hashes.remove(n.computeHashIDExpand());
                                                         }
                                                     }
                                                 }
                                                 table.removeAllChildren();
                                             }
                                             if (associativity.getParents().isEmpty()) {
-                                                if (hashes.get(associativity.getHashId()) == associativity) {
-                                                    hashes.remove(associativity.getHashId());
+                                                if (hashes.get(associativity.computeHashIDExpand()) == associativity) {
+                                                    hashes.remove(associativity.computeHashIDExpand());
                                                 }
                                                 associativity.removeAllChildren();
                                             }
@@ -1114,13 +1118,14 @@ public class QueryDecomposer {
                 
                 //join swap
                 //(A join B) join C -> (A join C) join B
-                if (useSwap&&op.getObject() instanceof NonUnaryWhereCondition) {
+                if (useSwap&&op.getObject() instanceof NonUnaryWhereCondition&&op.isSwap()) {
                     NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) op.getObject();
                     if (bwc.getOperator().equals("=")) {
                         // for (Node c2 : op.getChildren()) {
                         if (op.getChildren().size() > 1) {
                             Node c2 = op.getChildAt(0);
                             for (Node c3 : c2.getChildren()) {
+                            	boolean childrenBase=c3.getDescendantBaseTables().size()==2&&c3.getChildren().size()==2;
 								// if (c2.getChildren().size() > 0) {
                                 // Node c3 = c2.getChildAt(0);
                                 if (c3.getObject() instanceof NonUnaryWhereCondition) {
@@ -1128,6 +1133,7 @@ public class QueryDecomposer {
                                     if (bwc2.getOperator().equals("=")) {
                                         boolean comesFromLeftOp = c3.getChildAt(0).isDescendantOfBaseTable(
                                                 bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
+                                        if(!comesFromLeftOp) continue;
                                         Node associativity = new Node(Node.AND, Node.JOIN);
                                         NonUnaryWhereCondition newBwc = new NonUnaryWhereCondition();
                                         newBwc.setOperator("=");
@@ -1150,12 +1156,12 @@ public class QueryDecomposer {
                                         
                                         Node table = new Node(Node.OR);
                                         table.setObject(new Table("table" + Util.createUniqueId(), null));
-                                        if (hashes.containsKey(associativity.getHashId())
-                                                && !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
+                                        if (hashes.containsKey(associativity.computeHashIDExpand())
+                                                && !hashes.get(associativity.computeHashIDExpand()).getParents().isEmpty()) {
 											// if
-                                            // (hashes.containsKey(associativity.getHashId()))
+                                            // (hashes.containsKey(associativity.computeHashIDExpand()))
                                             // {
-                                            Node assocInHashes = hashes.get(associativity.getHashId());
+                                            Node assocInHashes = hashes.get(associativity.computeHashIDExpand());
                                             table = assocInHashes.getFirstParent();
 
                                             if (useGreedy) {
@@ -1168,11 +1174,11 @@ public class QueryDecomposer {
                                             // associativity = assocInHashes;
 
                                         } else {
-                                            hashes.put(associativity.getHashId(), associativity);
+                                            hashes.put(associativity.computeHashIDExpand(), associativity);
                                             table.addChild(associativity);
 
 											
-                                            hashes.put(table.getHashId(), table);
+                                            hashes.put(table.computeHashIDExpand(), table);
                                             associativity.addAllDescendantBaseTables(
                                                     op.getChildAt(1).getDescendantBaseTables());
                                             if (useGreedy) {
@@ -1217,15 +1223,16 @@ public class QueryDecomposer {
 
                                         }
                                         // System.out.println(associativityTop.getObject().toString());
-                                        if (!hashes.containsKey(associativityTop.getHashId())
-                                                || hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
-                                            hashes.put(associativityTop.getHashId(), associativityTop);
+                                        if (!hashes.containsKey(associativityTop.computeHashIDExpand())
+                                                || hashes.get(associativityTop.computeHashIDExpand()).getParents().isEmpty()) {
+                                            hashes.put(associativityTop.computeHashIDExpand(), associativityTop);
 											// Node newTop =
                                             // hashes.checkAndPutWithChildren(associativityTop);
-                                            hashes.remove(eq.getHashId());
-                                            for (Node p : eq.getParents()) {
-                                                hashes.remove(p.getHashId());
-                                            }
+                                            //hashes.remove(eq.computeHashIDExpand());
+                                           // for (Node p : eq.getParents()) {
+                                          //      hashes.remove(p.computeHashIDExpand());
+                                          //  }
+                                            associativityTop.setSwap(false);
                                             eq.addChild(associativityTop);
                                             associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
                                             if (useGreedy) {
@@ -1234,33 +1241,34 @@ public class QueryDecomposer {
                                                 }
                                             }
 											
-                                            hashes.put(eq.getHashId(), eq);
-                                            for (Node p : eq.getParents()) {
-                                                hashes.put(p.computeHashID(), p);
-                                            }
+                                        //    hashes.put(eq.computeHashIDExpand(), eq);
+                                         //   for (Node p : eq.getParents()) {
+                                         //       hashes.put(p.computeHashID(), p);
+                                         //   }
 											
                                         } else {
 
-                                            unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
+                                            unify(eq, hashes.get(associativityTop.computeHashIDExpand()).getFirstParent());
 											// same as unify(eq', eq)???
                                             // checking again children of eq?
                                             associativityTop.removeAllChildren();
+                                            hashes.get(associativityTop.computeHashIDExpand()).setSwap(false);
                                             if (table.getParents().isEmpty()) {
-                                                if (hashes.get(table.getHashId()) == table) {
-                                                    hashes.remove(table.getHashId());
+                                                if (hashes.get(table.computeHashIDExpand()) == table) {
+                                                    hashes.remove(table.computeHashIDExpand());
                                                 }
                                                 for (Node n : table.getChildren()) {
                                                     if (n.getParents().size() == 1) {
-                                                        if (hashes.get(n.getHashId()) == n) {
-                                                            hashes.remove(n.getHashId());
+                                                        if (hashes.get(n.computeHashIDExpand()) == n) {
+                                                            hashes.remove(n.computeHashIDExpand());
                                                         }
                                                     }
                                                 }
                                                 table.removeAllChildren();
                                             }
                                             if (associativity.getParents().isEmpty()) {
-                                                if (hashes.get(associativity.getHashId()) == associativity) {
-                                                    hashes.remove(associativity.getHashId());
+                                                if (hashes.get(associativity.computeHashIDExpand()) == associativity) {
+                                                    hashes.remove(associativity.computeHashIDExpand());
                                                 }
                                                 associativity.removeAllChildren();
                                             }
@@ -1270,7 +1278,7 @@ public class QueryDecomposer {
                             }
                         }
                         
-                        else if(op.getChildren().size()==666){
+                        else {
                             Node c2 = op.getChildAt(0);
                             for (int c2Ch = 0; c2Ch < c2.getChildren().size(); c2Ch++) {
                                 Node c3 = c2.getChildren().get(c2Ch);
@@ -1314,9 +1322,9 @@ public class QueryDecomposer {
                                         Node table = new Node(Node.OR);
                                         table.setObject(new Table("table" + Util.createUniqueId(), null));
 
-                                        if (hashes.containsKey(associativity.getHashId())
-                                                && !hashes.get(associativity.getHashId()).getParents().isEmpty()) {
-                                            Node assocInHashes = hashes.get(associativity.getHashId());
+                                        if (hashes.containsKey(associativity.computeHashIDExpand())
+                                                && !hashes.get(associativity.computeHashIDExpand()).getParents().isEmpty()) {
+                                            Node assocInHashes = hashes.get(associativity.computeHashIDExpand());
                                             table = assocInHashes.getFirstParent();
                                             if (useGreedy) {
                                                 for (Integer u : eq.getUnions()) {
@@ -1328,12 +1336,12 @@ public class QueryDecomposer {
                                             // associativity = assocInHashes;
 
                                         } else {
-                                            hashes.put(associativity.getHashId(), associativity);
+                                            hashes.put(associativity.computeHashIDExpand(), associativity);
                                             table.addChild(associativity);
 
 											// table.setPartitionedOn(new
                                             // PartitionCols(newBwc.getAllColumnRefs()));
-                                            hashes.put(table.getHashId(), table);
+                                            hashes.put(table.computeHashIDExpand(), table);
 
                                             if (useGreedy) {
                                                 for (Integer u : eq.getUnions()) {
@@ -1363,15 +1371,15 @@ public class QueryDecomposer {
                                         associativityTop.setExpanded(true);
 
                                         // System.out.println(associativityTop.getObject().toString());
-                                        if (!hashes.containsKey(associativityTop.getHashId())
-                                                || hashes.get(associativityTop.getHashId()).getParents().isEmpty()) {
-                                            hashes.put(associativityTop.getHashId(), associativityTop);
+                                        if (!hashes.containsKey(associativityTop.computeHashIDExpand())
+                                                || hashes.get(associativityTop.computeHashIDExpand()).getParents().isEmpty()) {
+                                            hashes.put(associativityTop.computeHashIDExpand(), associativityTop);
 											// Node newTop =
                                             // hashes.checkAndPutWithChildren(associativityTop);
-                                            hashes.remove(eq.getHashId());
-                                            for (Node p : eq.getParents()) {
-                                                hashes.remove(p.getHashId());
-                                            }
+                                          //  hashes.remove(eq.computeHashIDExpand());
+                                         //   for (Node p : eq.getParents()) {
+                                         //       hashes.remove(p.computeHashIDExpand());
+                                        //    }
                                             eq.addChild(associativityTop);
                                             associativityTop.addAllDescendantBaseTables(op.getDescendantBaseTables());
                                             if (useGreedy) {
@@ -1383,33 +1391,33 @@ public class QueryDecomposer {
                                             // eq.setPartitionedOn(new
                                             // PartitionCols(newBwc.getAllColumnRefs()));
                                             // if(!h.containsKey(eq.computeHashID())){
-                                            hashes.put(eq.getHashId(), eq);
-                                            for (Node p : eq.getParents()) {
-                                                hashes.put(p.computeHashID(), p);
-                                            }
+                                       //     hashes.put(eq.computeHashIDExpand(), eq);
+                                        //    for (Node p : eq.getParents()) {
+                                        //        hashes.put(p.computeHashID(), p);
+                                        //    }
 
                                         } else {
 
-                                            unify(eq, hashes.get(associativityTop.getHashId()).getFirstParent());
+                                            unify(eq, hashes.get(associativityTop.computeHashIDExpand()).getFirstParent());
 											// same as unify(eq', eq)???
                                             // checking again children of eq?
                                             associativityTop.removeAllChildren();
                                             if (table.getParents().isEmpty()) {
-                                                if (hashes.get(table.getHashId()) == table) {
-                                                    hashes.remove(table.getHashId());
+                                                if (hashes.get(table.computeHashIDExpand()) == table) {
+                                                    hashes.remove(table.computeHashIDExpand());
                                                 }
                                                 for (Node n : table.getChildren()) {
                                                     if (n.getParents().size() == 1) {
-                                                        if (hashes.get(n.getHashId()) == n) {
-                                                            hashes.remove(n.getHashId());
+                                                        if (hashes.get(n.computeHashIDExpand()) == n) {
+                                                            hashes.remove(n.computeHashIDExpand());
                                                         }
                                                     }
                                                 }
                                                 table.removeAllChildren();
                                             }
                                             if (associativity.getParents().isEmpty()) {
-                                                if (hashes.get(associativity.getHashId()) == associativity) {
-                                                    hashes.remove(associativity.getHashId());
+                                                if (hashes.get(associativity.computeHashIDExpand()) == associativity) {
+                                                    hashes.remove(associativity.computeHashIDExpand());
                                                 }
                                                 associativity.removeAllChildren();
                                             }
@@ -1427,13 +1435,13 @@ public class QueryDecomposer {
                 
 
                 if (!(op.getObject() instanceof NonUnaryWhereCondition)) {
-                    op.computeHashID();
+                    op.computeHashIDExpand();
                 }
                 op.setExpanded(true);
 
             }
         }
-        eq.computeHashID();
+        //eq.computeHashID();
         if (useSIP && !eq.getParents().isEmpty() && eq.getParents().get(0).getOpCode() == Node.UNION) {
             Projection p = (Projection) eq.getChildAt(0).getObject();
             for (int pChNo = 0; pChNo < eq.getChildAt(0).getChildren().size(); pChNo++) {
@@ -1473,41 +1481,41 @@ public class QueryDecomposer {
             return;
         }
 
-        hashes.remove(q2.getHashId());
-        hashes.remove(q.getHashId());
-        for (Node p : q.getParents()) {
-            hashes.remove(p.getHashId());
-            p.setHashNeedsRecomputing();
-        }
+        //hashes.remove(q2.computeHashIDExpand());
+        //hashes.remove(q.computeHashIDExpand());
+        //for (Node p : q.getParents()) {
+        ///    hashes.remove(p.computeHashIDExpand());
+        //    p.setHashNeedsRecomputing();
+        //}
         q.getUnions().addAll(q2.getUnions());
 
         for (Node c : q2.getChildren()) {
             q.addChild(c);
             q.addAllDescendantBaseTables(c.getDescendantBaseTables());
         }
-        for (Node p : q.getParents()) {
-            hashes.put(p.getHashId(), p);
-        }
+        //for (Node p : q.getParents()) {
+        //    hashes.put(p.computeHashIDExpand(), p);
+       // }
         q2.removeAllChildren();
         for (int i = 0; i < q2.getParents().size(); i++) {
             Node p = q2.getParents().get(i);
-            // System.out.println(p.getHashId());
-            hashes.remove(p.getHashId());
+            // System.out.println(p.computeHashIDExpand());
+            hashes.remove(p.computeHashIDExpand());
             int pos = p.removeChild(q2);
             i--;
             if (p.getParents().isEmpty()) {
                 continue;
             }
             p.addChildAt(q, pos);
-            if (hashes.containsKey(p.getHashId()) && !hashes.get(p.getHashId()).getParents().isEmpty()) {
+            if (hashes.containsKey(p.computeHashIDExpand(true)) && !hashes.get(p.computeHashIDExpand()).getParents().isEmpty()) {
                 // System.out.println("further unification!");
-                unify(hashes.get(p.getHashId()).getFirstParent(), p.getFirstParent());
+                unify(hashes.get(p.computeHashIDExpand()).getFirstParent(), p.getFirstParent());
             } else {
-                hashes.put(p.getHashId(), p);
+                hashes.put(p.computeHashIDExpand(), p);
             }
-            // System.out.println(p.getHashId());
+            // System.out.println(p.computeHashIDExpand());
         }
-        hashes.put(q.getHashId(), q);
+        //hashes.put(q.computeHashIDExpand(), q);
     }
 
     private Iterator<PartitionCols> combineColumns(Set<PartitionCols> partitionedOn) {
@@ -1837,8 +1845,8 @@ public class QueryDecomposer {
     private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
             EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 
-        if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
-            madgik.exareme.common.schema.Table t = registry.get(e.getHashId());
+        if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+            madgik.exareme.common.schema.Table t = registry.get(e.computeHashIDExpand());
             String col = Registry.getInstance(db).getPartitionColumn(t.getName());
             int ptns = Registry.getInstance(db).getNumOfPartitions(t.getName());
 
@@ -2153,7 +2161,7 @@ public class QueryDecomposer {
 
     private SinglePlan searchForBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat) {
 
-        if (useCache && registry.containsKey(e.getHashId()) && e.getHashId() != null) {
+        if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
             SinglePlan r = new SinglePlan(0);
 
             memo.put(e, r, true, true, false);
@@ -2171,7 +2179,7 @@ public class QueryDecomposer {
         }
 
         SinglePlan resultPlan = new SinglePlan(Double.MAX_VALUE);
-        ;
+        
 
         for (int k = 0; k < e.getChildren().size(); k++) {
             Node o = e.getChildAt(k);
@@ -2751,5 +2759,77 @@ public class QueryDecomposer {
             }
         }
 
+    }
+
+	 private void createProjectionsDAG(Node e) {
+    	Map<String, Set<String>> refColsAlias=new HashMap<String, Set<String>>();
+    	Set<Node> visited=new HashSet<Node>();
+    	e.addRefCols(refColsAlias, visited);
+    	
+        for (String t : refColsAlias.keySet()) {
+                    Node table = new Node(Node.OR);
+                    if(!n2a.contailsAliasForBaseTable(t)){
+                    	//nested
+                    	continue;
+                    }
+                    table.setObject(new Table(this.n2a.getOriginalName(t), t));
+                    Node tableInHashes = hashes.get(table.getHashId());
+                    if (tableInHashes == null) {
+                        // System.out.println("not found");
+                    } else {
+                        Node project;
+                        Node orNode;
+                        if (tableInHashes.getParents().size() == 1
+                                && tableInHashes.getFirstParent().getOpCode() == Node.BASEPROJECT) {
+                            project = tableInHashes.getFirstParent();
+                            orNode = project.getFirstParent();
+                            Projection prj = (Projection) project.getObject();
+                            hashes.remove(project.getHashId());
+                            for (String c : refColsAlias.get(t)) {
+                                Column toAdd = new Column(t, c);
+                                if (!prj.getAllColumnRefs().contains(toAdd)) {
+                                    prj.addOperand(new Output(t + "_" + c, toAdd));
+                                }
+                            }
+                            this.hashes.put(project.getHashId(), project);
+                            this.hashes.put(orNode.getHashId(), orNode);
+
+                        } else {
+                            orNode = new Node(Node.OR);
+                            orNode.setObject(new Table("table" + Util.createUniqueId(), null));
+                            project = new Node(Node.AND, Node.BASEPROJECT);
+                            orNode.addChild(project);
+                            Projection prj = new Projection();
+                            for (String c : refColsAlias.get(t)) {
+                                prj.addOperand(new Output(t + "_" + c, new Column(t, c)));
+                            }
+                            project.setObject(prj);
+                            Set<Node> toRecompute = new HashSet<Node>();
+                            while (!tableInHashes.getParents().isEmpty()) {
+                                Node p = tableInHashes.getFirstParent();
+                                tableInHashes.getParents().remove(0);
+                                int childNo = p.getChildren().indexOf(tableInHashes);
+                                this.hashes.remove(p.getHashId());
+                                p.removeChild(tableInHashes);
+                                p.addChildAt(orNode, childNo);
+                                toRecompute.add(p);
+                                // this.hashes.put(p.getHashId(), p);
+                            }
+                            project.addChild(tableInHashes);
+                            this.hashes.put(project.getHashId(), project);
+                            this.hashes.put(orNode.getHashId(), orNode);
+                            for (Node r : toRecompute) {
+                                this.hashes.put(r.getHashId(), r);
+                                // recompute parents?
+
+                                setParentsNeedRecompute(r);
+                            }
+                        }
+
+                        project.addDescendantBaseTable(t);
+                        orNode.addDescendantBaseTable(t);
+
+            } 
+        }
     }
 }

@@ -196,10 +196,24 @@ public class DataImporter implements Runnable {
 					}
 				}
 				sqliteStatement.executeBatch(); // insert remaining records
+				/*if(DecomposerUtils.USE_ROWID&&!s.isOutputColumnsDinstict()&&rsmd.getColumnCount()==1){
+					String index="create index "+rsmd.getColumnName(1)+"index"+" on "+s.getTemporaryTableName()+"("+
+							rsmd.getColumnLabel(1)+")";
+					log.debug(index);
+					sqliteStatement.execute(index);
+				}*/
 				sqliteStatement.close();
 				resultSet.close();
 			}
-
+			if(DecomposerUtils.USE_ROWID&&!s.isOutputColumnsDinstict()&&s.getOutputs().size()==1){
+				String index="create index "+s.getOutputAliases().get(0)+"index"+" on "+s.getTemporaryTableName()+"("+
+						s.getOutputAliases().get(0)+")";
+				log.debug(index);
+				Statement creatindex = sqliteConnection.createStatement();
+				creatindex.execute(index);
+				creatindex.close();
+			}
+			
 			sqliteConnection.commit();
 			
 			sqliteConnection.close();

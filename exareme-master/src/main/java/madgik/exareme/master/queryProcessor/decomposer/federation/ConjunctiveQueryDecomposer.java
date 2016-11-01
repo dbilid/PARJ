@@ -92,10 +92,10 @@ public class ConjunctiveQueryDecomposer {
 		c2n = new ColumnsToTableNames<Node>();
 
 		if (initialQuery.getJoinNode() != null) {
-			for(String alias:initialQuery.getJoinNode().getDescendantBaseTables()){
+			for (String alias : initialQuery.getJoinNode().getDescendantBaseTables()) {
 				c2n.addTable(alias, initialQuery.getJoinNode());
 			}
-			
+
 			for (int i = 0; i < initialQuery.getInputTables().size(); i++) {
 				if (initialQuery.getJoinNode().getDescendantBaseTables()
 						.contains(initialQuery.getInputTables().get(i).getAlias())) {
@@ -103,19 +103,19 @@ public class ConjunctiveQueryDecomposer {
 					i--;
 				}
 			}
-			//Node tempParent=null;
-			if(!initialQuery.getInputTables().isEmpty()){
+			// Node tempParent=null;
+			if (!initialQuery.getInputTables().isEmpty()) {
 				log.debug("left join with more tables in the same query");
-			for (Table t : this.initialQuery.getInputTables()) {
-				makeNodeForTable(t, c2n, hashes);
+				for (Table t : this.initialQuery.getInputTables()) {
+					makeNodeForTable(t, c2n, hashes);
 
-			}
-			Node tempParent=addRemainingJoins(c2n, hashes, null, root, false);
-			root.addChild(tempParent);
-			return tempParent; }
-			else{
+				}
+				Node tempParent = addRemainingJoins(c2n, hashes, null, root, false);
+				root.addChild(tempParent);
+				return tempParent;
+			} else {
 				Node tempParent = makeNodeFinal(initialQuery.getJoinNode(), hashes);
-				
+
 				if (useGreedy) {
 					tempParent.addUnionToDesc(counter);
 				}
@@ -133,8 +133,8 @@ public class ConjunctiveQueryDecomposer {
 						s.addOperand(uwc);
 					}
 				}
-				if(!s.getOperands().isEmpty()){
-					Node selNode=new Node(Node.AND, Node.SELECT);
+				if (!s.getOperands().isEmpty()) {
+					Node selNode = new Node(Node.AND, Node.SELECT);
 					selNode.setObject(s);
 					selNode.addChild(tempParent);
 					selNode.addAllDescendantBaseTables(tempParent.getDescendantBaseTables());
@@ -166,56 +166,43 @@ public class ConjunctiveQueryDecomposer {
 				root.addChild(tempParent);
 				return tempParent;
 			}
-			/*makeNodeFinal(initialQuery.getJoinNode(), hashes);
-
-			if (useGreedy) {
-			tempParent.addUnionToDesc(counter);
-			}
-			Selection s = new Selection();
-			if (!initialQuery.getBinaryWhereConditions().isEmpty()) {
-
-				for (NonUnaryWhereCondition nuwc : initialQuery.getBinaryWhereConditions()) {
-					s.addOperand(nuwc);
-				}
-			}
-			if (!initialQuery.getUnaryWhereConditions().isEmpty()) {
-
-				for (UnaryWhereCondition uwc : initialQuery.getUnaryWhereConditions()) {
-					s.addOperand(uwc);
-				}
-			}
-			if (!s.getOperands().isEmpty()) {
-				Node selNode = new Node(Node.AND, Node.SELECT);
-				selNode.setObject(s);
-				selNode.addChild(tempParent);
-				selNode.addAllDescendantBaseTables(tempParent.getDescendantBaseTables());
-				if (!hashes.containsKey(selNode.getHashId())) {
-
-					// table.setHashID(Objects.hash(t.getName()));
-					// table.setIsBaseTable(true);
-					hashes.put(selNode.getHashId(), selNode);
-				} else {
-					selNode = hashes.get(selNode.getHashId());
-				}
-				Node table = new Node(Node.OR);
-				Table t = new Table("table" + Util.createUniqueId(), null);
-				table.setObject(t);
-				table.addChild(selNode);
-				// table.setPartitionRecord(groupBy.getPartitionRecord());
-				// table.setLastPartition(groupBy.getLastPartition());
-
-				// groupBy.setPartitionRecord(n.getPartitionRecord());
-				// groupBy.setPartitionRecord(n.getPartitionRecord());
-				if (!hashes.containsKey(table.getHashId())) {
-					hashes.put(table.getHashId(), table);
-					table.addAllDescendantBaseTables(selNode.getDescendantBaseTables());
-				} else {
-					table = hashes.get(table.getHashId());
-				}
-				tempParent = table;
-			}
-			root.addChild(tempParent);
-			return tempParent;*/
+			/*
+			 * makeNodeFinal(initialQuery.getJoinNode(), hashes);
+			 * 
+			 * if (useGreedy) { tempParent.addUnionToDesc(counter); } Selection
+			 * s = new Selection(); if
+			 * (!initialQuery.getBinaryWhereConditions().isEmpty()) {
+			 * 
+			 * for (NonUnaryWhereCondition nuwc :
+			 * initialQuery.getBinaryWhereConditions()) { s.addOperand(nuwc); }
+			 * } if (!initialQuery.getUnaryWhereConditions().isEmpty()) {
+			 * 
+			 * for (UnaryWhereCondition uwc :
+			 * initialQuery.getUnaryWhereConditions()) { s.addOperand(uwc); } }
+			 * if (!s.getOperands().isEmpty()) { Node selNode = new
+			 * Node(Node.AND, Node.SELECT); selNode.setObject(s);
+			 * selNode.addChild(tempParent);
+			 * selNode.addAllDescendantBaseTables(tempParent.
+			 * getDescendantBaseTables()); if
+			 * (!hashes.containsKey(selNode.getHashId())) {
+			 * 
+			 * // table.setHashID(Objects.hash(t.getName())); //
+			 * table.setIsBaseTable(true); hashes.put(selNode.getHashId(),
+			 * selNode); } else { selNode = hashes.get(selNode.getHashId()); }
+			 * Node table = new Node(Node.OR); Table t = new Table("table" +
+			 * Util.createUniqueId(), null); table.setObject(t);
+			 * table.addChild(selNode); //
+			 * table.setPartitionRecord(groupBy.getPartitionRecord()); //
+			 * table.setLastPartition(groupBy.getLastPartition());
+			 * 
+			 * // groupBy.setPartitionRecord(n.getPartitionRecord()); //
+			 * groupBy.setPartitionRecord(n.getPartitionRecord()); if
+			 * (!hashes.containsKey(table.getHashId())) {
+			 * hashes.put(table.getHashId(), table);
+			 * table.addAllDescendantBaseTables(selNode.getDescendantBaseTables(
+			 * )); } else { table = hashes.get(table.getHashId()); } tempParent
+			 * = table; } root.addChild(tempParent); return tempParent;
+			 */
 
 		}
 
@@ -398,7 +385,7 @@ public class ConjunctiveQueryDecomposer {
 				}
 			}
 			if (!joinsForTablesWithInequality.isEmpty()) {
-				rangeJoins=new ArrayList<NonUnaryWhereCondition>();
+				rangeJoins = new ArrayList<NonUnaryWhereCondition>();
 				for (Set<NonUnaryWhereCondition> filters : joinsForTablesWithInequality.values()) {
 					for (NonUnaryWhereCondition f : filters) {
 						remainingWhereConditions.add(f);
@@ -412,51 +399,84 @@ public class ConjunctiveQueryDecomposer {
 		return addRemainingJoins(c2n, hashes, joinSets, root, true);
 	}
 
-	private Node addRemainingJoins(ColumnsToTableNames<Node> c2n2, NodeHashValues hashes, List<Set<String>> joinSets, Node root, boolean useJoinSets) throws SQLException {
+	private Node addRemainingJoins(ColumnsToTableNames<Node> c2n2, NodeHashValues hashes, List<Set<String>> joinSets,
+			Node root, boolean useJoinSets) throws SQLException {
 		while (!this.remainingWhereConditions.isEmpty()) {
 			NonUnaryWhereCondition bwc = this.remainingWhereConditions.get(0);
-			boolean addRangeJoins=false;
-			if(addRangeJoins&&rangeJoins!=null){
-				for(NonUnaryWhereCondition range:rangeJoins){
-					//make sure that all columns for each operand come from the same node
-					boolean allColumnComeFromSameNode=true;
-				Node lchild = c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(0));
-				for(int i=1;i<range.getLeftOp().getAllColumnRefs().size();i++){
-					if(!c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(i)).getObject().equals(lchild.getObject())){
-						allColumnComeFromSameNode=false;
+			if (c2n.getLastT() != null) {
+				// construct initial left deep join tree
+				Node last = c2n.getLastT();
+				for (int i = 0; i < remainingWhereConditions.size(); i++) {
+
+					bwc = this.remainingWhereConditions.get(i);
+					Node lchild = c2n.getTablenameForColumn((Column) bwc.getLeftOp().getAllColumnRefs().get(0));
+					if (lchild == last) {
 						break;
 					}
-				}
-				if(!allColumnComeFromSameNode){
-					continue;
-				}
-				Node rchild = c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(0));
-				for(int i=1;i<range.getRightOp().getAllColumnRefs().size();i++){
-					//Node llll=c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i));
-					if(!c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i)).getObject().equals(rchild.getObject())){
-						allColumnComeFromSameNode=false;
-						break;
+					if (bwc.getOperator().equals("=")) {
+						Node rchild = c2n.getTablenameForColumn((Column) bwc.getRightOp().getAllColumnRefs().get(0));
+						if (rchild == last) {
+
+							NonUnaryWhereCondition newBwc = new NonUnaryWhereCondition();
+							newBwc.setOperator(bwc.getOperator());
+							newBwc.setLeftOp(bwc.getRightOp());
+							newBwc.setRightOp(bwc.getLeftOp());
+							remainingWhereConditions.remove(bwc);
+							remainingWhereConditions.add(newBwc);
+							//System.out.println(bwc);
+							bwc = newBwc;
+							break;
+						}
 					}
 				}
-				if(!allColumnComeFromSameNode)
-				{
-					continue;
-				}
-				rangeJoins.remove(range);
-				bwc=range;
-				break;
-				}
-				
+
 			}
-			
-			if(useJoinSets){
+
+			boolean addRangeJoins = false;
+			if (addRangeJoins && rangeJoins != null) {
+				for (NonUnaryWhereCondition range : rangeJoins) {
+					// make sure that all columns for each operand come from the
+					// same node
+					boolean allColumnComeFromSameNode = true;
+					Node lchild = c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(0));
+					for (int i = 1; i < range.getLeftOp().getAllColumnRefs().size(); i++) {
+						if (!c2n.getTablenameForColumn(range.getLeftOp().getAllColumnRefs().get(i)).getObject()
+								.equals(lchild.getObject())) {
+							allColumnComeFromSameNode = false;
+							break;
+						}
+					}
+					if (!allColumnComeFromSameNode) {
+						continue;
+					}
+					Node rchild = c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(0));
+					for (int i = 1; i < range.getRightOp().getAllColumnRefs().size(); i++) {
+						// Node
+						// llll=c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i));
+						if (!c2n.getTablenameForColumn(range.getRightOp().getAllColumnRefs().get(i)).getObject()
+								.equals(rchild.getObject())) {
+							allColumnComeFromSameNode = false;
+							break;
+						}
+					}
+					if (!allColumnComeFromSameNode) {
+						continue;
+					}
+					rangeJoins.remove(range);
+					bwc = range;
+					break;
+				}
+
+			}
+
+			if (useJoinSets) {
 				mergeJoinSets(joinSets, bwc);
 			}
 			Node join = new Node(Node.AND, Node.JOIN);
 			join.setObject(bwc);
 
 			if (bwc.getLeftOp() instanceof Column && bwc.getRightOp() instanceof Column) {
-				Node lchild = c2n.getTablenameForColumn( bwc.getLeftOp().getAllColumnRefs().get(0));
+				Node lchild = c2n.getTablenameForColumn(bwc.getLeftOp().getAllColumnRefs().get(0));
 				join.addChild(lchild);
 				join.addAllDescendantBaseTables(lchild.getDescendantBaseTables());
 
@@ -467,7 +487,7 @@ public class ConjunctiveQueryDecomposer {
 			} else {
 
 				log.error(bwc.toString() + ":operand not Column");
-				Node lchild = c2n.getTablenameForColumn( bwc.getLeftOp().getAllColumnRefs().get(0));
+				Node lchild = c2n.getTablenameForColumn(bwc.getLeftOp().getAllColumnRefs().get(0));
 				join.addChild(lchild);
 				join.addAllDescendantBaseTables(lchild.getDescendantBaseTables());
 
@@ -512,11 +532,12 @@ public class ConjunctiveQueryDecomposer {
 
 			// for (Node toChange : join.getChildren()) {
 			c2n.changeColumns(c2n.getTablenameForColumn(bwc.getLeftOp().getAllColumnRefs().get(0)), table);
-			c2n.changeColumns(c2n.getTablenameForColumn( bwc.getRightOp().getAllColumnRefs().get(0)), table);
+			c2n.changeColumns(c2n.getTablenameForColumn(bwc.getRightOp().getAllColumnRefs().get(0)), table);
+			c2n.setLastT(table);
 			// }
 
 			if (remainingWhereConditions.size() == 1) {
-				if (useJoinSets&&joinSets.size() > 1) {
+				if (useJoinSets && joinSets.size() > 1) {
 					NonUnaryWhereCondition toAdd = addConditionsFromConstants();
 					if (toAdd == null) {
 						log.error("Input query contains cartesian product. Currently not supported");
@@ -931,8 +952,5 @@ public class ConjunctiveQueryDecomposer {
 	List<Table> getInputTables() {
 		return this.initialQuery.getInputTables();
 	}
-	
 
-	
-	
 }

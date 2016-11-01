@@ -22,6 +22,7 @@ public class Output {
 
     private String outputName;
     private Operand object;
+    private HashCode hash;
 
     public Output(String name, Operand o) {
         this.outputName = name;
@@ -83,10 +84,14 @@ public class Output {
     }
 
 	public HashCode getHashID() {
-		List<HashCode> codes=new ArrayList<HashCode>();
+		if(hash==null){
+			hash=Hashing.sha1().hashBytes(this.toString().getBytes());
+		}
+		return hash;
+		/*List<HashCode> codes=new ArrayList<HashCode>();
 		codes.add(object.getHashID());
 		codes.add(Hashing.sha1().hashBytes(outputName.toUpperCase().getBytes()));
 
-		return Hashing.combineOrdered(codes);
+		return Hashing.combineOrdered(codes);*/
 	}
 }

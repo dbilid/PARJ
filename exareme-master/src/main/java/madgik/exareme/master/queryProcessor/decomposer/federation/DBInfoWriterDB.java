@@ -17,7 +17,7 @@ public class DBInfoWriterDB {
 
     public static void write(String query, String directory) throws ClassNotFoundException {
         Class.forName("org.sqlite.JDBC");
-        log.debug("Adding endpoint " + query);
+        
         Connection connection = null;
         try {
             // create a database connection

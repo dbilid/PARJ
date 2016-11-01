@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+//import org.apache.log4j.Logger;
 
 /**
  *
@@ -26,6 +27,8 @@ import java.util.List;
 public class AdpDatabaseMetaData implements java.sql.DatabaseMetaData {
 
     private AdpConnection con;
+
+    //private static final Logger log = Logger.getLogger(AdpDatabaseMetaData.class);
 
     public AdpDatabaseMetaData(AdpConnection connection) {
         this.con = connection;
@@ -1099,25 +1102,147 @@ public class AdpDatabaseMetaData implements java.sql.DatabaseMetaData {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
-    @Override
-    public ResultSet getPrimaryKeys(String catalog, String schema, String table)
-            throws SQLException {
-        FederatedConnections cons = con.getFederatedConnections();
-        if (cons.isEmpty()) {
-            throw new SQLException("No federated endpoints found");
-        }
+	@Override
+	public ResultSet getPrimaryKeys(String catalog, String schema, String table)
+			throws SQLException {
+		FederatedConnections cons = con.getFederatedConnections();
+		if (cons.isEmpty()) {
+			throw new SQLException("No federated endpoints found");
+		}
+		//System.out.println("Primary keys for table:"+table+"in Schema:"+schema);
+		String dbID = "";
+		Schema nextEndpoint = null;
+		Iterator<Schema> endpoints = cons.getSchemas().iterator();
+		while (endpoints.hasNext()) {
+			nextEndpoint = endpoints.next();
+			dbID = nextEndpoint.getId();
+			if (table.toUpperCase().startsWith(dbID.toUpperCase() + "_")) {
+				table = table.substring(dbID.length() + 1);
+				break;
+			}
+			nextEndpoint=null;
+		}
+		if (nextEndpoint == null) {
+			//System.out.println("null endpoint");
+			try {
+				Statement exSt = this.con.createStatement();
+				ResultSet internalExaremeIndex = exSt
+						.executeQuery("getPrimaryKeys " + catalog + " null "
+								+ table );
+				ArrayList<ArrayList<String>> schemaList = new ArrayList<ArrayList<String>>();
+				for (int i = 1; i < internalExaremeIndex.getMetaData()
+						.getColumnCount() + 1; i++) {
+					ArrayList<String> nextCouple = new ArrayList<String>();
+					nextCouple.add(internalExaremeIndex.getMetaData()
+							.getColumnName(i).toUpperCase());
+					nextCouple.add(internalExaremeIndex.getMetaData()
+							.getColumnTypeName(i));
+					schemaList.add(nextCouple);
+				}
+				/*
+				 * ArrayList<String> typenames=new ArrayList<String>();
+				 * ArrayList<String> names=new ArrayList<String>(); for(int
+				 * i=1;i<first.getMetaData().getColumnCount()+1;i++){
+				 * names.add(first.getMetaData().getColumnName(i));
+				 * typenames.add(first.getMetaData().getColumnTypeName(i)); }
+				 * schemaList.add(names); schemaList.add(typenames);
+				 */
 
-        String dbID = "";
-        Schema nextEndpoint = null;
-        Iterator<Schema> endpoints = cons.getSchemas().iterator();
-        while (endpoints.hasNext()) {
-            nextEndpoint = endpoints.next();
-            dbID = nextEndpoint.getId();
-            if (table.toUpperCase().startsWith(dbID.toUpperCase() + "_")) {
-                table = table.substring(dbID.length() + 1);
-                break;
-            }
-        }
+				HashMap<String, ArrayList<ArrayList<String>>> h = new HashMap<String, ArrayList<ArrayList<String>>>();
+				h.put("schema", schemaList);
+				h.put("errors", new ArrayList<ArrayList<String>>());
+				Gson g = new Gson();
+				StringBuilder sb = new StringBuilder();
+				sb.append(g.toJson(h, h.getClass()));
+				// ResultSet internalExaremeTables =
+				// con.getRegistryConnection().getMetaData().getTables(catalog,
+				// schemaPatt, tableNamePattern, types);
+				while (internalExaremeIndex.next()) {
+					//System.out.println("next");
+					sb.append("\n");
+					ArrayList<Object> res = new ArrayList<Object>();
+					for (int i = 1; i < internalExaremeIndex.getMetaData()
+							.getColumnCount() + 1; i++) {
+						if (i == 2) {
+							res.add("adp");
+						} else {
+							res.add(internalExaremeIndex.getObject(i));
+						}
+					}
+					sb.append(g.toJson((ArrayList<Object>) res));
+				}
+				internalExaremeIndex.close();
+				exSt.close();
+				AdpResultSet result = new AdpResultSet(new InputStreamReader(
+						new StringBufferInputStream(sb.toString())),
+						this.con.createStatement());
+				result.setCloseStOnClose(true);
+				return result;
+			} catch (Exception e) {
+				throw new SQLException(e.getMessage());
+			}
+		} else {
+			//System.out.println("endpoint:"+nextEndpoint);
+			Connection c = cons.getConnection(nextEndpoint);
+			String schemaPatt = nextEndpoint.getSchema();
+			if (c.getClass().getName().contains("postgresql")) {
+				schemaPatt = null;
+			}
+			ResultSet first = cons.getConnection(nextEndpoint).getMetaData()
+					.getPrimaryKeys(catalog, schemaPatt, table);
+
+			ArrayList<ArrayList<String>> schemaList = new ArrayList<ArrayList<String>>();
+			for (int i = 1; i < first.getMetaData().getColumnCount() + 1; i++) {
+				ArrayList<String> nextCouple = new ArrayList<String>();
+				nextCouple.add(first.getMetaData().getColumnName(i)
+						.toUpperCase());
+				nextCouple.add(first.getMetaData().getColumnTypeName(i));
+				schemaList.add(nextCouple);
+			}
+			/*
+			 * ArrayList<String> typenames=new ArrayList<String>();
+			 * ArrayList<String> names=new ArrayList<String>(); for(int
+			 * i=1;i<first.getMetaData().getColumnCount()+1;i++){
+			 * names.add(first.getMetaData().getColumnName(i));
+			 * typenames.add(first.getMetaData().getColumnTypeName(i)); }
+			 * 
+			 * schemaList.add(names); schemaList.add(typenames);
+			 */
+
+			HashMap<String, ArrayList<ArrayList<String>>> h = new HashMap<String, ArrayList<ArrayList<String>>>();
+			h.put("schema", schemaList);
+			h.put("errors", new ArrayList<ArrayList<String>>());
+			Gson g = new Gson();
+			StringBuilder sb = new StringBuilder();
+			sb.append(g.toJson(h, h.getClass()));
+
+			while (first.next()) {
+				//System.out.println("next");
+				sb.append("\n");
+				ArrayList<Object> res = new ArrayList<Object>();
+				for (int i = 1; i < first.getMetaData().getColumnCount() + 1; i++) {
+					if (i == 3 || i == 7) {
+						// table names
+						res.add(dbID + "_" + first.getString(i));
+					} else if (i == 2) {
+						res.add("adp");
+					} else {
+						res.add(first.getObject(i));
+					}
+				}
+				sb.append(g.toJson((ArrayList<Object>) res));
+			}
+			first.close();
+			AdpResultSet result = new AdpResultSet(new InputStreamReader(
+					new StringBufferInputStream(sb.toString())),
+					this.con.createStatement());
+			result.setCloseStOnClose(true);
+			return result;
+
+		}
+	}
+
+    /*}
         if (nextEndpoint == null) {
             throw new SQLException("No endpoint found for table " + table);
         }
@@ -1135,15 +1260,7 @@ public class AdpDatabaseMetaData implements java.sql.DatabaseMetaData {
             nextCouple.add(first.getMetaData().getColumnTypeName(i));
             schemaList.add(nextCouple);
         }
-        /* ArrayList<String> typenames=new ArrayList<String>();
-         ArrayList<String> names=new ArrayList<String>();
-         for(int i=1;i<first.getMetaData().getColumnCount()+1;i++){
-         names.add(first.getMetaData().getColumnName(i));
-         typenames.add(first.getMetaData().getColumnTypeName(i));
-         }
-      
-         schemaList.add(names);
-         schemaList.add(typenames);*/
+       
 
         HashMap<String, ArrayList<ArrayList<String>>> h = new HashMap<String, ArrayList<ArrayList<String>>>();
         h.put("schema", schemaList);
@@ -1172,7 +1289,7 @@ public class AdpDatabaseMetaData implements java.sql.DatabaseMetaData {
         result.setCloseStOnClose(true);        
         return result;
 
-    }
+    }*/
 
     @Override
     public ResultSet getImportedKeys(String catalog, String schema, String table)
