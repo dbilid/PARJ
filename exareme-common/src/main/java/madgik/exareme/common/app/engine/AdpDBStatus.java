@@ -5,6 +5,7 @@ package madgik.exareme.common.app.engine;
 
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author herald
@@ -76,4 +77,5 @@ public interface AdpDBStatus {
      * @throws RemoteException
      */
     AdpDBStatus createSerializableStatus() throws RemoteException;
+	
 }

@@ -6,9 +6,13 @@ package madgik.exareme.worker.art.executionEngine.sessionMgr;
 import madgik.exareme.common.app.engine.scheduler.elasticTree.client.SLA;
 import madgik.exareme.common.art.ContainerSessionID;
 import madgik.exareme.common.art.PlanSessionID;
+import madgik.exareme.common.schema.ResultTable;
+import madgik.exareme.worker.art.executionEngine.ExecutionEngine;
 import madgik.exareme.worker.art.executionPlan.ExecutionPlan;
 
 import java.rmi.RemoteException;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author herald
@@ -36,4 +40,7 @@ public interface PlanSessionManagerInterface {
 
     void executeElasticTree(ExecutionPlan plan, SLA sla, PlanSessionID sessionID)
         throws RemoteException;
+
+	ExecutionEngine getExecutionEngine();
+
 }

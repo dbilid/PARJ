@@ -105,10 +105,9 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 			} else if (o.getOpCode() == Node.ORDERBY) {
 				estimateOrderBy(n);
-			}
-		 else if (o.getOpCode() == Node.LIMIT) {
+			} else if (o.getOpCode() == Node.LIMIT) {
 				estimateLimit(n);
-		}
+			}
 		}
 
 	}
@@ -118,19 +117,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo rel = n.getChildAt(0).getChildAt(0).getNodeInfo().getResultRel();
 		// RelInfo rel =
 		// this.planInfo.get(n.getHashId()).getResultRel();
-		Integer limit = (Integer)n.getChildAt(0).getObject();
+		Integer limit = (Integer) n.getChildAt(0).getObject();
 		RelInfo resultRel = new RelInfo(rel);
-		if(limit.doubleValue()>rel.getNumberOfTuples()){
+		if (limit.doubleValue() > rel.getNumberOfTuples()) {
 			nested.setNumberOfTuples(rel.getNumberOfTuples());
-		}
-		else{
+		} else {
 			nested.setNumberOfTuples(limit.doubleValue());
 		}
-		
+
 		nested.setTupleLength(rel.getTupleLength());
 		nested.setResultRel(resultRel);
 		n.setNodeInfo(nested);
-		
+
 	}
 
 	private void estimateOrderBy(Node n) {
@@ -165,6 +163,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		NodeInfo ni = new NodeInfo();
 		n.setNodeInfo(ni);
 		NodeInfo childInfo = child.getNodeInfo();
+
 		Set<Operand> filters = s.getOperands();
 
 		// RelInfo initRel = childInfo.getResultRel();
@@ -174,12 +173,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 		// one select node can contain more than one filter!
 		for (Operand nextFilter : filters) {
-			applyFilterToNode(nextFilter, ni);
+			applyFilterToNode(nextFilter, ni, child);
 		}
 
 	}
 
-	private void applyFilterToNode(Operand nextFilter, NodeInfo ni) {
+	private void applyFilterToNode(Operand nextFilter, NodeInfo ni, Node child) {
 		if (nextFilter instanceof UnaryWhereCondition) {
 			UnaryWhereCondition uwc = (UnaryWhereCondition) nextFilter;
 			if (uwc.getType() == UnaryWhereCondition.LIKE) {
@@ -189,9 +188,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 					Column col = uwc.getAllColumnRefs().get(0);
 					String con = uwc.getValue();
 					if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
-						log.error("Column not found in Attribute index: " + col.toString());
-						ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
-						return;
+						AttrInfo att = getAttributeFromBase(col.toString(), child, ni);
+						if (att == null) {
+							log.error("Column not found in Attribute index: " + col.toString());
+							ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+							return;
+						} else {
+							ni.getResultRel().getAttrIndex().put(col.toString(), att);
+						}
 					}
 					Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
 
@@ -242,8 +246,8 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			String operator = nuwc.getOperator(); // e.g. =, <, >
 
 			if (operator.equalsIgnoreCase("and")) {
-				applyFilterToNode(nuwc.getLeftOp(), ni);
-				applyFilterToNode(nuwc.getRightOp(), ni);
+				applyFilterToNode(nuwc.getLeftOp(), ni, child);
+				applyFilterToNode(nuwc.getRightOp(), ni, child);
 			} else if (operator.equalsIgnoreCase("or")) {
 				log.warn("Filter with OR condition " + nuwc.toString()
 						+ ". Selectivity estimation will not be accurate");
@@ -253,13 +257,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				left.setNumberOfTuples(ni.getNumberOfTuples());
 				left.setTupleLength(ni.getTupleLength());
 				left.setResultRel(new RelInfo(ni.getResultRel()));
-				applyFilterToNode(nuwc.getLeftOp(), left);
+				applyFilterToNode(nuwc.getLeftOp(), left, child);
 
 				NodeInfo right = new NodeInfo();
 				right.setNumberOfTuples(ni.getNumberOfTuples());
 				right.setTupleLength(ni.getTupleLength());
 				right.setResultRel(new RelInfo(ni.getResultRel()));
-				applyFilterToNode(nuwc.getLeftOp(), right);
+				applyFilterToNode(nuwc.getLeftOp(), right, child);
 
 				ni = left.getNumberOfTuples() > right.getNumberOfTuples() ? left : right;
 			} else {
@@ -280,10 +284,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// RelInfo lRel = childInfo.getResultRel();
 				// RelInfo resultRel = new RelInfo(lRel);
 				// RelInfo resultRel = initRel;
+
+				// check to see if it is "cut" by base projection
 				if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
-					log.error("Column not found in Attribute index: " + col.toString());
-					ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
-					return;
+					AttrInfo att = getAttributeFromBase(col.toString(), child, ni);
+					if (att == null) {
+						log.error("Column not found in Attribute index: " + col.toString());
+						ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
+						return;
+					} else {
+						ni.getResultRel().getAttrIndex().put(col.toString(), att);
+					}
+
 				}
 				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
 
@@ -327,6 +339,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			}
 		}
 
+	}
+
+	private AttrInfo getAttributeFromBase(String col, Node child, NodeInfo ni) {
+		if (child.getChildren().size() == 0 || child.getChildAt(0).getOpCode() != Node.BASEPROJECT) {
+			return null;
+		}
+		AttrInfo column = child.getChildAt(0).getChildAt(0).getNodeInfo().getResultRel().getAttrIndex().get(col);
+		return column;
 	}
 
 	public void estimateJoin(Node n, NonUnaryWhereCondition nuwc, Node left, Node right) {

@@ -3,7 +3,9 @@
  */
 package madgik.exareme.worker.art.executionEngine.dynamicExecutionEngine.event.terminated;
 
+import madgik.exareme.common.app.engine.ExecuteQueryExitMessage;
 import madgik.exareme.common.optimizer.OperatorType;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.eventProcessor.EventProcessor;
 import madgik.exareme.worker.art.executionEngine.Exception.NotEnoughResourcesException;
 import madgik.exareme.worker.art.executionEngine.dynamicExecutionEngine.OperatorGroup;
@@ -26,6 +28,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * @author herald
@@ -45,7 +48,28 @@ public class OperatorGroupTerminatedEventHandler
         throws RemoteException {
         // Set terminated
         if (event.operatorID != null) {
-            log.trace("OperatorTerminated: " + event.operatorID.operatorName);
+            log.debug("OperatorTerminated: " + event.operatorID.operatorName);
+            log.debug("Before...");
+            if(!ResultTable.allTables.isEmpty()){
+            	 log.debug("In...");
+            	//check to stream result table
+            	if(event.exitMessage instanceof ExecuteQueryExitMessage){
+            		ExecuteQueryExitMessage em=(ExecuteQueryExitMessage)event.exitMessage;
+            		String tName=em.outTableInfo.getTableName();
+            		synchronized(ResultTable.allTables){
+            			for(ResultTable rt:ResultTable.allTables){
+            				if(rt.getName().equals(tName)){
+					//if(event.operatorID.operatorName.startsWith("TR_"+rt.getName())){
+            					rt.setReady(true);
+            					//rt.setIp(event..);
+            					break;
+            				}
+            			}
+            			ResultTable.allTables.notify();
+            		}
+            	}
+            }
+            log.debug("After...");
             state.getStatistics().incrOperatorCompleted();
             ActiveOperator activeOperator = state.getActiveOperator(event.operatorID);
             if (event.terminateGroup

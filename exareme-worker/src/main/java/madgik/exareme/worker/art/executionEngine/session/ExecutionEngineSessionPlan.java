@@ -13,6 +13,7 @@ import madgik.exareme.worker.art.executionPlan.ExecutionPlan;
 
 import java.io.Serializable;
 import java.rmi.RemoteException;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -120,4 +121,6 @@ public class ExecutionEngineSessionPlan implements Serializable {
             lock.unlock();
         }
     }
+
+
 }

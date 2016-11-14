@@ -444,7 +444,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 							}
 
 						}
-
+/resultTblName
 					} else if (query.startsWith("analyze table")) {
 						String[] t = query.replace("analyze table ", "").split(" ");
 						if (t.length == 0) {
@@ -609,7 +609,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									// "+resultTblName);
 									Cache cache = new Cache(props);
 									List<madgik.exareme.common.schema.Table> tables = new ArrayList<>(1);
-									tables.add(new madgik.exareme.common.schema.Table(resultTblName.keySet().iterator().next()));
+									tables.add(new madgik.exareme.common.schema.Table(resultTblName.get(0)));
 									cache.updateCacheForTableUse(tables);
 
 								} else if (subqueries.size() == 1 && subqueries.get(0).isSelectAllFromInternal()) {

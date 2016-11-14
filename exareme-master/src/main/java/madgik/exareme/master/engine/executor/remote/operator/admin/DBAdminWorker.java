@@ -60,7 +60,7 @@ public class DBAdminWorker extends AbstractMiMo {
             NetSession net = new NetSessionSimple();
             OutputStream out = net.openOutputStream(new EntityName(ip + "_" + port, ip, port));
 
-            AdpDBConnectorUtil.readLocalTablePart(tabName, part, database, alsoIncludeProps, out);
+            AdpDBConnectorUtil.readLocalTablePart(tabName, part, database, alsoIncludeProps, out, null);
             out.close();
             log.debug("---- DBAdminWorker ----");
 

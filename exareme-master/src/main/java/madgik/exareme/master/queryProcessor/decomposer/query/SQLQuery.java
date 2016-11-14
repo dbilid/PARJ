@@ -76,6 +76,7 @@ public class SQLQuery {
 	private String sql;
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
+	private String stringOutputs;
 
 	public SQLQuery() {
 		super();
@@ -2646,4 +2647,42 @@ public class SQLQuery {
 		}
 		return result;
 	}
+
+	public String getOutputSQL() {
+		StringBuilder output = new StringBuilder();
+		output.append("select ");
+		// }
+		String separator = "";
+		if (this.isSelectAll() || this.getOutputs().isEmpty()) {
+			output.append("*");
+		} else {
+			if (this.isOutputColumnsDinstict()) {
+				output.append("distinct ");
+			}
+			for (Output c : getOutputs()) {
+				output.append(separator);
+				separator = ", ";
+				output.append(c.toString());
+			}
+			/*
+			 * for (Function f : outputFunctions) { output.append(separator);
+			 * separator = ", "; output.append(f.toString()); }
+			 */
+		}
+		separator = "";
+		// if (!this.isHasUnionRootNode()) {
+		output.append(" from ");
+		String result=output.toString().replaceAll("\"", "\\\\\"");
+		return result;
+	}
+
+	public String getStringOutputs() {
+		return stringOutputs;
+	}
+
+	public void setStringOutputs(String stringOutputs) {
+		this.stringOutputs = stringOutputs;
+	}
+
+	
 }

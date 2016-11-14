@@ -7,6 +7,7 @@ import madgik.exareme.common.app.engine.AdpDBOperatorType;
 import madgik.exareme.common.app.engine.AdpDBQueryID;
 import madgik.exareme.common.app.engine.AdpDBSelectOperator;
 import madgik.exareme.common.schema.QueryScript;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.common.schema.Statistics;
 import madgik.exareme.master.client.AdpDBClientProperties;
 import madgik.exareme.master.engine.AdpDBOptimizer;
@@ -26,6 +27,7 @@ import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 
 /**
  * @author herald
@@ -261,6 +263,44 @@ public class RmiAdpDBOptimizer implements AdpDBOptimizer {
             plan = queryOptimizer.optimize(input, props);
         } else {
             plan = dataManipulationOptimizer.optimize(input, props);
+        }
+        queryCache.addPlan(script, registry, plan);
+        return plan;
+    }
+
+	@Override
+	public AdpDBQueryExecutionPlan optimize(QueryScript script, Registry registry, Statistics stats,
+	        AdpDBHistoricalQueryData queryData, AdpDBQueryID queryID, AdpDBClientProperties props,
+	        boolean schedule, boolean validate, List<ResultTable> result) throws RemoteException {
+		AdpDBQueryExecutionPlan plan = queryCache.getPlan(script, registry);
+        if (plan != null) {
+            mapPreviousPlanToCurrent(script, registry, plan);
+            return plan;
+        }
+        int numOfSelectQueries = script.getSelectQueries().size();
+        int numOfDMQueries = script.getDMQueries().size();
+        if (numOfSelectQueries == 0 && numOfDMQueries == 0) {
+            throw new SemanticException("Query script is empty!");
+        }
+        if (numOfSelectQueries > 0 && numOfDMQueries > 0) {
+            throw new SemanticException(
+                "Not supported yet: script with both queries and data manipulation");
+        }
+        // Create input and state
+        int numContaieners = -1;
+        if (props != null) {
+            numContaieners = props.getMaxNumberOfContainers();
+        }
+        InputData input =
+            new InputData(script, registry.getSchema(), stats, queryData, queryID, numContaieners,
+                schedule, validate);
+        if (numOfSelectQueries > 0) {
+            plan = queryOptimizer.optimize(input, props);
+        } else {
+            plan = dataManipulationOptimizer.optimize(input, props);
+        }
+        for(ResultTable rt:result){
+        	rt.setIp(input.script.getTable(rt.getName()).getPartition(0).getLocations().get(0));
         }
         queryCache.addPlan(script, registry, plan);
         return plan;

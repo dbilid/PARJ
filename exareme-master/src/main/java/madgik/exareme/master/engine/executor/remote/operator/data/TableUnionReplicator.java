@@ -86,7 +86,6 @@ public class TableUnionReplicator extends AbstractMiMo {
             }
             log.debug(state.toString());
         }else {
-
             if (super.getAdaptorManager().getOutputCount() == 0) {
                 log.debug("Save the non-temporary tables ...");
                 Table outputTable = dbOp.getQuery().getOutputTable().getTable();

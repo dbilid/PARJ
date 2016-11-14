@@ -62,11 +62,14 @@ public class AdpDBNetReaderOperator extends AbstractNiNo {
             int port =
                 Integer.parseInt(getParameterManager().getParameter("port").get(0).getValue());
             log.debug("--- port : " + port);
+            
+            String output = getParameterManager().getParameter("output").get(0).getValue();
+            log.debug("---- output : " + output);
 
             NetSession net = new NetSessionSimple();
             OutputStream out = net.openOutputStream(new EntityName(ip + "_" + port, ip, port));
 
-            AdpDBConnectorUtil.readLocalTablePart(tabName, part, database, alsoIncludeProps, out);
+            AdpDBConnectorUtil.readLocalTablePart(tabName, part, database, alsoIncludeProps, out, output);
             out.close();
             log.debug("---- NetReader ----");
         } catch (Exception e) {

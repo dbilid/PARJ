@@ -10,6 +10,7 @@ import madgik.exareme.common.art.ContainerSessionID;
 import madgik.exareme.common.art.PlanSessionID;
 import madgik.exareme.common.art.PlanSessionStatistics;
 import madgik.exareme.common.art.entity.EntityName;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.eventProcessor.EventProcessor;
 import madgik.exareme.worker.art.concreteOperator.ConcreteOperatorID;
 import madgik.exareme.worker.art.container.ContainerProxy;
@@ -315,4 +316,8 @@ public class PlanEventSchedulerState {
             }
         }
     }
+
+
+    
+    
 }

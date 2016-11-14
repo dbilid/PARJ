@@ -17,6 +17,7 @@ import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * An implementation of the status manager that lies in memory.
@@ -43,6 +44,7 @@ public class AdpDBStatusManagerInMemory implements AdpDBStatusManager {
         }
         return stat;
     }
+    
 
     @Override public AdpDBStatus createNewStatus(ExecutionEngineSessionPlan sessionPlan,
         ConcreteQueryGraph graph, Map<String, String> categoryMessageMap) throws RemoteException {
@@ -85,6 +87,7 @@ public class AdpDBStatusManagerInMemory implements AdpDBStatusManager {
             return session.hasError();
         }
     }
+    
 
     @Override public void setError(int statusId, Exception exception) {
         AdpDBJobSession session;
@@ -165,4 +168,6 @@ public class AdpDBStatusManagerInMemory implements AdpDBStatusManager {
             session.registerListener(listener);
         }
     }
+
+    
 }

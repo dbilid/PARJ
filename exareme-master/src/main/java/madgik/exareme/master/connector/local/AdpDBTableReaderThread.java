@@ -23,6 +23,7 @@ public class AdpDBTableReaderThread extends Thread {
     private final Map<String, Object> alsoIncludeProps;
     private final AdpDBClientProperties props;
     private final PipedOutputStream out;
+    private String output;
     private Logger log = Logger.getLogger(AdpDBTableReaderThread.class);
 
     public AdpDBTableReaderThread(String tabName, Map<String, Object> alsoIncludeProps,
@@ -32,8 +33,16 @@ public class AdpDBTableReaderThread extends Thread {
         this.props = props;
         this.out = out;
     }
+    
+    
 
-    @Override public void run() {
+    public void setOutput(String output) {
+		this.output = output;
+	}
+
+
+
+	@Override public void run() {
         try {
             Registry registry = Registry.getInstance(props.getDatabase());
             PhysicalTable table = registry.getSchema().getPhysicalTable(tabName);
@@ -48,7 +57,7 @@ public class AdpDBTableReaderThread extends Thread {
             for (Partition p : table.getPartitions()) {
                 AdpDBConnectorUtil
                     .readLocalTablePart(tabName, p.getpNum(), props.getDatabase(), includeProps,
-                        out);
+                        out, output);
                 includeProps = null;  // include props only in the first part
             }
         } catch (Exception e) {

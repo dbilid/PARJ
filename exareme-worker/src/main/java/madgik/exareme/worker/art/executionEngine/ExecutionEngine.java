@@ -4,6 +4,7 @@
 package madgik.exareme.worker.art.executionEngine;
 
 import madgik.exareme.common.art.PlanSessionID;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.worker.art.executionEngine.clockTickManager.ClockTickManagerProxy;
 import madgik.exareme.worker.art.executionEngine.reportMgr.PlanSessionReportManagerProxy;
 import madgik.exareme.worker.art.executionEngine.session.PlanSessionReportID;
@@ -13,6 +14,8 @@ import madgik.exareme.worker.art.executionEngine.statusMgr.PlanSessionStatusMana
 import madgik.exareme.worker.art.remote.RemoteObject;
 
 import java.rmi.RemoteException;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author Herald Kllapi<br>
@@ -52,4 +55,5 @@ public interface ExecutionEngine extends RemoteObject<ExecutionEngineProxy> {
     void stopExecutionEngine() throws RemoteException;
 
     void stopExecutionEngine(boolean force) throws RemoteException;
+
 }

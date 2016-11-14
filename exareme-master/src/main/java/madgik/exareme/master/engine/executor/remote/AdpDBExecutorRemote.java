@@ -6,6 +6,7 @@ package madgik.exareme.master.engine.executor.remote;
 import madgik.exareme.common.app.engine.AdpDBQueryID;
 import madgik.exareme.common.app.engine.AdpDBQueryListener;
 import madgik.exareme.common.app.engine.AdpDBStatus;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.master.client.AdpDBClientProperties;
 import madgik.exareme.master.engine.AdpDBExecutor;
 import madgik.exareme.master.engine.AdpDBQueryExecutionPlan;
@@ -31,8 +32,10 @@ import java.rmi.RemoteException;
 import java.rmi.ServerException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -85,7 +88,8 @@ public class AdpDBExecutorRemote implements AdpDBExecutor {
             planExpression.addPragma(
                 new Pragma(ExecEngineConstants.PRAGMA_INTER_CONTAINER_DATA_TRANSFER,
                     DataTransferRegister.class.getName()));
-
+            
+            
             log.debug("Using optimized execution method ... ");
         } else {
             log.debug("Using simple execution method ... ");
@@ -141,9 +145,11 @@ public class AdpDBExecutorRemote implements AdpDBExecutor {
         } else {
             //TODO check if the following is needed
             sessionPlan = session.startSession();
+            
             sessionPlan.submitPlan(plan);
         }
 
+        
         AdpDBStatus status =
             statusManager.createNewStatus(execPlan.getQueryID(), sessionPlan, categoryMessageMap);
         AdpDBArtJobMonitor monitor =

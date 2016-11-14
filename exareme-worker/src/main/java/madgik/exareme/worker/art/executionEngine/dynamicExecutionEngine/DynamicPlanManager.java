@@ -6,6 +6,7 @@ package madgik.exareme.worker.art.executionEngine.dynamicExecutionEngine;
 import madgik.exareme.common.app.engine.scheduler.elasticTree.client.SLA;
 import madgik.exareme.common.art.ContainerSessionID;
 import madgik.exareme.common.art.PlanSessionID;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.eventProcessor.EventProcessor;
 import madgik.exareme.utils.properties.AdpProperties;
 import madgik.exareme.worker.art.executionEngine.ExecutionEngine;
@@ -21,7 +22,9 @@ import java.rmi.RemoteException;
 import java.rmi.ServerException;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -186,5 +189,11 @@ public class DynamicPlanManager implements PlanSessionManagerInterface {
         log.debug("Exec Elastic Tree: " + sessionID.getLongId());
         elasticTreeScheduler.execute(plan, sla, sessionID, elasticTreeSessions.get(sessionID));
     }
+    
+    @Override
+    public ExecutionEngine getExecutionEngine(){
+    	return executionEngine;
+    }
+    
 
 }

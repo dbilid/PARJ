@@ -82,7 +82,7 @@ public class TestRemoteQueries {
         Assert.assertTrue(queryStatus != null);
         Assert.assertFalse(queryStatus.hasError());
 
-        InputStream inputStream = client.readTable("results");
+        InputStream inputStream = client.readTable("results", true, "select * from ");
         log.info(IOUtils.toString(inputStream, Charset.defaultCharset()));
 
         miniCluster.stop(true);
@@ -129,7 +129,7 @@ public class TestRemoteQueries {
         Assert.assertTrue(queryStatus != null);
         Assert.assertFalse(queryStatus.hasError());
 
-        InputStream inputStream = client.readTable("results");
+        InputStream inputStream = client.readTable("results", true, "select * from  ");
         log.info(IOUtils.toString(inputStream, Charset.defaultCharset()));
 
         miniCluster.stop(true);

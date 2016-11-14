@@ -49,6 +49,7 @@ public class DecomposerUtils {
 	public static final boolean USE_ROWID;
 	public static final boolean USE_CROSS_JOIN;
 	public static final boolean REPARTITION;
+	public static final boolean PUSH_UNIONS;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -95,6 +96,7 @@ public class DecomposerUtils {
     	USE_ROWID=properties.getBoolean("use.rowid");
     	USE_CROSS_JOIN=properties.getBoolean("use.cross.join");
     	REPARTITION=properties.getBoolean("repartition");
+    	PUSH_UNIONS=properties.getBoolean("push.unions");
     	
         log.trace("Decomposer Properties Loaded.");
     }

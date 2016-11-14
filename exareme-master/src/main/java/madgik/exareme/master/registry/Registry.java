@@ -35,7 +35,7 @@ public class Registry {
 	private Registry(String path) {
 		new File(path).mkdirs();
 		database = path + "/registry.db";
-
+		log.debug("new registry instance...");
 		try {
 			Class.forName("org.sqlite.JDBC");
 			// create a database connection

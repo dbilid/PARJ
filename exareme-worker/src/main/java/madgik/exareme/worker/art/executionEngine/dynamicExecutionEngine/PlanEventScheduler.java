@@ -9,6 +9,7 @@ import madgik.exareme.common.art.entity.EntityName;
 import madgik.exareme.common.optimizer.OperatorBehavior;
 import madgik.exareme.common.optimizer.OperatorCategory;
 import madgik.exareme.common.optimizer.OperatorType;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.eventProcessor.EventProcessor;
 import madgik.exareme.utils.serialization.SerializationUtil;
 import madgik.exareme.worker.art.concreteOperator.ConcreteOperatorID;
@@ -678,4 +679,5 @@ public class PlanEventScheduler {
             lock.unlock();
         }
     }
+
 }

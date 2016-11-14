@@ -4,6 +4,7 @@
 package madgik.exareme.master.engine.scheduler.event.scheduleQuery;
 
 import madgik.exareme.common.app.engine.AdpDBStatus;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.master.engine.AdpDBExecutor;
 import madgik.exareme.master.engine.scheduler.QuerySchedulerState;
 import madgik.exareme.master.engine.scheduler.QueryScriptListener;
@@ -13,6 +14,7 @@ import madgik.exareme.utils.eventProcessor.EventProcessor;
 import org.apache.log4j.Logger;
 
 import java.rmi.RemoteException;
+import java.util.ArrayList;
 
 /**
  * @author herald

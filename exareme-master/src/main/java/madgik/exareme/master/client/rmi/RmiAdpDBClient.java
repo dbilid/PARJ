@@ -8,6 +8,7 @@ import madgik.exareme.common.app.engine.AdpDBQueryListener;
 import madgik.exareme.common.app.engine.AdpDBStatus;
 import madgik.exareme.common.art.entity.EntityName;
 import madgik.exareme.common.schema.QueryScript;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.common.schema.Select;
 import madgik.exareme.master.client.AdpDBClient;
 import madgik.exareme.master.client.AdpDBClientProperties;
@@ -232,17 +233,7 @@ public class RmiAdpDBClient implements AdpDBClient {
 
 		return ExportToDotty.exportToDotty(plan.getGraph());
 	}
-
-	@Override
-	public InputStream readTable(String tableName) throws RemoteException {
-		log.debug("readTable");
-		HashMap<String, Object> additionalProps = new HashMap<String, Object>();
-		additionalProps.put("time", -1);
-		additionalProps.put("errors", new ArrayList<Object>());
-		AdpDBConnector adpDBConnector = AdpDBConnectorFactory.createAdpDBConnector();
-		log.debug("new connector");
-		return adpDBConnector.readTable(tableName, additionalProps, properties);
-	}
+	
 
 	@Override
 	public AdpDBClientQueryStatus query(String queryID, String queryScript) throws RemoteException {
@@ -353,7 +344,7 @@ public class RmiAdpDBClient implements AdpDBClient {
 	}
 
 	@Override
-	public AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands)
+	public AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands, List<ResultTable> result)
 			throws RemoteException {
 		// parse
 		AdpDBQueryID queryId = createNewQueryID();
@@ -367,7 +358,7 @@ public class RmiAdpDBClient implements AdpDBClient {
 		// optimize
 		AdpDBHistoricalQueryData queryData = null;
 		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
-				true /* schedule */, true /* validate */);
+				true /* schedule */, true /* validate */, result);
 		log.trace("Optimized.");
 
 		// execute
@@ -382,7 +373,7 @@ public class RmiAdpDBClient implements AdpDBClient {
 	@Override
 	public AdpDBClientQueryStatus query(String queryID, String queryScript,
 			HashMap<String, Pair<byte[], String>> hashQueryMap, Map<String, String> extraCommands,
-			List<SQLQuery> subQueries) throws RemoteException {
+			List<SQLQuery> subQueries, List<ResultTable> result) throws RemoteException {
 		// parse
 		AdpDBQueryID queryId = createNewQueryID();
 		QueryScript script = parser.parse(queryScript, registry);
@@ -397,7 +388,7 @@ public class RmiAdpDBClient implements AdpDBClient {
 		// optimize
 		AdpDBHistoricalQueryData queryData = null;
 		AdpDBQueryExecutionPlan plan = optimizer.optimize(script, registry, null, queryData, queryId, properties,
-				true /* schedule */, true /* validate */);
+				true /* schedule */, true /* validate */, result);
 
 		// ArrayList<PhysicalTable> results = plan.getState().results;
 		// int hashID;
@@ -419,10 +410,10 @@ public class RmiAdpDBClient implements AdpDBClient {
 				table.getTable().setHashID(null);
 				table.addPartitionColumn(null);
 			} else {
-				System.out.println("mpikaaa");
+				//System.out.println("mpikaaa");
 				table.getTable().setHashID(sqlInfo.getA());
 				table.addPartitionColumn(sqlInfo.getB());
-				System.out.println("name " + table.getTable().getName());
+				//System.out.println("name " + table.getTable().getName());
 			}
 		}
 
@@ -436,4 +427,30 @@ public class RmiAdpDBClient implements AdpDBClient {
 			return new RmiAdpDBClientQueryStatus(queryId, properties, plan, status, this, subQueries);
 		}
 	}
+
+	@Override
+	public InputStream readTable(String tblName, boolean addSchemaInfo, String output) throws RemoteException {
+		log.debug("readTable");
+		HashMap<String, Object> additionalProps = new HashMap<String, Object>();
+		additionalProps.put("time", -1);
+		additionalProps.put("errors", new ArrayList<Object>());
+		additionalProps.put("addSchemaInfo", addSchemaInfo);
+		AdpDBConnector adpDBConnector = AdpDBConnectorFactory.createAdpDBConnector();
+		log.debug("new connector");
+		return adpDBConnector.readTable(tblName, additionalProps, properties, output);
+	}
+
+	@Override
+	public InputStream readTable(ResultTable nextTable, boolean addSchemaInfo, String output) throws RemoteException{
+		log.debug("readTable");
+		HashMap<String, Object> additionalProps = new HashMap<String, Object>();
+		additionalProps.put("time", -1);
+		additionalProps.put("errors", new ArrayList<Object>());
+		additionalProps.put("addSchemaInfo", addSchemaInfo);
+		AdpDBConnector adpDBConnector = AdpDBConnectorFactory.createAdpDBConnector();
+		log.debug("new connector");
+		return adpDBConnector.readTable(nextTable, additionalProps, properties, output);
+	}
+
+	
 }

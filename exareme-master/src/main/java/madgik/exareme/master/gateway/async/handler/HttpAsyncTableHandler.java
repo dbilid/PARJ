@@ -79,7 +79,7 @@ public class HttpAsyncTableHandler implements HttpAsyncRequestHandler<HttpReques
         try {
             AdpDBClient dbClient =
                 AdpDBClientFactory.createDBClient(manager, new AdpDBClientProperties(dbname));
-            body = new InputStreamEntity(dbClient.readTable(table), ContentType.TEXT_PLAIN);
+            body = new InputStreamEntity(dbClient.readTable(table, true, "select * from "), ContentType.TEXT_PLAIN);
             log.trace("entity is stream.");
         } catch (Exception e) {
             log.warn("|||", e);

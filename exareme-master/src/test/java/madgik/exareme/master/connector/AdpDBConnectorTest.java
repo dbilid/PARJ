@@ -31,7 +31,7 @@ public class AdpDBConnectorTest {
         Logger.getRootLogger().setLevel(Level.ALL);
         AdpDBConnectorUtil
             .readRemoteTablePart(Registry.getInstance("/tmp/db/client-test-1423497619793"),
-                new PhysicalTable(new Table("emp")), null, null, System.out);
+                new PhysicalTable(new Table("emp")), null, null, System.out, null);
 
     }
 }

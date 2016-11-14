@@ -45,6 +45,7 @@ public class ExecutionPlanSerialiser implements JsonSerializer<PlanExpression> {
             final JsonElement jsonPragma = jsc.serialize(planexp.getPragmaList());
             jsonObject.add(PlanExpressionConstants.PRAGMA, jsonPragma);
         }
+       
         return jsonObject;
     }
 

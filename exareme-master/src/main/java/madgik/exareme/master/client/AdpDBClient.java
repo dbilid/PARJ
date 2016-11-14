@@ -4,6 +4,7 @@
 package madgik.exareme.master.client;
 
 import madgik.exareme.common.app.engine.AdpDBQueryListener;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.utils.association.Pair;
 
@@ -54,7 +55,7 @@ public interface AdpDBClient {
      * @throws RemoteException
      */
     AdpDBClientQueryStatus query(String queryID, String queryScript, HashMap<String, Pair<byte[], String>> hashQueryID,
-                                 Map<String, String> extraCommands, List<SQLQuery> subqueries) throws RemoteException;
+                                 Map<String, String> extraCommands, List<SQLQuery> subqueries, List<ResultTable> result) throws RemoteException;
 
 
     /**
@@ -64,7 +65,7 @@ public interface AdpDBClient {
      * @return
      * @throws RemoteException
      */
-    AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands)
+    AdpDBClientQueryStatus query(String queryID, String queryScript, Map<String, String> extraCommands, List<ResultTable> result)
         throws RemoteException;
     
     /**
@@ -79,10 +80,17 @@ public interface AdpDBClient {
 
     /**
      * @param tableName
+     * @param addSchemaInfo
+     * @param output
      * @return
      * @throws RemoteException
      */
-    InputStream readTable(String tableName) throws RemoteException;
+
+	InputStream readTable(String tableName, boolean addSchemaInfo, String output) throws RemoteException;
+
+	InputStream readTable(ResultTable nextTable, boolean addSchemaInfo, String output) throws RemoteException;
+
+
 
 }
     

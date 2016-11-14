@@ -7,6 +7,7 @@ import madgik.exareme.common.app.engine.scheduler.elasticTree.client.SLA;
 import madgik.exareme.common.art.ContainerSessionID;
 import madgik.exareme.common.art.PlanSessionID;
 import madgik.exareme.common.art.entity.EntityName;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.net.NetUtil;
 import madgik.exareme.worker.art.executionEngine.sessionMgr.PlanSessionManager;
 import madgik.exareme.worker.art.executionEngine.sessionMgr.PlanSessionManagerInterface;
@@ -16,6 +17,8 @@ import madgik.exareme.worker.art.registry.ArtRegistryProxy;
 import madgik.exareme.worker.art.remote.RmiRemoteObject;
 
 import java.rmi.RemoteException;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -85,6 +88,8 @@ public class RmiPlanSessionManager extends RmiRemoteObject<PlanSessionManagerPro
         throws RemoteException {
         return sessionManagerInterface.createContainerSession(planSessionID);
     }
+
+
 
 
 }

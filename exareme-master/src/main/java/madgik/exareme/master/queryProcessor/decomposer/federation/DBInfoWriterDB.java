@@ -41,7 +41,7 @@ public class DBInfoWriterDB {
             String sqlParams = query.substring(query.indexOf("(") + 1, query.lastIndexOf(")"));
             if (query.startsWith("addFederatedEndpoint")) {
                 sqlParams = sqlParams.replaceAll(" ", "");
-                String[] params = sqlParams.split(",");
+                String[] params = sqlParams.split("\n");
                 String madisString;
                 madisString = "";
                 String host = "";

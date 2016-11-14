@@ -10,6 +10,7 @@ import madgik.exareme.common.app.engine.AdpDBStatus;
 
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author herald
@@ -35,6 +36,7 @@ public class AdpDBStatusImpl implements AdpDBStatus {
         return id;
     }
 
+    
     @Override public boolean hasFinished() throws RemoteException {
         return AdpDBStatusManagerLocator.getStatusManager().hasFinished(id);
     }

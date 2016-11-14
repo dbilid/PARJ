@@ -7,6 +7,7 @@ import madgik.exareme.common.app.engine.AdpDBOperatorType;
 import madgik.exareme.common.app.engine.AdpDBSelectOperator;
 import madgik.exareme.common.schema.Partition;
 import madgik.exareme.common.schema.PhysicalTable;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.common.schema.Select;
 import madgik.exareme.common.schema.TableView;
 import madgik.exareme.common.schema.expression.DataPattern;
@@ -756,7 +757,9 @@ public class RmiAdpDBSelectOptimizer {
 				for (int p = 0; p < resultTableOps.length; ++p) {
 					ConcreteOperator co = resultTableOps[p];
 					state.tableBindings.add(new Pair<ConcreteOperator, Integer>(co, container));
+					//resultTable.getPartition(p).addLocation("any");
 					resultTable.getPartition(p).addLocation(state.proxies[container].getEntityName().getIP());
+					log.debug("..."+state.proxies[container].getEntityName().getIP());
 					container = (container + 1) % state.proxies.length;
 				}
 			}

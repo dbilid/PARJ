@@ -11,6 +11,7 @@ import madgik.exareme.common.app.engine.AdpDBStatus;
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author herald
@@ -76,4 +77,6 @@ public class AdpDBStatusSerializable implements AdpDBStatus, Serializable {
     public AdpDBStatus createSerializableStatus() throws RemoteException {
         return this;
     }
+
+    
 }

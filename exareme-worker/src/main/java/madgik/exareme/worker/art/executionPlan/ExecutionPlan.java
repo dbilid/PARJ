@@ -10,6 +10,7 @@ import madgik.exareme.worker.art.executionPlan.parser.expression.Start;
 import madgik.exareme.worker.art.executionPlan.parser.expression.Stop;
 
 import java.io.Serializable;
+import java.util.Set;
 
 /**
  * This is the ExecutionPlan interface.

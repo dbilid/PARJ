@@ -4,7 +4,9 @@
 package madgik.exareme.worker.art.executionPlan.parser.expression;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Set;
 
 /**
  * University of Athens / Department of Informatics and Telecommunications.
@@ -74,6 +76,7 @@ public class PlanExpression implements Serializable {
         operatorConnectList.add(opLink);
     }
 
+    
     public void addStateLink(StateLink stateConnect) {
         stateLinkList.add(stateConnect);
     }
@@ -117,7 +120,7 @@ public class PlanExpression implements Serializable {
     public LinkedList<StateLink> getStateLinkList() {
         return stateLinkList;
     }
-
+    
     @Override public String toString() {
         return "PlanExpression{\n" + "pragmaList=" + pragmaList + ", \ncontainersList="
             + containersList + ", \noperatorList=" + operatorList + ", \nswitchList=" + switchList

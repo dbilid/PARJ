@@ -21,9 +21,9 @@ public class CloseSessionEventHandler implements EventHandler<CloseSessionEvent>
         if (event.cSID != null) {
             log.debug("Destroying container session : " + event.sID.getLongId());
             //TODO(Vag): uncomment and find bug...
-            //      int count = event.session.destroySession(event.cSID);
+                  int count = event.session.destroySession(event.cSID);
             ////      event.bufferPool.destroyContainerSession(event.cSID, event.sID, true);
-            //      event.status.getOperatorMeasurement().changeActiveValue(-count);
+                  event.status.getOperatorMeasurement().changeActiveValue(-count);
         } else {
             log.debug("Destroying plan session : " + event.sID.getLongId());
             int count = event.session.destroySession();

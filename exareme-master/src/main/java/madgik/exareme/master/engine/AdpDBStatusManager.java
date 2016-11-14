@@ -86,4 +86,5 @@ public interface AdpDBStatusManager {
      * @param statusId the status id.
      */
     void updateWith(AdpDBStatistics delta, int statusId);
+
 }

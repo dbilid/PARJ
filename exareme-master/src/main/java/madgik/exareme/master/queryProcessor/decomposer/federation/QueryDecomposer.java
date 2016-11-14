@@ -293,15 +293,16 @@ public class QueryDecomposer {
     }
 
     public List<SQLQuery> getPlan() {
-        // String dot0 = root.dotPrint();
+    	//StringBuilder a = root.dotPrint(new HashSet<Node>(), n2a);
+        //System.out.println(a.toString());
 
         if (projectRefCols) {
             createProjectionsDAG(root);
-	    //createProjections(root);
+            //createProjections(root);
             log.debug("Base projections created");
         }
-		 StringBuilder a = root.dotPrint(new HashSet<Node>());
-         System.out.println(a.toString());
+		// StringBuilder a = root.dotPrint(new HashSet<Node>());
+        // System.out.println(a.toString());
         // long b=System.currentTimeMillis();
         unionnumber = 0;
         sipToUnions = new SipToUnions();
@@ -2768,7 +2769,7 @@ public class QueryDecomposer {
     	
         for (String t : refColsAlias.keySet()) {
                     Node table = new Node(Node.OR);
-                    if(!n2a.contailsAliasForBaseTable(t)){
+                    if(n2a.getOriginalName(t)==null){
                     	//nested
                     	continue;
                     }
@@ -2811,6 +2812,9 @@ public class QueryDecomposer {
                                 int childNo = p.getChildren().indexOf(tableInHashes);
                                 this.hashes.remove(p.getHashId());
                                 p.removeChild(tableInHashes);
+                                if(p.getParents().isEmpty()){
+                                	continue;
+                                }
                                 p.addChildAt(orNode, childNo);
                                 toRecompute.add(p);
                                 // this.hashes.put(p.getHashId(), p);

@@ -13,9 +13,11 @@ import madgik.exareme.worker.art.executionPlan.entity.*;
 import madgik.exareme.worker.art.executionPlan.parser.expression.*;
 import org.apache.log4j.Logger;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Herald Kllapi <br>
@@ -486,5 +488,6 @@ public class ExecutionPlanImpl implements EditableExecutionPlan {
             + ", \n\toperatorEntityGraph=" + operatorEntityGraph + ", \n\topStateMap=" + opStateMap
             + ", \n\tstateOpMap=" + stateOpMap + '}';
     }
+
 
 }

@@ -29,6 +29,7 @@ public class PlanExpressionConstants {
     public final static String PARAMETERS = "parameters";
     public final static String QUERYSTRING = "queryString";
     public final static String VALUE = "value";
+	public final static String TABLES = "tables";
     public static String CONTAINERNAME = "container";
     public static String PRAGMANAME = "name";
     public static String PRAGMAVALUE = "value";

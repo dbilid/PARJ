@@ -65,4 +65,5 @@ public class DynamicStatusManager extends EventSchedulerManipulator
         return eventScheduler.getState().getPlanSession().getPlanSessionStatus()
             .getStatus(operatorName);
     }
+    
 }

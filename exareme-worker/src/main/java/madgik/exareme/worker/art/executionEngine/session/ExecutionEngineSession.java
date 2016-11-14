@@ -4,6 +4,7 @@
 package madgik.exareme.worker.art.executionEngine.session;
 
 import madgik.exareme.common.art.PlanSessionID;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.worker.art.executionEngine.ExecutionEngine;
 import org.apache.log4j.Logger;
 
@@ -12,6 +13,7 @@ import java.rmi.RemoteException;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author Herald Kllapi<br>
@@ -60,4 +62,7 @@ public class ExecutionEngineSession implements Serializable {
             }
         }
     }
+
+	
+	
 }

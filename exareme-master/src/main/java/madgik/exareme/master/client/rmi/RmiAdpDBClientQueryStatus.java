@@ -264,7 +264,7 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
                         try {
                             sqlQuery = SQLQueryParser.parse(resultTable.getTable().getSqlQuery().replaceAll("_", " ").replaceAll("\\ {2,}", "_"), new NodeHashValues());
 
-                            List<Table> usedTables = new ArrayList<>(sqlQuery.getInputTables().size());
+                            //List<Table> usedTables = new ArrayList<>(sqlQuery.getInputTables().size());
                             for (madgik.exareme.master.queryProcessor.decomposer.query.Table usedTable : sqlQuery.getInputTables()) {
                                 usedCachedTables.add(usedTable.getName());
                             }
@@ -448,4 +448,5 @@ public class RmiAdpDBClientQueryStatus implements AdpDBClientQueryStatus {
             log.debug("Registry updated.");
         }
     }
+
 }

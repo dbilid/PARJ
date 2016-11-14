@@ -5,6 +5,7 @@ package madgik.exareme.worker.art.executionEngine.rmi;
 
 import madgik.exareme.common.art.PlanSessionID;
 import madgik.exareme.common.art.entity.EntityName;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.utils.net.NetUtil;
 import madgik.exareme.utils.properties.AdpProperties;
 import madgik.exareme.worker.art.executionEngine.ExecutionEngine;
@@ -37,6 +38,8 @@ import org.apache.log4j.Logger;
 
 import java.rmi.RemoteException;
 import java.rmi.ServerException;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**

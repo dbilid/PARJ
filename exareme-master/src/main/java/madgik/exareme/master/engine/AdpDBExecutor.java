@@ -6,10 +6,12 @@ package madgik.exareme.master.engine;
 import madgik.exareme.common.app.engine.AdpDBQueryID;
 import madgik.exareme.common.app.engine.AdpDBQueryListener;
 import madgik.exareme.common.app.engine.AdpDBStatus;
+import madgik.exareme.common.schema.ResultTable;
 import madgik.exareme.master.client.AdpDBClientProperties;
 import madgik.exareme.worker.art.executionPlan.parser.expression.PlanExpression;
 
 import java.rmi.RemoteException;
+import java.util.List;
 
 
 /**
