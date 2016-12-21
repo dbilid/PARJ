@@ -80,7 +80,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			} else if (o.getOpCode() == Node.SELECT) {
 				Selection s = (Selection) o.getObject();
 				estimateFilter(n, s, o.getChildAt(0));
-			} else if (o.getOpCode() == Node.UNION) {
+			} else if (o.getOpCode() == Node.UNION||o.getOpCode() == Node.UNIONALL) {
 				estimateUnion(n);
 			} else if (o.getOpCode() == Node.NESTED) {
 				NodeInfo nested = new NodeInfo();

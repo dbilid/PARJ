@@ -248,7 +248,7 @@ public class QueryDecomposer {
                     // DecomposerUtils.ADD_TO_REGISTRY;
                     boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
                     DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
-                    StringBuilder createTableSQL = new StringBuilder();
+                    //StringBuilder createTableSQL = new StringBuilder();
                     if (dbinfo == null) {
                         log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
                         // return;
@@ -297,6 +297,7 @@ public class QueryDecomposer {
         //System.out.println(a.toString());
 
         if (projectRefCols) {
+        	 log.debug("Creating base projections");
             createProjectionsDAG(root);
             //createProjections(root);
             log.debug("Base projections created");
@@ -382,7 +383,7 @@ public class QueryDecomposer {
             unionnumber = 0;
             System.out.println("searching centralized plan...");
             nce.setPartitionNo(1);
-            best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat);
+            best = getBestPlanCentralized(root, Double.MAX_VALUE, finalMemo, greedyToMat, true);
             finalCost = best.getCost();
             System.out.println("found with cost " + finalCost);
             boolean printCosts = true;
@@ -422,7 +423,7 @@ public class QueryDecomposer {
                             this.sipInfo.resetCounters();
                         }
                         unionnumber = 0;
-                        best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+                        best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat, true);
                         double matCost = 0.0;
                         for (Double d : greedyToMat.values()) {
                             matCost += d;
@@ -477,7 +478,7 @@ public class QueryDecomposer {
                                 this.sipInfo.resetCounters();
                             }
                             unionnumber = 0;
-                            best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat);
+                            best = getBestPlanCentralized(root, Double.MAX_VALUE, memo, greedyToMat, true);
                             double matCost = 0.0;
                             for (Double d : greedyToMat.values()) {
                                 matCost += d;
@@ -2107,7 +2108,7 @@ public class QueryDecomposer {
 
     }
 
-    private SinglePlan getBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat) {
+    private SinglePlan getBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat, boolean useRegistry) {
         MemoKey ec = new MemoKey(e, null);
         SinglePlan resultPlan;
         if (memo.containsMemoKey(ec) && memo.getMemoValue(ec).isMaterialised()) {
@@ -2118,7 +2119,7 @@ public class QueryDecomposer {
             if (!useGreedy) {
                 int used = cmv.getUsed();
                 // if(cmv.isInvalidated()){
-                resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
+                resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat, useRegistry);
                 cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
                 cmv.addUsed(used);
                 // }
@@ -2142,7 +2143,7 @@ public class QueryDecomposer {
                 }
             }
         } else {
-            resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat);
+            resultPlan = searchForBestPlanCentralized(e, limit, memo, greedyToMat, useRegistry);
             CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
             if (greedyToMat.containsKey(e) && e.getFirstParent().getOpCode() != Node.UNION) {
                 cmv.setMaterialized(true);
@@ -2160,9 +2161,9 @@ public class QueryDecomposer {
         }
     }
 
-    private SinglePlan searchForBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat) {
+    private SinglePlan searchForBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat, boolean useRegistry) {
 
-        if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+        if (useRegistry && useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
             SinglePlan r = new SinglePlan(0);
 
             memo.put(e, r, true, true, false);
@@ -2209,7 +2210,14 @@ public class QueryDecomposer {
 
 				// algPlan.append(getBestPlan(e2, c2, memo, algLimit, c2RepCost,
                 // cel, partitionRecord, toMatAlg));
-                SinglePlan t = getBestPlanCentralized(e2, algLimit, memo, greedyToMat);
+                
+                if (o.getOpCode() == Node.SELECT) {
+                	if(o.getChildAt(0).getChildAt(0).getOpCode()==Node.BASEPROJECT){
+                		useRegistry=false;
+                	}
+                }
+                
+                SinglePlan t = getBestPlanCentralized(e2, algLimit, memo, greedyToMat, useRegistry);
                 algPlan.addInputPlan(e2, null);
                 algPlan.increaseCost(t.getCost());
 
@@ -2226,21 +2234,6 @@ public class QueryDecomposer {
                         cmv.setMaterialized(true);
                     } else {
                         fed = true;
-
-                        /*
-                         * if(o.getOpCode() == Node.PROJECT || o.getOpCode() ==
-                         * Node.SELECT){ //check to make materialise base
-                         * projections
-                         * if(!o.getChildAt(0).getChildren().isEmpty()){ Node
-                         * baseProjection=o.getChildAt(0).getChildAt(0);
-                         * if(baseProjection.getOpCode()==Node.PROJECT &&
-                         * !baseProjection.getChildAt(0).getObject().toString().
-                         * startsWith("table")){ //base projection indeed
-                         * CentralizedMemoValue cmv2 = (CentralizedMemoValue)
-                         * memo.getMemoValue(new MemoKey(o.getChildAt(0),
-                         * null)); cmv2.setMaterialized(true); fed = false; } }
-                         * }
-                         */
                     }
                 }
 
@@ -2767,6 +2760,8 @@ public class QueryDecomposer {
     	Set<Node> visited=new HashSet<Node>();
     	e.addRefCols(refColsAlias, visited);
     	
+    	Set<Node> toRecompute = new HashSet<Node>();
+    	
         for (String t : refColsAlias.keySet()) {
                     Node table = new Node(Node.OR);
                     if(n2a.getOriginalName(t)==null){
@@ -2805,7 +2800,7 @@ public class QueryDecomposer {
                                 prj.addOperand(new Output(t + "_" + c, new Column(t, c)));
                             }
                             project.setObject(prj);
-                            Set<Node> toRecompute = new HashSet<Node>();
+                            
                             while (!tableInHashes.getParents().isEmpty()) {
                                 Node p = tableInHashes.getFirstParent();
                                 tableInHashes.getParents().remove(0);
@@ -2822,18 +2817,20 @@ public class QueryDecomposer {
                             project.addChild(tableInHashes);
                             this.hashes.put(project.getHashId(), project);
                             this.hashes.put(orNode.getHashId(), orNode);
-                            for (Node r : toRecompute) {
-                                this.hashes.put(r.getHashId(), r);
-                                // recompute parents?
-
-                                setParentsNeedRecompute(r);
-                            }
+                            
                         }
 
                         project.addDescendantBaseTable(t);
                         orNode.addDescendantBaseTable(t);
 
             } 
+        }
+        
+        for (Node r : toRecompute) {
+            this.hashes.put(r.getHashId(), r);
+            // recompute parents?
+
+            setParentsNeedRecompute(r);
         }
     }
 }

@@ -50,6 +50,7 @@ public class DecomposerUtils {
 	public static final boolean USE_CROSS_JOIN;
 	public static final boolean REPARTITION;
 	public static final boolean PUSH_UNIONS;
+	public static final boolean KILL_PYTHON;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -97,6 +98,7 @@ public class DecomposerUtils {
     	USE_CROSS_JOIN=properties.getBoolean("use.cross.join");
     	REPARTITION=properties.getBoolean("repartition");
     	PUSH_UNIONS=properties.getBoolean("push.unions");
+    	KILL_PYTHON=properties.getBoolean("kill.python");
     	
         log.trace("Decomposer Properties Loaded.");
     }

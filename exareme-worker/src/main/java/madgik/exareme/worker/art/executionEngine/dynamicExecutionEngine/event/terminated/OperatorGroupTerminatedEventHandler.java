@@ -61,7 +61,8 @@ public class OperatorGroupTerminatedEventHandler
             				if(rt.getName().equals(tName)){
 					//if(event.operatorID.operatorName.startsWith("TR_"+rt.getName())){
             					rt.setReady(true);
-            					//rt.setIp(event..);
+						//rt.setIp(event.state.getPlan().getOperator("R_"+rt.getName()+"_0").container.getIP());
+            					rt.setIp(state.getContainerProxy(event.state.getPlan().getOperator("R_"+rt.getName()+"_0").container.getIP()).getEntityName().getIP());
             					break;
             				}
             			}
@@ -136,6 +137,11 @@ public class OperatorGroupTerminatedEventHandler
         }
 
         try {
+	     if (state.hasError()){
+                state.eventScheduler.lock.unlock();
+                return;
+            }
+
             state.eventScheduler.lock.lock();
             // Get the activated groups of operators
             HashMap<Long, OperatorGroup> groupMap =
@@ -145,6 +151,7 @@ public class OperatorGroupTerminatedEventHandler
                 state.getPlanSession().getPlanSessionStatus().planInstantiationException(
                     new NotEnoughResourcesException("Cannot execute query"), new Date());
                 state.eventScheduler.destroyPlanWithError(state.getPlanSessionID());
+                groupMap = new LinkedHashMap<Long, OperatorGroup>();
             } else if (groupMap == null) {
                 groupMap = new LinkedHashMap<Long, OperatorGroup>();
             }

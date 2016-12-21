@@ -62,7 +62,7 @@ public class SinlgePlanDFLGenerator {
 					combineOperatorsAndOutputQueriesCentralizedPush(rootkey, qs, new HashMap<MemoKey, SQLQuery>(),
 							false);
 				} else {
-					combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+					combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>(), true);
 				}
 			} else if (DecomposerUtils.PUSH_PROCESSING) {
 				combineOperatorsAndOutputQueriesPush(rootkey, qs, new HashMap<MemoKey, SQLQuery>(), false);
@@ -977,14 +977,14 @@ public class SinlgePlanDFLGenerator {
 	}
 
 	private void combineOperatorsAndOutputQueriesCentralized(MemoKey k, ResultList tempResult,
-			HashMap<MemoKey, SQLQuery> visited) throws CloneNotSupportedException {
+			HashMap<MemoKey, SQLQuery> visited, boolean pushToEndpoint) throws CloneNotSupportedException {
 
 		SQLQuery current = tempResult.getCurrent();
 		MemoValue v = memo.getMemoValue(k);
 
 		SinglePlan p = v.getPlan();
 		Node e = k.getNode();
-		if (visited.containsKey(k) && visited.get(k).isMaterialised()) {
+		if (visited.containsKey(k) && visited.get(k).isMaterialised() && pushToEndpoint) {
 			tempResult.setLastTable(visited.get(k));
 			tempResult.remove(current);
 			for (String alias : e.getDescendantBaseTables()) {
@@ -993,7 +993,8 @@ public class SinlgePlanDFLGenerator {
 			return;
 		}
 
-		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null
+				&& pushToEndpoint) {
 			madgik.exareme.common.schema.Table t = registry.get(e.computeHashIDExpand());
 			SQLQuery dummy = new SQLQuery();
 			dummy.setMaterialised(true);
@@ -1043,7 +1044,7 @@ public class SinlgePlanDFLGenerator {
 
 		Node op = e.getChildAt(p.getChoice());
 		SQLQuery old = current;
-		if (memo.getMemoValue(k).isMaterialised()) {
+		if (memo.getMemoValue(k).isMaterialised()&&pushToEndpoint) {
 
 			SQLQuery q2 = new SQLQuery();
 			q2.setHashId(e.computeHashIDExpand());
@@ -1064,7 +1065,7 @@ public class SinlgePlanDFLGenerator {
 			}
 			current.setOutputColumnsDinstict(prj.isDistinct());
 
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
 
 			if (op.getOpCode() == Node.PROJECT) {
 				Table t = (Table) e.getObject();
@@ -1115,7 +1116,7 @@ public class SinlgePlanDFLGenerator {
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited, pushToEndpoint);
 				String lastRes = tempResult.getLastTable().getAlias();
 				inputNames.add(lastRes);
 				if (lastRes != current.getTemporaryTableName()
@@ -1175,7 +1176,7 @@ public class SinlgePlanDFLGenerator {
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
 				unionNo = l;
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited);
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited, pushToEndpoint);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
 					if (u == null && useCache) {
@@ -1226,7 +1227,17 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.SELECT) {
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			if (p.getInputPlan(0).getNode().getChildAt(0).getOpCode() == Node.BASEPROJECT) {
+				if (memo.getMemoValue(k).isMaterialised()) {
+					//if (memo.getMemoValue(p.getInputPlan(0)).isMaterialised()
+					//		|| registry.containsKey(p.getInputPlan(0).getNode().computeHashIDExpand())) {
+						log.debug("pushing to endpoint false:"+p.getInputPlan(0).getNode().getChildAt(0).toString());
+						pushToEndpoint = false;
+				//	}
+				}
+			}
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
+			pushToEndpoint = true;
 			String inputName = tempResult.getLastTable().getAlias();
 			Selection s = (Selection) op.getObject();
 			Iterator<Operand> it = s.getOperands().iterator();
@@ -1290,7 +1301,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
 			if (current.getInputTables().isEmpty()) {
 				// limit of a query that exists in the cache
 				current.addInputTable(tempResult.getLastTable());
@@ -1302,7 +1313,7 @@ public class SinlgePlanDFLGenerator {
 		} else if (op.getOpCode() == Node.NESTED) {
 			// nested is always materialized
 			// current.setNested(true);
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
 
 		}
 
@@ -1316,7 +1327,7 @@ public class SinlgePlanDFLGenerator {
 			List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
-				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
+				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited, pushToEndpoint);
 				inputNames.add(tempResult.getLastTable().getAlias());
 				if (tempResult.getLastTable().getAlias() != current.getTemporaryTableName()
 						&& !current.getInputTables().contains(tempResult.getLastTable())) {
@@ -1346,7 +1357,7 @@ public class SinlgePlanDFLGenerator {
 			// }
 
 		} else if (op.getOpCode() == Node.ORDERBY) {
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
 
 			List<ColumnOrderBy> orderCols = (ArrayList<ColumnOrderBy>) op.getObject();
 			current.setOrderBy(orderCols);
@@ -1358,7 +1369,7 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.GROUPBY) {
-			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
+			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited, pushToEndpoint);
 
 			List<Column> groupCols = (ArrayList<Column>) op.getObject();
 			current.setGroupBy(groupCols);
@@ -1373,7 +1384,7 @@ public class SinlgePlanDFLGenerator {
 			log.error("Unknown Operator in DAG");
 		}
 		current.setExistsInCache(false);
-		if (memo.getMemoValue(k).isMaterialised()) {
+		if (memo.getMemoValue(k).isMaterialised() && pushToEndpoint) {
 			// if (!current.existsInCache()) {
 			tempResult.add(current);
 			tempResult.setLastTable(current);

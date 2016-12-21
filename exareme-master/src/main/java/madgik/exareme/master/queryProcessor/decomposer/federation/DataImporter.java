@@ -98,7 +98,9 @@ public class DataImporter implements Runnable {
 				fetch = DecomposerUtils.FETCH_SIZE_POSTGRES;
 				connection.setAutoCommit(false);
 			} else if (db.getDriver().contains("mysql")) {
-				fetch = DecomposerUtils.FETCH_SIZE_MYSQL;
+				//hint to mysql jdbc to "stream" results
+				fetch = Integer.MIN_VALUE;
+				connection.setAutoCommit(false);
 			}
 
 			String sql = "insert into " + s.getTemporaryTableName()

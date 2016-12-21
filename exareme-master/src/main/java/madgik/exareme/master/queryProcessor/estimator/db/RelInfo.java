@@ -50,6 +50,9 @@ public class RelInfo {
 		this.hashAttr = new HashSet<String>(rel.getHashAttr());
 
 		for (Map.Entry<String, AttrInfo> e : rel.getAttrIndex().entrySet()) {
+			if(e.getValue()==null){
+				continue;
+			}
 			this.attrIndex.put(e.getKey(), new AttrInfo(e.getValue()));
 		}
 	}

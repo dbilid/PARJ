@@ -69,9 +69,9 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 	private static final Logger log = Logger.getLogger(HttpAsyncDecomposerHandler.class);
 	private static final AdpDBManager manager = AdpDBManagerLocator.getDBManager();
-	private static final boolean useCache = AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true");
+	private static boolean useCache = AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true");
 	private static NamesToAliases n2a = new NamesToAliases();
-	private static boolean killPython = true;
+	private static boolean killPython =  DecomposerUtils.KILL_PYTHON;
 
 	public HttpAsyncDecomposerHandler() {
 	}
@@ -87,7 +87,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 			throws HttpException, IOException {
 		final HttpResponse httpResponse = httpExchange.getResponse();
 		log.trace("Parsing request ...");
-
+		boolean cache=HttpAsyncDecomposerHandler.useCache;
 		String method = httpRequest.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
 		if (!"GET".equals(method) && !"POST".equals(method))
 			throw new UnsupportedHttpVersionException(method + "not supported.");
@@ -103,8 +103,17 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 
 		final String dbname = inputContent.get(ExaremeGatewayUtils.REQUEST_DATABASE);
 		final String query = inputContent.get(ExaremeGatewayUtils.REQUEST_QUERY);
+		try{
+			if(inputContent.containsKey("useCache")){
+				boolean use=Boolean.parseBoolean(inputContent.get("useCache"));
+				cache=use;
+				log.debug("Using cache:"+cache);
+			}
+			}catch(Exception e){
+			System.out.println("Could not read useCache");
+		}
 		final int workers = ArtRegistryLocator.getArtRegistryProxy().getContainers().length;
-
+		final boolean cacheFinal=cache;
 		log.debug("--DB " + dbname);
 		if (!query.startsWith("addFederatedEndpoint(")) {
 			log.debug("--Query " + query);
@@ -555,7 +564,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								n2a = DBInfoReaderDB.readAliases(path);
 							}
 
-							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", useCache, false,
+							AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", cacheFinal, false,
 									false, false, -1, 10, null);
 							AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
 							AdpDBClientQueryStatus status = null;
@@ -574,7 +583,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 								status = dbClient.query("dquery", drop, extraCommands, new ArrayList<ResultTable>());
 								send1 = true;
 							} else {
-								QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes, useCache);
+								QueryDecomposer d = new QueryDecomposer(squery, path, workers, hashes, cacheFinal);
 								d.addRefCols(refCols);
 								d.setN2a(n2a);
 								log.debug("n2a:" + n2a.toString());
@@ -667,7 +676,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									}
 
 									// when using cache
-									if (useCache) {
+									if (cacheFinal) {
 										status = dbClient.query("dquery", decomposedQuery, hashQueryMap, extraCommands,
 												subqueries, result);
 									} else {
@@ -717,6 +726,10 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 													// block
 													e.printStackTrace();
 												}
+											}
+											else{
+												log.debug("Closing status...");
+												status.close();
 											}
 											log.warn("Time out:" + timeoutMs + " ms passed");
 											throw new RuntimeException("Time out:" + timeoutMs + " ms passed");
