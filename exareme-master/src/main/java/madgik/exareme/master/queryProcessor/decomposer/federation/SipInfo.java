@@ -140,13 +140,11 @@ public class SipInfo {
 		this.moreJoinCols.add(c);
 	}
 	
-	public Column getOtherJoinCol(){
+	public Set<Column> getOtherJoinCol(){
 		if(this.moreJoinCols.isEmpty()){
 			return null;
 		}
-		else{
-			return moreJoinCols.iterator().next();
-		}
+		return moreJoinCols;
 	}
 
 }

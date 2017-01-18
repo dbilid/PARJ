@@ -5,6 +5,7 @@ package madgik.exareme.master.queryProcessor.decomposer.query;
 
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+import madgik.exareme.master.queryProcessor.decomposer.dag.ResultList;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoReaderDB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
 import madgik.exareme.master.queryProcessor.decomposer.federation.SipInfo;
@@ -72,7 +73,7 @@ public class SQLQuery {
 
 	private List<Operand> joinOperands;
 
-	private Set<SipJoin> sis;
+	private List<SipJoin> sis;
 	private String sql;
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
@@ -2135,16 +2136,330 @@ public class SQLQuery {
 
 	}
 
-	public void addSipInfo(SipJoin si) {
-		if (this.sis == null) {
-			// this.deleteSipInfo();
-			this.sis = new HashSet<SipJoin>();
-		}
-		this.sis.add(si);
+	public void setIsCreateIndex() {
+		this.isCreateIndex = true;
 
 	}
 
-	public Set<SipJoin> getSipInfo() {
+	public void addInputTableIfNotExists(Table table, int index) {
+		if (!this.inputTables.contains(table) && !table.getName().equals(this.getTemporaryTableName())) {
+			this.inputTables.add(index, table);
+		}
+
+	}
+
+	
+
+	public List<Operand> getJoinOperands() {
+		return joinOperands;
+	}
+
+	public void addColumnAliases() {
+		// when we have only 1 input table, make sure all columns have table
+		// aliases
+		String alias = this.getInputTables().get(0).getAlias();
+		for (Column c : this.getAllColumns()) {
+			if (c.getAlias() == null) {
+				c.setAlias(alias);
+			}
+		}
+
+	}
+
+	public boolean containsIputTable(String alias) {
+		for (Table t : this.inputTables) {
+			if (t.getAlias().equals(alias)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public List<List<String>> getListOfAliases(NamesToAliases n2a, boolean getOnlyFirst, Map<String, Integer> counts) {
+		List<List<String>> result = new ArrayList<List<String>>();
+		Map<String, Integer> countsCloned = new HashMap<String, Integer>(counts);
+		if (this.inputTables.isEmpty()) {
+			return result;
+		}
+		List<String> partialResult = new ArrayList<String>();
+		for (Table t : this.inputTables) {
+			// String localAlias = t.getAlias();
+			// String globalAlias;
+			if (counts.containsKey(t.getlocalName())) {
+				counts.put(t.getlocalName(), counts.get(t.getlocalName()) + 1);
+				n2a.getGlobalAliasForBaseTable(t.getlocalName(), counts.get(t.getlocalName()));
+			} else {
+				counts.put(t.getlocalName(), 0);
+				n2a.getGlobalAliasForBaseTable(t.getlocalName(), 0);
+			}
+		}
+
+		// for (int i=0;i<this.inputTables.size();i++) {
+		// Table t=this.inputTables.get(i);
+
+		// for(String alias:n2a.getAllAliasesForBaseTable(t.getlocalName())){
+		// partialResult.add(alias);
+		traverseTables(0, n2a, new ArrayList<String>(partialResult), result, getOnlyFirst, countsCloned);
+		// System.out.println(result);
+		// }
+		// i++;
+		// }
+		return result;
+	}
+
+	public boolean isDrop() {
+		return isDrop;
+	}
+
+	public void setDrop(boolean isDrop) {
+		this.isDrop = isDrop;
+	}
+
+	public boolean isSelectAllFromInternal() {
+		return ((this.isSelectAll() || this.getOutputs().isEmpty()) && !this.isFederated && this.inputTables.size() == 1
+				&& this.binaryWhereConditions.isEmpty() && this.unaryWhereConditions.isEmpty()
+				&& this.nestedSelectSubqueries.isEmpty() && this.unionqueries.isEmpty()
+				&& !this.getInputTables().get(0).isFederated() && this.orderBy.isEmpty() && this.groupBy.isEmpty()
+				&& this.nestedNode == null);
+	}
+
+	public Set<Column> getAllJoinColumns() {
+		Set<Column> result = new HashSet<Column>();
+		for (NonUnaryWhereCondition nuwc : this.getBinaryWhereConditions()) {
+			if (nuwc.getOperator().equals("=")) {
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
+					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
+				}
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
+					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
+				}
+
+			} else {
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())
+						&& !(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
+					// range join
+					return result;
+				}
+				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
+					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
+				}
+				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
+					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
+				}
+			}
+		}
+		return result;
+	}
+
+	public String getOutputSQL() {
+		StringBuilder output = new StringBuilder();
+		output.append("select ");
+		// }
+		String separator = "";
+		if (this.isSelectAll() || this.getOutputs().isEmpty()) {
+			output.append("*");
+		} else {
+			if (this.isOutputColumnsDinstict()) {
+				output.append("distinct ");
+			}
+			for (Output c : getOutputs()) {
+				output.append(separator);
+				separator = ", ";
+				output.append(c.toString());
+			}
+			/*
+			 * for (Function f : outputFunctions) { output.append(separator);
+			 * separator = ", "; output.append(f.toString()); }
+			 */
+		}
+		separator = "";
+		// if (!this.isHasUnionRootNode()) {
+		output.append(" from ");
+		String result=output.toString().replaceAll("\"", "\\\\\"");
+		return result;
+	}
+
+	public String getStringOutputs() {
+		return stringOutputs;
+	}
+
+	public void setStringOutputs(String stringOutputs) {
+		this.stringOutputs = stringOutputs;
+	}
+	public boolean sipJoinIsLast() {
+		if (this.inputTables.isEmpty()) {
+			return false;
+		}
+		Table t = this.inputTables.get(inputTables.size() - 1);
+		if (t.getName().equalsIgnoreCase("siptable")) {
+
+			return true;
+		}
+		return false;
+	}
+
+	public boolean containsSip() {
+		for (Table t : this.inputTables) {
+			if (t.getName().equalsIgnoreCase("siptable")) {
+
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public int getLeftOfSip() {
+		for (int i = 0; i < inputTables.size(); i++) {
+			if (inputTables.get(i).getName().equals("siptable")) {
+				return i;
+			}
+		}
+		return 0;
+	}
+
+	public void addSipJoin(String si) {
+		for (SipJoin sj : this.sis) {
+			if (sj.getSipName().equals(si)) {
+				this.addBinaryWhereCondition(sj.getBwc());
+				this.addInputTableIfNotExists(new Table("siptable", si), sj.getNumber());
+				return;
+			}
+		}
+		log.warn("SipJoin not found");
+	}
+
+	public String getMostProminentSipjoin() {
+		if (this.sis != null) {
+			int min = this.getInputTables().size();
+			String result = null;
+			for (SipJoin sj : this.sis) {
+				if (sj.getNumber() < min) {
+					min = sj.getNumber();
+					result = sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
+	}
+
+	public String getLeastProminentSipjoin() {
+		if (this.sis != null) {
+			int max = 0;
+			String result = null;
+			for (SipJoin sj : this.sis) {
+				if (sj.getNumber() > max) {
+					max = sj.getNumber();
+					result = sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
+	}
+
+	public void adddAllSips(Map<String, Boolean> sips) {
+	
+		if (sis != null) {
+			while (!sis.isEmpty()) {
+				SipJoin[] joins = sis.toArray(new SipJoin[sis.size()]);
+				int max = joins[0].getNumber();
+				SipJoin next = joins[0];
+				for (int i = 1; i < sis.size(); i++) {
+					if (joins[i].getNumber() > max) {
+						max = joins[i].getNumber();
+						next = joins[i];
+					}
+				}
+				sis.remove(next);
+				if (sips.containsKey(next.getSipName())&&sips.get(next.getSipName())) {
+					this.addBinaryWhereCondition(next.getBwc());
+					this.addInputTableIfNotExists(new Table(next.getSipName(), next.getSipName()), next.getNumber());
+				}
+			}
+		}
+	}
+
+	public String getCreateSipTables() {
+		return createSipTables;
+	}
+
+	public void setCreteSipTables(String creteSipTables) {
+		this.createSipTables = creteSipTables;
+	}
+
+	public void appendCreateSipTables(String c) {
+		if (this.createSipTables == null) {
+			createSipTables = c;
+		} else if (!createSipTables.contains(c)) {
+			createSipTables += c;
+		}
+
+	}
+
+	public String getMostProminentSipjoin(Set<String> keySet) {
+		if (this.sis != null) {
+			int min = this.getInputTables().size()+1;
+			String result = null;
+			for (SipJoin sj : this.sis) {
+				if (sj.getNumber() < min) {
+					min = sj.getNumber();
+					result = sj.getSipName();
+				} else if (keySet.contains(sj.getSipName()) && sj.getNumber() - 2 < min) {
+					min = sj.getNumber() - 2;
+					result = sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
+	}
+	
+	public String getEstimatedSipjoin(ResultList qs, int i, Map<String, Set<SQLQuery>> queriesToSip) {
+		double weight=0.5;
+		if (this.sis != null) {
+			double best = 0;
+			String result = null;
+			for (SipJoin sj : this.sis) {
+				double tempScore=0;
+				if(queriesToSip.containsKey(sj.getSipName())){
+					tempScore+=queriesToSip.get(sj.getSipName()).size();
+				}
+				for(int j=i+1;j<qs.size();j++){
+					SQLQuery next=qs.get(j);
+					if(next.getSipInfo()!=null){
+					for(SipJoin nextSj:next.getSipInfo()){
+						if(nextSj.getSipName().equals(sj.getSipName())){
+							tempScore++;
+							break;
+						}
+					}
+					}
+				}
+				if(this.inputTables.size()>1){
+					tempScore=weight*(this.inputTables.size()-sj.getNumber())*tempScore;
+				}
+				if(best<tempScore){
+					best=tempScore;
+					result=sj.getSipName();
+				}
+			}
+			return result;
+		}
+		return null;
+	}
+
+	public void addSipInfo(SipJoin si) {
+		if (this.sis == null) {
+			// this.deleteSipInfo();
+			this.sis = new ArrayList<SipJoin>();
+		}
+		if(!this.sis.contains(si)){
+			this.sis.add(0, si);
+		}
+		}
+
+	public List<SipJoin> getSipInfo() {
 		return sis;
 	}
 
@@ -2274,18 +2589,17 @@ public class SQLQuery {
 				boolean newb = true;
 				if (newb) {
 					// output.append("(");
-					String joinKeyword = " JOIN ";
-					if (DecomposerUtils.USE_CROSS_JOIN) {
-						joinKeyword = " CROSS JOIN ";
-					}
 					for (Table t : getInputTables()) {
+						if (!this.isFederated) {
+							t.setName(t.getName().toLowerCase());
+						} 
 
 						if (t.getAlias().startsWith("siptable")) {
-							separator = joinKeyword;
+							separator = " ,  ";
 						}
 						output.append(separator);
 						output.append(t.toString());
-						separator = " JOIN ";
+						separator = " , ";
 						// if (t.getAlias().startsWith("siptable")) {
 						// separator = " CROSS JOIN ";
 						// }
@@ -2424,265 +2738,5 @@ public class SQLQuery {
 		this.isStringSQL = true;
 
 	}
-
-	public void setIsCreateIndex() {
-		this.isCreateIndex = true;
-
-	}
-
-	public void addInputTableIfNotExists(Table table, int index) {
-		if (!this.inputTables.contains(table) && !table.getName().equals(this.getTemporaryTableName())) {
-			this.inputTables.add(index, table);
-		}
-
-	}
-
-	public boolean sipJoinIsLast() {
-		if (this.inputTables.isEmpty()) {
-			return false;
-		}
-		Table t = this.inputTables.get(inputTables.size() - 1);
-		if (t.getName().equalsIgnoreCase("siptable")) {
-
-			return true;
-		}
-		return false;
-	}
-
-	public boolean containsSip() {
-		for (Table t : this.inputTables) {
-			if (t.getName().equalsIgnoreCase("siptable")) {
-
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public int getLeftOfSip() {
-		for (int i = 0; i < inputTables.size(); i++) {
-			if (inputTables.get(i).getName().equals("siptable")) {
-				return i;
-			}
-		}
-		return 0;
-	}
-
-	public void addSipJoin(String si) {
-		for (SipJoin sj : this.sis) {
-			if (sj.getSipName().equals(si)) {
-				this.addBinaryWhereCondition(sj.getBwc());
-				this.addInputTableIfNotExists(new Table("siptable", si), sj.getNumber());
-				return;
-			}
-		}
-		log.warn("SipJoin not found");
-	}
-
-	public String getMostProminentSipjoin() {
-		if (this.sis != null) {
-			int min = this.getInputTables().size();
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				if (sj.getNumber() < min) {
-					min = sj.getNumber();
-					result = sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-
-	public String getLeastProminentSipjoin() {
-		if (this.sis != null) {
-			int max = 0;
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				if (sj.getNumber() > max) {
-					max = sj.getNumber();
-					result = sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-
-	public void adddAllSips(Map<String, Boolean> sips) {
-		if (sis != null) {
-			while (!sis.isEmpty()) {
-				SipJoin[] joins = sis.toArray(new SipJoin[sis.size()]);
-				int max = joins[0].getNumber();
-				SipJoin next = joins[0];
-				for (int i = 1; i < sis.size(); i++) {
-					if (joins[i].getNumber() > max) {
-						max = joins[i].getNumber();
-						next = joins[i];
-					}
-				}
-				sis.remove(next);
-				if (sips.get(next.getSipName())) {
-					this.addBinaryWhereCondition(next.getBwc());
-					this.addInputTableIfNotExists(new Table(next.getSipName(), next.getSipName()), next.getNumber());
-				}
-			}
-		}
-	}
-
-	public String getCreateSipTables() {
-		return createSipTables;
-	}
-
-	public void setCreteSipTables(String creteSipTables) {
-		this.createSipTables = creteSipTables;
-	}
-
-	public void appendCreateSipTables(String c) {
-		if (this.createSipTables == null) {
-			createSipTables = c;
-		} else if (!createSipTables.contains(c)) {
-			createSipTables += c;
-		}
-
-	}
-
-	public List<Operand> getJoinOperands() {
-		return joinOperands;
-	}
-
-	public void addColumnAliases() {
-		// when we have only 1 input table, make sure all columns have table
-		// aliases
-		String alias = this.getInputTables().get(0).getAlias();
-		for (Column c : this.getAllColumns()) {
-			if (c.getAlias() == null) {
-				c.setAlias(alias);
-			}
-		}
-
-	}
-
-	public boolean containsIputTable(String alias) {
-		for (Table t : this.inputTables) {
-			if (t.getAlias().equals(alias)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public List<List<String>> getListOfAliases(NamesToAliases n2a, boolean getOnlyFirst, Map<String, Integer> counts) {
-		List<List<String>> result = new ArrayList<List<String>>();
-		Map<String, Integer> countsCloned = new HashMap<String, Integer>(counts);
-		if (this.inputTables.isEmpty()) {
-			return result;
-		}
-		List<String> partialResult = new ArrayList<String>();
-		for (Table t : this.inputTables) {
-			// String localAlias = t.getAlias();
-			// String globalAlias;
-			if (counts.containsKey(t.getlocalName())) {
-				counts.put(t.getlocalName(), counts.get(t.getlocalName()) + 1);
-				n2a.getGlobalAliasForBaseTable(t.getlocalName(), counts.get(t.getlocalName()));
-			} else {
-				counts.put(t.getlocalName(), 0);
-				n2a.getGlobalAliasForBaseTable(t.getlocalName(), 0);
-			}
-		}
-
-		// for (int i=0;i<this.inputTables.size();i++) {
-		// Table t=this.inputTables.get(i);
-
-		// for(String alias:n2a.getAllAliasesForBaseTable(t.getlocalName())){
-		// partialResult.add(alias);
-		traverseTables(0, n2a, new ArrayList<String>(partialResult), result, getOnlyFirst, countsCloned);
-		// System.out.println(result);
-		// }
-		// i++;
-		// }
-		return result;
-	}
-
-	public boolean isDrop() {
-		return isDrop;
-	}
-
-	public void setDrop(boolean isDrop) {
-		this.isDrop = isDrop;
-	}
-
-	public boolean isSelectAllFromInternal() {
-		return ((this.isSelectAll() || this.getOutputs().isEmpty()) && !this.isFederated && this.inputTables.size() == 1
-				&& this.binaryWhereConditions.isEmpty() && this.unaryWhereConditions.isEmpty()
-				&& this.nestedSelectSubqueries.isEmpty() && this.unionqueries.isEmpty()
-				&& !this.getInputTables().get(0).isFederated() && this.orderBy.isEmpty() && this.groupBy.isEmpty()
-				&& this.nestedNode == null);
-	}
-
-	public Set<Column> getAllJoinColumns() {
-		Set<Column> result = new HashSet<Column>();
-		for (NonUnaryWhereCondition nuwc : this.getBinaryWhereConditions()) {
-			if (nuwc.getOperator().equals("=")) {
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
-					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
-				}
-				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
-					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
-				}
-
-			} else {
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())
-						&& !(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
-					// range join
-					return result;
-				}
-				if (!(nuwc.getLeftOp().getAllColumnRefs().isEmpty())) {
-					result.add(nuwc.getLeftOp().getAllColumnRefs().get(0));
-				}
-				if (!(nuwc.getRightOp().getAllColumnRefs().isEmpty())) {
-					result.add(nuwc.getRightOp().getAllColumnRefs().get(0));
-				}
-			}
-		}
-		return result;
-	}
-
-	public String getOutputSQL() {
-		StringBuilder output = new StringBuilder();
-		output.append("select ");
-		// }
-		String separator = "";
-		if (this.isSelectAll() || this.getOutputs().isEmpty()) {
-			output.append("*");
-		} else {
-			if (this.isOutputColumnsDinstict()) {
-				output.append("distinct ");
-			}
-			for (Output c : getOutputs()) {
-				output.append(separator);
-				separator = ", ";
-				output.append(c.toString());
-			}
-			/*
-			 * for (Function f : outputFunctions) { output.append(separator);
-			 * separator = ", "; output.append(f.toString()); }
-			 */
-		}
-		separator = "";
-		// if (!this.isHasUnionRootNode()) {
-		output.append(" from ");
-		String result=output.toString().replaceAll("\"", "\\\\\"");
-		return result;
-	}
-
-	public String getStringOutputs() {
-		return stringOutputs;
-	}
-
-	public void setStringOutputs(String stringOutputs) {
-		this.stringOutputs = stringOutputs;
-	}
-
 	
 }

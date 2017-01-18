@@ -9,34 +9,49 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 
 public class SipToUnions {
 
-	private Map<Integer, Set<SipNode>> sipToUnions;
+	private Map<String, Set<SipNode>> sipToUnions;
 
 	public SipToUnions() {
 		super();
-		this.sipToUnions = new HashMap<Integer, Set<SipNode>>();
+		this.sipToUnions = new HashMap<String, Set<SipNode>>();
 	}
 
-	public void put(int i, Set<SipNode> sips) {
+	public void put(String i, Set<SipNode> sips) {
 		sipToUnions.put(i, sips);
 	}
 
-	public Set<SipNode> get(int i) {
+	public Set<SipNode> get(String i) {
 		return sipToUnions.get(i);
 	}
 
-	public Set<SipNode> getSipInfo(int unionNo, Node node) {
+	public Set<SipNode> getSipInfo(String unionNo, Node node) {
 		Set<SipNode> result=new HashSet<SipNode>();
 		Set<SipNode> unionSip = sipToUnions.get(unionNo);
 		if (unionSip != null) {
 			for (SipNode sn : unionSip) {
 				if (sn.getNode().equals(node.getChildAt(0))) {
 					result.add(sn);
-					break;
+					//break;
 				}
 				if (sn.getSipInfo().getJoinNode().equals(node.getChildAt(1).getObject().toString())) {
 					result.add(sn);
-					break;
+					//break;
 				}
+			}
+		}
+		return result;
+	}
+	
+	public Set<SipNode> getSipInfo(String unionNo, Node base, boolean isbase) {
+		Set<SipNode> result=new HashSet<SipNode>();
+		Set<SipNode> unionSip = sipToUnions.get(unionNo);
+		if (unionSip != null) {
+			for (SipNode sn : unionSip) {
+				if (sn.getNode().equals(base)) {
+					result.add(sn);
+					//break;
+				}
+				
 			}
 		}
 		return result;

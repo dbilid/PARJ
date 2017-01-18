@@ -6,9 +6,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class IndexCreator {
 
@@ -31,6 +33,25 @@ public class IndexCreator {
 			st.close();
 			sqliteConnection.close();
 		}
+				
+				boolean createTestDb=false;
+				if(createTestDb){
+					Connection sqliteConnection = DriverManager.getConnection("jdbc:sqlite:/media/dimitris/T/test/rdf"+".db");
+					sqliteConnection.setAutoCommit(false);
+					PreparedStatement st=sqliteConnection.prepareStatement("insert OR IGNORE into S values(?, ?)");
+					Random random = new Random();
+					for(int i =0;i<10000000;i++){
+						int a=random.nextInt();
+						int b=random.nextInt(1000);
+						st.setInt(1, a);
+						st.setInt(2, b);
+						st.execute();
+					}
+					
+					sqliteConnection.commit();
+					st.close();
+					sqliteConnection.close();
+				}
 	}
 	
 	private static List<String> readFile(String file) throws IOException {

@@ -47,7 +47,7 @@ public class ExaremeClusterTest {
         }
         log.info("Query successfully executed.");
 
-        log.info(FileUtil.consume(dbClient.readTable(tableName)));
+        log.info(FileUtil.consume(dbClient.readTable(tableName, true, "select * from  ")));
         cluster.stop(true);
         log.info("Cluster stopped.");
 

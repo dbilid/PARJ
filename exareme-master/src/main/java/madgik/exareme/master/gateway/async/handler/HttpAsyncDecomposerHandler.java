@@ -659,7 +659,7 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 									log.debug("Result Table : " + resultTblName);
 									log.debug("Executing decomposed query ...");
 									List<ResultTable> result=new ArrayList<ResultTable>();
-									if (resultTblName.size() > 1) {
+									if (resultTblName.size() > 1 || resultTblName.values().iterator().next()!=null) {
 										streamingResult = true;
 										
 										for(String name:resultTblName.keySet()){

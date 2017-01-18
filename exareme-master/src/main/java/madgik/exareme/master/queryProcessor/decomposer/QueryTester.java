@@ -22,7 +22,7 @@ import madgik.exareme.jdbc.federated.AdpDriver;
 public class QueryTester {
 
 	public static void main(String[] args) throws SQLException, ClassNotFoundException, IOException {
-		String dir="/home/dimitris/Dropbox/npdsql/existLast/";
+		String dir="/home/dimitris/Dropbox/npdsql/npdnew100/";
 		//String dir="/home/dimitris/sqlitenpd";
 		Map<String, String> queries=new HashMap<String, String>();
 		for(String file:readFilesFromDir(dir)){
@@ -35,7 +35,7 @@ public class QueryTester {
 		if(exareme){
 			//Driver test=new AdpDriver();
 			Class.forName("madgik.exareme.jdbc.federated.AdpDriver");
-			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd100/");
+			Connection connection=DriverManager.getConnection("jdbc:fedadp:http://127.0.0.1:9090/media/dimitris/T/exaremenpd500new/");
 			Statement s=connection.createStatement();
 			for(String file:queries.keySet()){
 				String query=queries.get(file);
@@ -44,6 +44,9 @@ public class QueryTester {
 				ResultSet rs=s.executeQuery(query);
 				int results=0;
 				while(rs.next()){
+					if(results<100){
+					System.out.println(rs.getString(3));
+					System.out.println(rs.getString(6));}
 					results++;
 				}
 				rs.close();
@@ -157,7 +160,7 @@ public class QueryTester {
     	File[] listOfFiles = folder.listFiles();
     	List<String> files=new ArrayList<String>();
     	    for (int i = 0; i < listOfFiles.length; i++) {
-    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("12.q.sql.100")) {
+    	      if (listOfFiles[i].isFile()&&listOfFiles[i].getCanonicalPath().endsWith("29.q.sql")) {
     	    	  //if(listOfFiles[i].getCanonicalPath().endsWith("30.q.sql"))
     	    	//	  continue;
     	    	 // if(listOfFiles[i].getCanonicalPath().endsWith("06.q.sql"))

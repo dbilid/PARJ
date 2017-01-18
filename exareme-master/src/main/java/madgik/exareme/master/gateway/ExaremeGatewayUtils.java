@@ -64,6 +64,7 @@ public class ExaremeGatewayUtils {
   public static final String CONTEXT_DB_CONNECTOR;
   private static final Logger log = Logger.getLogger(ExaremeGatewayUtils.class);
   public static final String REQUEST_TIMEOUT;
+  public static final String REQUEST_CACHE;
 
   static {
     GenericProperties properties = AdpProperties.getGatewayProperties();
@@ -112,6 +113,7 @@ public class ExaremeGatewayUtils {
     RESPONSE_ERRORS = properties.getString("gateway.response.errors");
     
     REQUEST_TIMEOUT = properties.getString("gateway.request.timeout");
+    REQUEST_CACHE = properties.getString("gateway.request.cache");
 
     log.trace("Gateway mode         :" + GW_MODE);
     log.trace("Listening port       :" + String.valueOf(GW_PORT));

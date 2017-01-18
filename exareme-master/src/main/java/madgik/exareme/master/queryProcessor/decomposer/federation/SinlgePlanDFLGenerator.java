@@ -33,7 +33,7 @@ public class SinlgePlanDFLGenerator {
 	private boolean useCache;
 	private boolean addIndicesToMatQueries = false;
 	private SipToUnions sipToUnions;
-	private int unionNo;
+	private String unionNo;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
@@ -55,7 +55,7 @@ public class SinlgePlanDFLGenerator {
 
 		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
-		unionNo = 0;
+		unionNo = "";
 		try {
 			if (partitionNo == 1) {
 				if (DecomposerUtils.PUSH_PROCESSING) {
@@ -187,108 +187,6 @@ public class SinlgePlanDFLGenerator {
 			}
 		}
 
-		if (DecomposerUtils.REMOVE_OUTPUTS) {
-			log.debug("Removing Outputs...");
-			if (qs.size() > 1) {
-				List<SQLQuery> unions = qs.get(qs.size() - 1).getUnionqueries();
-				for (int i = qs.size() - 2; i > -1; i--) {
-					// Set<SQLQuery> queriesUsingQ=new HashSet<SQLQuery>();
-					SQLQuery q = qs.get(i);
-					if (unions.contains(q)) {
-						continue;
-					}
-					// log.debug("removing from:"+q.getTemporaryTableName());
-					// log.debug("number:"+i);
-					List<Column> outputs = new ArrayList<Column>();
-					for (Output o : q.getOutputs()) {
-						outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
-					}
-					// log.debug("outputs:"+outputs);
-					for (int j = qs.size() - 1; j > i; j--) {
-						if (qs.get(j).containsIputTable(q.getTemporaryTableName())) {
-							if (qs.get(j).getOutputs().isEmpty()) {
-								outputs.clear();
-								break;
-							}
-							// else{
-							/// queriesUsingQ.add(qs.get(j));
-							// }
-						}
-						List<Column> cols = qs.get(j).getAllColumns();
-						for (Column c2 : cols) {
-							// log.debug(c2);
-							if (c2.getBaseTable() != null) {
-								outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
-							} else {
-								outputs.remove(c2);
-							}
-						}
-						if (outputs.isEmpty()) {
-							break;
-						}
-					}
-					Set<HashCode> removedOutputs = new HashSet<HashCode>();
-					for (Column c3 : outputs) {
-						for (int k = 0; k < q.getOutputs().size(); k++) {
-							Output o = q.getOutputs().get(k);
-							if (o.getOutputName().equals(c3.getName())) {
-								Output out = q.getOutputs().get(k);
-								log.debug("removing output:" + o);
-								q.getOutputs().remove(k);
-								removedOutputs.add(out.getHashID());
-								// q.setHashId(null);
-								k--;
-							}
-						}
-					}
-					if (!removedOutputs.isEmpty() && q.getHashId() != null) {
-						HashCode outputsAll = Hashing.combineUnordered(removedOutputs);
-						List<HashCode> newHashForQuery = new ArrayList<HashCode>();
-						newHashForQuery.add(q.getHashId());
-						newHashForQuery.add(Hashing.sha1().hashBytes("removing outputs".getBytes()));
-						newHashForQuery.add(outputsAll);
-						q.setHashId(Hashing.combineOrdered(newHashForQuery));
-						/*
-						 * for(SQLQuery using:queriesUsingQ){ List<HashCode>
-						 * newHashForQueryUsing=new ArrayList<HashCode>();
-						 * newHashForQueryUsing.add(using.getHashId());
-						 * newHashForQueryUsing.add(Hashing.sha1().hashBytes(
-						 * "removing outputs".getBytes()));
-						 * newHashForQueryUsing.add(outputsAll);
-						 * using.setHashId(Hashing.combineOrdered(
-						 * newHashForQueryUsing)); }
-						 */
-						if (useCache && registry.containsKey(newHashForQuery)) {
-							String tableInRegistry = registry.get(newHashForQuery).getName();
-							String qName = q.getTemporaryTableName();
-							for (int j = qs.size() - 1; j > i; j--) {
-								for (Table t : qs.get(j).getInputTables()) {
-									if (t.getName().equals(qName)) {
-										t.setName(tableInRegistry);
-									}
-								}
-							}
-							qs.remove(i);
-						}
-
-					}
-					if (removedOutputs.isEmpty() && q.existsInCache()) {
-						// remove q and replace with the cached tablename
-						String tablename = q.getInputTables().get(0).getName();
-						String qName = q.getTemporaryTableName();
-						for (int j = qs.size() - 1; j > i; j--) {
-							for (Table t : qs.get(j).getInputTables()) {
-								if (t.getName().equals(qName)) {
-									t.setName(tablename);
-								}
-							}
-						}
-						qs.remove(i);
-
-					}
-				}
-			}
-		}
 
 		boolean pushUnions = DecomposerUtils.PUSH_UNIONS;
 		if (qs.size() > 1 && pushUnions && !this.useCache) {
@@ -322,28 +220,91 @@ public class SinlgePlanDFLGenerator {
 						}
 						qs.remove(last);
 					} else {
-						// ...
+						Map<String, List<SQLQuery>> outputsToQueries=new HashMap<String, List<SQLQuery>>();
+						for (SQLQuery u : last.getUnionqueries()) {
+							if (u.isFederated()) {
+								continue;
+							}
+							//u.setTemporary(false);
+							Set<Column> rippedOuts = new HashSet<Column>();
+							for (Column c : u.getAllOutputColumns()) {
+								rippedOuts.add(c);
+							}
+
+							List<Output> newOuts = new ArrayList<Output>();
+							for (Column ripped : rippedOuts) {
+								newOuts.add(new Output(ripped.getName(), ripped));
+								for (Output out : u.getOutputs()) {
+									if (out.getObject().equals(ripped)) {
+										out.setObject(new Column(null, ripped.getName()));
+									} else {
+										out.getObject().changeColumn(ripped, new Column(null, ripped.getName()));
+									}
+								}
+							}
+							if(!outputsToQueries.containsKey(u.getOutputSQL())){
+								outputsToQueries.put(u.getOutputSQL(), new ArrayList<SQLQuery>());
+							}
+							outputsToQueries.get(u.getOutputSQL()).add(u);
+							//last.setStringOutputs(u.getOutputSQL());
+							u.setOutputs(newOuts);
+						}
+						if(outputsToQueries.size()==1){
+							last.setStringOutputs(outputsToQueries.keySet().iterator().next());
+						}
+						else{
+							qs.remove(last);
+							for(String o:outputsToQueries.keySet()){
+								if(outputsToQueries.get(o).size()>1){
+								SQLQuery union=new SQLQuery();
+								union.setStringOutputs(o);
+								union.setUnionAll(false);
+								union.setUnionqueries(outputsToQueries.get(o));
+								}
+								else{
+									SQLQuery out=outputsToQueries.get(o).get(0);
+									out.setOutputColumnsDistinct(true);
+									out.setStringOutputs(o);
+								}
+							}
+						}
+						
 					}
 				}
 			}
 		}
 
 		if (useSIP) {
-			boolean makeQueryForEachSip = false;
+			boolean makeQueryForEachSip = true;
+
 			System.out.println("initial size:" + qs.size());
 			if (makeQueryForEachSip) {
 				Map<String, Set<SQLQuery>> queriesToSip = new HashMap<String, Set<SQLQuery>>();
 				for (int i = 0; i < qs.size() - 1; i++) {
 					SQLQuery q = qs.get(i);
-					Set<SipJoin> sis = q.getSipInfo();
+					List<SipJoin> sis = q.getSipInfo();
 					if (sis != null && sis.size() > 0) {
 						// String si = sis.iterator().next().getSipName();
-						boolean most = true;
+						boolean most = false;
+						boolean checkPrevious = true;
+						boolean algorithmSelection = true;
 						String si = null;
-						if (most) {
-							si = q.getMostProminentSipjoin();
+						if (algorithmSelection) {
+
+							si = q.getEstimatedSipjoin(qs, i, queriesToSip);
+
 						} else {
-							si = q.getLeastProminentSipjoin();
+
+							if (most) {
+								if (checkPrevious) {
+									si = q.getMostProminentSipjoin(queriesToSip
+											.keySet());
+								} else {
+									si = q.getMostProminentSipjoin();
+								}
+							} else {
+								si = q.getLeastProminentSipjoin();
+							}
 						}
 						if (sis.size() > 1) {
 							System.out.println("size>1:" + sis.size());
@@ -358,12 +319,73 @@ public class SinlgePlanDFLGenerator {
 						}
 					}
 				}
-				SQLQuery union = qs.get(qs.size() - 1);
 
+				SQLQuery union = qs.get(qs.size() - 1);
 				for (String si : queriesToSip.keySet()) {
-					System.out.println("no of sip:" + queriesToSip.get(si).size());
+					System.out.println("no of sip:"
+							+ queriesToSip.get(si).size());
 					if (queriesToSip.get(si).size() == 1) {
-						System.out.println("si with one query!" + queriesToSip.get(si));
+						continue;
+					}
+					if (si != null) {
+						for (SQLQuery s : queriesToSip.get(si)) {
+							s.addSipJoin(si);
+						}
+					}
+				}
+
+				if (DecomposerUtils.REMOVE_OUTPUTS) {
+					removeOutputs(qs);
+				}
+				boolean splitLarge=false;
+				if(splitLarge){
+					int threads=9;
+					if(qs.size()>threads-1){
+						List<SQLQuery> cloned=new ArrayList((ArrayList<SQLQuery>)qs);
+						Map<String, Integer> multiplicities=new HashMap<String, Integer>();
+						for (String si : queriesToSip.keySet()) {
+							if(si!=null){
+								for (SQLQuery s : queriesToSip.get(si)) {
+								cloned.remove(s);
+								multiplicities.put(si, queriesToSip.get(si).size());
+								}
+							}
+						}
+						int counter=0;
+						while(cloned.size()+queriesToSip.size()<threads){
+							int maxMultiplicity=-1;
+							String maxSi=null;
+							for(String s:multiplicities.keySet()){
+								if(multiplicities.get(s)>maxMultiplicity){
+									maxMultiplicity=multiplicities.get(s);
+									maxSi=s;
+								}
+							}
+							Set<SQLQuery> newSi=new HashSet<SQLQuery>();
+							Set<SQLQuery> queriesForMaxSi=queriesToSip.get(maxSi);
+							for(int j=0;j<maxMultiplicity/2;j++){
+								SQLQuery n=queriesForMaxSi.iterator().next();
+								queriesForMaxSi.remove(n);
+								newSi.add(n);
+							}
+							multiplicities.put(maxSi, queriesToSip.get(maxSi).size());
+							queriesToSip.put(maxSi+counter, newSi);
+							multiplicities.put(maxSi+counter, queriesToSip.get(maxSi+counter).size());
+							counter++;
+						}
+					}
+					 
+				}
+				
+				for (String si : queriesToSip.keySet()) {
+					System.out.println("no of sip:"
+							+ queriesToSip.get(si).size());
+					if (queriesToSip.get(si).size() == 1) {
+						continue;
+					}
+					if (si == null) {
+						System.out.println("si with one query!"
+								+ queriesToSip.get(si));
 						/*
 						 * SQLQuery s = queriesToSip.get(si).iterator().next();
 						 * for (int t = 0; t < s.getInputTables().size(); t++) {
@@ -382,69 +404,147 @@ public class SinlgePlanDFLGenerator {
 					// SQLQuery mostTables = null;
 					// int noTables = 0;
 					// int lastQ = 0;
-
-					for (SQLQuery s : queriesToSip.get(si)) {
-						union.getUnionqueries().remove(s);
-						qs.remove(s);
-						s.addSipJoin(si);
-					}
-					SQLQuery toReplace = new SQLQuery();
-					StringBuffer toRepl = new StringBuffer();
-					toRepl.append("select * from (");
-					String separator = "";
-
-					for (SQLQuery s : queriesToSip.get(si)) {
-						if (s.sipJoinIsLast()) {
-							toRepl.append(separator);
-							toRepl.append(s.toSipSQL());
-							separator = " UNION ALL ";
-							// now setting union all to avoid not necessary
-							// processing
-							// duplicate elimination will occur in the final
-							// query
+					boolean combine = true;
+					if (combine) {
+						for (SQLQuery s : queriesToSip.get(si)) {
+							union.getUnionqueries().remove(s);
+							qs.remove(s);
+							// s.addSipJoin(si);
 						}
 
-					}
-					for (SQLQuery s : queriesToSip.get(si)) {
-						if (!s.sipJoinIsLast()) {
-							toRepl.append(separator);
-							toRepl.append(s.toSipSQL());
-							separator = " UNION ALL ";
-							// now setting union all to avoid not necessary
-							// processing
-							// duplicate elimination will occur in the final
-							// query
+						SQLQuery toReplace = new SQLQuery();
+						StringBuffer toRepl = new StringBuffer();
+						boolean removeUri=false;
+						if(!removeUri){
+							toRepl.append("select * from (");
 						}
+						else{
+							List<Output> outs=queriesToSip.get(si).iterator().next().getOutputs();
+							int counter=0;
+							List<Output> cloned=new ArrayList<Output>();
+							for(Output o:outs){
+								try {
+									cloned.add(o.clone());
+								} catch (CloneNotSupportedException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+							}
+							for(Output cl:cloned){
+								List<Column> clCols=cl.getObject().getAllColumnRefs();
+								for(Column c:clCols){
+									String nextColName="c"+counter;
+									counter++;
+									cl.getObject().changeColumn(c, new Column(null, nextColName));
+								}
+							}
+							toRepl.append("select ");
+							String del="";
+							for(Output c:cloned){
+								toRepl.append(del);
+								toRepl.append(c.toString());
+								del=",";
+							}
+							toRepl.append(" from (");
+						}
+						String separator = "";
 
+						for (SQLQuery s : queriesToSip.get(si)) {
+							if (s.sipJoinIsLast()) {
+								toRepl.append(separator);
+								if(removeUri){
+									int counter=0;
+									List<Output> outs=s.getOutputs();
+									List<Output> newOuts=new ArrayList<Output>();
+									
+									for(Output cl:outs){
+										List<Column> clCols=cl.getObject().getAllColumnRefs();
+										for(Column c:clCols){
+											String nextColName="c"+counter;
+											counter++;
+											Output newOut=new Output(nextColName, c);
+											newOuts.add(newOut);
+										}
+									}
+									s.setOutputs(newOuts);
+								}
+								
+								toRepl.append(s.toSipSQL());
+								separator = " UNION ALL ";
+								// now setting union all to avoid not necessary
+								// processing
+								// duplicate elimination will occur in the final
+								// query
+							}
+
+						}
+						for (SQLQuery s : queriesToSip.get(si)) {
+							if (!s.sipJoinIsLast()) {
+								toRepl.append(separator);
+								if(removeUri){
+									int counter=0;
+									List<Output> outs=s.getOutputs();
+									List<Output> newOuts=new ArrayList<Output>();
+									
+									for(Output cl:outs){
+										List<Column> clCols=cl.getObject().getAllColumnRefs();
+										for(Column c:clCols){
+											String nextColName="c"+counter;
+											counter++;
+											Output newOut=new Output(nextColName, c);
+											newOuts.add(newOut);
+										}
+									}
+									s.setOutputs(newOuts);
+								}
+								toRepl.append(s.toSipSQL());
+								separator = " UNION ALL ";
+								// now setting union all to avoid not necessary
+								// processing
+								// duplicate elimination will occur in the final
+								// query
+							}
+
+						}
+						qs.add(qs.size() - 1, toReplace);
+						// toRepl.append(separator);
+						// toRepl.append(mostTables.toSipSQL(true));
+						toRepl.append(")");
+						toReplace.setSQL(toRepl.toString());
+						toReplace.setStringSQL();
+						union.getUnionqueries().add(toReplace);
+						if (qs.size() == 2) {
+							toReplace.setSQL(toRepl.toString().replaceAll(
+									" UNION ALL ", " UNION "));
+							toReplace.setTemporary(false);
+							qs.remove(union);
+						}
 					}
-					qs.add(qs.size() - 1, toReplace);
-					// toRepl.append(separator);
-					// toRepl.append(mostTables.toSipSQL(true));
-					toRepl.append(")");
-					toReplace.setSQL(toRepl.toString());
-					toReplace.setStringSQL();
-					union.getUnionqueries().add(toReplace);
-					if (qs.size() == 2) {
-						toReplace.setSQL(toRepl.toString().replaceAll(" UNION ALL ", " UNION "));
-						toReplace.setTemporary(false);
-						qs.remove(union);
-					}
+					/*
+					 * else{ for (SQLQuery s : queriesToSip.get(si)) {
+					 * s.addSipJoin(si); }
+					 * 
+					 * }
+					 */
 				}
 
 			}
 			if (!makeQueryForEachSip) {
+
 				Map<String, Boolean> sips = new HashMap<String, Boolean>();
 				Set<String> createVtables = new HashSet<String>();
 				for (int i = 0; i < qs.size() - 1; i++) {
 					// check to remove sips that are used only once
 					SQLQuery q = qs.get(i);
-					Set<SipJoin> sis = q.getSipInfo();
+					List<SipJoin> sis = q.getSipInfo();
 					if (sis != null && sis.size() > 0) {
 						for (SipJoin sj : sis) {
+
 							if (sips.containsKey(sj.getSipName())) {
 								sips.put(sj.getSipName(), Boolean.TRUE);
-								createVtables
-										.add("create virtual table " + sj.getSipName() + " using unionsiptext; \n");
+								createVtables.add("create virtual table "
+										+ sj.getSipName()
+										+ " using unionsiptext; \n");
 							} else {
 								sips.put(sj.getSipName(), Boolean.FALSE);
 							}
@@ -452,6 +552,7 @@ public class SinlgePlanDFLGenerator {
 					}
 				}
 				SQLQuery toReplace = new SQLQuery();
+
 				StringBuffer toRepl = new StringBuffer();
 
 				String separator = "";
@@ -479,13 +580,14 @@ public class SinlgePlanDFLGenerator {
 				for (String v : createVtables) {
 					toReplace.appendCreateSipTables(v);
 				}
-				System.out.println(toRepl.toString());
+				// System.out.println(toRepl.toString());
 				qs.clear();
 				qs.add(toReplace);
-
 			}
 
 			System.out.println("final size:" + qs.size());
+		} else if (DecomposerUtils.REMOVE_OUTPUTS) {
+			removeOutputs(qs);
 		}
 
 		// remove not needed columns from nested subqueries
@@ -522,6 +624,110 @@ public class SinlgePlanDFLGenerator {
 			}
 		}
 		return qs;
+	}
+
+	private void removeOutputs(ResultList qs) {
+		log.debug("Removing Outputs...");
+		if (qs.size() > 1) {
+			List<SQLQuery> unions = qs.get(qs.size() - 1).getUnionqueries();
+			for (int i = qs.size() - 2; i > -1; i--) {
+				// Set<SQLQuery> queriesUsingQ=new HashSet<SQLQuery>();
+				SQLQuery q = qs.get(i);
+				if (unions.contains(q)||!q.isTemporary()) {
+					continue;
+				}
+				// log.debug("removing from:"+q.getTemporaryTableName());
+				// log.debug("number:"+i);
+				List<Column> outputs = new ArrayList<Column>();
+				for (Output o : q.getOutputs()) {
+					outputs.add(new Column(q.getTemporaryTableName(), o.getOutputName()));
+				}
+				// log.debug("outputs:"+outputs);
+				for (int j = qs.size() - 1; j > i; j--) {
+					if (qs.get(j).containsIputTable(q.getTemporaryTableName())) {
+						if (qs.get(j).getOutputs().isEmpty()) {
+							outputs.clear();
+							break;
+						}
+						// else{
+						/// queriesUsingQ.add(qs.get(j));
+						// }
+					}
+					List<Column> cols = qs.get(j).getAllColumns();
+					for (Column c2 : cols) {
+						// log.debug(c2);
+						if (c2.getBaseTable() != null) {
+							outputs.remove(new Column(c2.getAlias(), c2.getBaseTable() + "_" + c2.getName()));
+						} else {
+							outputs.remove(c2);
+						}
+					}
+					if (outputs.isEmpty()) {
+						break;
+					}
+				}
+				Set<HashCode> removedOutputs = new HashSet<HashCode>();
+				for (Column c3 : outputs) {
+					for (int k = 0; k < q.getOutputs().size(); k++) {
+						Output o = q.getOutputs().get(k);
+						if (o.getOutputName().equals(c3.getName())) {
+							Output out = q.getOutputs().get(k);
+							log.debug("removing output:" + o);
+							q.getOutputs().remove(k);
+							removedOutputs.add(out.getHashID());
+							// q.setHashId(null);
+							k--;
+						}
+					}
+				}
+				if (!removedOutputs.isEmpty() && q.getHashId() != null) {
+					HashCode outputsAll = Hashing.combineUnordered(removedOutputs);
+					List<HashCode> newHashForQuery = new ArrayList<HashCode>();
+					newHashForQuery.add(q.getHashId());
+					newHashForQuery.add(Hashing.sha1().hashBytes("removing outputs".getBytes()));
+					newHashForQuery.add(outputsAll);
+					q.setHashId(Hashing.combineOrdered(newHashForQuery));
+					/*
+					 * for(SQLQuery using:queriesUsingQ){ List<HashCode>
+					 * newHashForQueryUsing=new ArrayList<HashCode>();
+					 * newHashForQueryUsing.add(using.getHashId());
+					 * newHashForQueryUsing.add(Hashing.sha1().hashBytes(
+					 * "removing outputs".getBytes()));
+					 * newHashForQueryUsing.add(outputsAll);
+					 * using.setHashId(Hashing.combineOrdered(
+					 * newHashForQueryUsing)); }
+					 */
+					if (useCache && registry.containsKey(newHashForQuery)) {
+						String tableInRegistry = registry.get(newHashForQuery).getName();
+						String qName = q.getTemporaryTableName();
+						for (int j = qs.size() - 1; j > i; j--) {
+							for (Table t : qs.get(j).getInputTables()) {
+								if (t.getName().equals(qName)) {
+									t.setName(tableInRegistry);
+								}
+							}
+						}
+						qs.remove(i);
+					}
+
+				}
+				if (removedOutputs.isEmpty() && q.existsInCache()) {
+					// remove q and replace with the cached tablename
+					String tablename = q.getInputTables().get(0).getName();
+					String qName = q.getTemporaryTableName();
+					for (int j = qs.size() - 1; j > i; j--) {
+						for (Table t : qs.get(j).getInputTables()) {
+							if (t.getName().equals(qName)) {
+								t.setName(tablename);
+							}
+						}
+					}
+					qs.remove(i);
+
+				}
+			}
+		}
+		
 	}
 
 	private void printPlan(MemoKey key) {
@@ -1108,6 +1314,9 @@ public class SinlgePlanDFLGenerator {
 
 			}
 
+			if (useSIP) {
+				addSipToNonJoinQuery(op.getChildAt(0), e, tempResult);
+			}
 		} else if (op.getOpCode() == Node.JOIN) {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
 			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
@@ -1164,6 +1373,154 @@ public class SinlgePlanDFLGenerator {
 
 				}
 			}
+			if (useSIP) {
+				// int existingLeft = current.getLeftOfSip();
+				// if(current.containsSip()){
+				// current.deleteSipInfo();
+				// }
+				boolean cutSipForOneTable = false;
+				if (nuwc.getLeftOp() instanceof Column
+						&& nuwc.getRightOp() instanceof Column) {
+					if (op.getChildren().size() == 2) {
+
+						for (SipNode sn : sipToUnions.getSipInfo(unionNo, op)) {
+
+							SipInfo si = sn.getSipInfo();
+
+							if (si != null && si.getCounter() > 0
+									&& !e.isMaterialised()) {
+								Set<String> leftOfCrossJoin = new HashSet<String>();
+								Set<String> rightOfCrossJoin = new HashSet<String>();
+
+								if (si.getJoinNode()
+										.equals(op.getChildAt(1).getObject()
+												.toString())) {
+									for (String d : op.getChildren().get(1)
+											.getDescendantBaseTables()) {
+										rightOfCrossJoin.add(tempResult
+												.getQueryForBaseTable(d));
+									}
+								} else {
+									for (String d : op.getChildren().get(0)
+											.getDescendantBaseTables()) {
+										leftOfCrossJoin.add(tempResult
+												.getQueryForBaseTable(d));
+									}
+								}
+
+								if (!leftOfCrossJoin.isEmpty()) {
+									if (leftOfCrossJoin
+											.contains(current.getInputTables()
+													.get(0).getAlias())) {
+
+										Column sipCol2 = new Column(
+												si.getName(), "x");
+
+										addLeftOfCrossJoin(nuwc, tempResult,
+												sn, leftOfCrossJoin.size(),
+												sipCol2, leftOfCrossJoin);
+									}
+								} else if (!cutSipForOneTable) {
+									Set<String> leftTables = new HashSet<String>();
+									for (int t = 0; t < current
+											.getInputTables().size()
+											- rightOfCrossJoin.size(); t++) {
+										leftTables.add(current.getInputTables()
+												.get(t).getAlias());
+									}
+
+									Column sipCol = new Column(si.getName(),
+											"x");
+									if (si.getJoinCol()
+											.equals(nuwc.getLeftOp())) {
+										Column c = (Column) nuwc.getRightOp();
+										Column c2 = new Column(
+												tempResult.getQueryForBaseTable(c
+														.getAlias()),
+												c.getName(), c.getAlias());
+
+										Operand previous = c2;
+										previous = addFilterJoin(
+												si.getOtherJoinCol(), previous,
+												tempResult, leftTables);
+										for (SipInfoValue siv : this.sipStruct
+												.getSipInfo(si)) {
+											if (siv.getNode() == sn.getNode()) {
+												for (Column out : siv
+														.getOutputs()) {
+													BinaryOperand bo = new BinaryOperand();
+													bo.setOperator("||'-'||");
+													bo.setLeftOp(previous);
+													bo.setRightOp(new Column(
+															tempResult
+																	.getQueryForBaseTable(out
+																			.getAlias()),
+															out.getName(), out
+																	.getAlias()));
+													previous = bo;
+												}
+												break;
+											}
+										}
+										NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(
+												previous, sipCol, "=");
+										SipJoin sj = new SipJoin(tempResult
+												.getCurrent().getInputTables()
+												.size()
+												- rightOfCrossJoin.size(),
+												sipjoin, si.getName(), true);
+										current.addSipInfo(sj);
+
+									}
+									if (si.getJoinCol().equals(
+											nuwc.getRightOp())) {
+										Column c = (Column) nuwc.getLeftOp();
+										Column c2 = new Column(
+												tempResult.getQueryForBaseTable(c
+														.getAlias()),
+												c.getName(), c.getAlias());
+										Operand previous = c2;
+										previous = addFilterJoin(
+												si.getOtherJoinCol(), previous,
+												tempResult, leftTables);
+										for (SipInfoValue siv : this.sipStruct
+												.getSipInfo(si)) {
+											if (siv.getNode() == sn.getNode()) {
+												for (Column out : siv
+														.getOutputs()) {
+													BinaryOperand bo = new BinaryOperand();
+													bo.setOperator("||'-'||");
+													bo.setLeftOp(previous);
+													bo.setRightOp(new Column(
+															tempResult
+																	.getQueryForBaseTable(out
+																			.getAlias()),
+															out.getName(), out
+																	.getAlias()));
+													previous = bo;
+												}
+												break;
+											}
+
+										}
+										NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(
+												previous, sipCol, "=");
+										SipJoin sj = new SipJoin(tempResult
+												.getCurrent().getInputTables()
+												.size()
+												- rightOfCrossJoin.size(),
+												sipjoin, si.getName(), true);
+										current.addSipInfo(sj);
+
+									}
+								}
+							}
+						}
+					}
+
+				}
+			}
+
 
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
@@ -1175,7 +1532,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
-				unionNo = l;
+				unionNo = p.getInputPlan(l).getNode().getObject().toString();
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited, pushToEndpoint);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
@@ -1297,7 +1654,9 @@ public class SinlgePlanDFLGenerator {
 				}
 
 			}
-
+			if (useSIP) {
+				addSipToNonJoinQuery(op.getChildAt(0), e, tempResult);
+			}
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
@@ -2179,7 +2538,7 @@ public class SinlgePlanDFLGenerator {
 
 				// visited.put(op, current);
 				tempResult.setCurrent(u);
-				unionNo = l;
+				unionNo = p.getInputPlan(l).getNode().getObject().toString();
 				combineOperatorsAndOutputQueriesCentralizedPush(p.getInputPlan(l), tempResult, visited,
 						toPushChildrenToEndpoint);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
@@ -2403,4 +2762,189 @@ public class SinlgePlanDFLGenerator {
 
 	}
 
+
+
+	private void addSipToNonJoinQuery(Node n, Node e, ResultList tempResult) {
+		for (SipNode sn : sipToUnions.getSipInfo(unionNo, n, true)) {
+
+			SipInfo si = sn.getSipInfo();
+
+			if (si != null && si.getCounter() > -1 && !e.isMaterialised()) {
+				Set<String> leftOfCrossJoin = new HashSet<String>();
+
+				for (String d : n.getDescendantBaseTables()) {
+					leftOfCrossJoin.add(tempResult.getQueryForBaseTable(d));
+				}
+
+				if (!leftOfCrossJoin.isEmpty()) {
+					if (leftOfCrossJoin.contains(tempResult.getCurrent()
+							.getInputTables().get(0).getAlias())) {
+
+						Column sipCol2 = new Column(si.getName(), "x");
+
+						for (SipInfoValue siv : this.sipStruct.getSipInfo(si)) {
+							if (siv.getNode() == sn.getNode()) {
+								System.out
+										.println("***************************");
+								boolean first = true;
+								Operand previous = null;
+								for (Column out : siv.getOutputs()) {
+									if (first) {
+										previous = out;
+										first = false;
+									} else {
+										BinaryOperand bo = new BinaryOperand();
+										bo.setOperator("||'-'||");
+										bo.setLeftOp(previous);
+										bo.setRightOp(new Column(tempResult
+												.getQueryForBaseTable(out
+														.getAlias()), out
+												.getName(), out.getAlias()));
+										previous = bo;
+									}
+								}
+								NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(
+										previous, sipCol2, "=");
+								SipJoin sJoin = new SipJoin(1, sipjoin,
+										si.getName(), false);
+								tempResult.getCurrent().addSipInfo(sJoin);
+								break;
+							}
+						}
+
+					}
+				}
+			}
+		}
+	}
+
+	private void addLeftOfCrossJoin(NonUnaryWhereCondition nuwc,
+			ResultList tempResult, SipNode sn, int leftOfCrossJoinSize,
+			Column sipCol2, Set<String> leftOfCrossJoin) {
+		SipInfo si = sn.getSipInfo();
+		Column siJoinCol = si.getJoinCol();
+		if (siJoinCol.equals(nuwc.getLeftOp())) {
+			Column c = (Column) nuwc.getRightOp();
+			Column c2 = new Column(
+					tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+					c.getAlias());
+			Operand previous = c2;
+			previous = addFilterJoin(si.getOtherJoinCol(), previous,
+					tempResult, leftOfCrossJoin);
+
+			for (SipInfoValue siv : this.sipStruct.getSipInfo(si)) {
+				if (siv.getNode() == sn.getNode()) {
+					//System.out.println("***************************");
+					for (Column out : siv.getOutputs()) {
+						BinaryOperand bo = new BinaryOperand();
+						bo.setOperator("||'-'||");
+						bo.setLeftOp(previous);
+						bo.setRightOp(new Column(tempResult
+								.getQueryForBaseTable(out.getAlias()), out
+								.getName(), out.getAlias()));
+						previous = bo;
+					}
+					break;
+				}
+			}
+			NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(
+					previous, sipCol2, "=");
+			SipJoin sJoin = new SipJoin(leftOfCrossJoinSize, sipjoin,
+					si.getName(), false);
+			tempResult.getCurrent().addSipInfo(sJoin);
+
+			/*
+			 * if (existingLeft < leftOfCrossJoin.size()) { if (existingLeft >
+			 * 0) { current.deleteSipInfo(); }
+			 * 
+			 * current.addBinaryWhereCondition(sipjoin);
+			 * current.addInputTableIfNotExists(new Table("siptable",
+			 * si.getName()), leftOfCrossJoin.size());
+			 * current.setToDeleteSipInfo(false); } else{ aaa }
+			 */
+		}
+		if (siJoinCol.equals(nuwc.getRightOp())) {
+			Column c = (Column) nuwc.getLeftOp();
+			Column c2 = new Column(
+					tempResult.getQueryForBaseTable(c.getAlias()), c.getName(),
+					c.getAlias());
+			Operand previous = c2;
+			previous = addFilterJoin(si.getOtherJoinCol(), previous,
+					tempResult, leftOfCrossJoin);
+			for (SipInfoValue siv : this.sipStruct.getSipInfo(si)) {
+				if (siv.getNode() == sn.getNode()) {
+					System.out.println("***************************");
+					for (Column out : siv.getOutputs()) {
+						BinaryOperand bo = new BinaryOperand();
+						bo.setOperator("||'-'||");
+						bo.setLeftOp(previous);
+						bo.setRightOp(new Column(tempResult
+								.getQueryForBaseTable(out.getAlias()), out
+								.getName(), out.getAlias()));
+						previous = bo;
+					}
+					break;
+				}
+			}
+			NonUnaryWhereCondition sipjoin = new NonUnaryWhereCondition(
+					previous, sipCol2, "=");
+			SipJoin sJoin = new SipJoin(leftOfCrossJoinSize, sipjoin,
+					si.getName(), false);
+			tempResult.getCurrent().addSipInfo(sJoin);
+			/*
+			 * if (existingLeft < leftOfCrossJoin.size()) { if (existingLeft >
+			 * 0) { current.deleteSipInfo(); }
+			 * 
+			 * current.addBinaryWhereCondition(sipjoin); current.addSipInfo(si);
+			 * current.addInputTableIfNotExists(new Table("siptable",
+			 * si.getName()), leftOfCrossJoin.size());
+			 * current.setToDeleteSipInfo(false); } else{ sss }
+			 */
+		}
+
+	}
+	
+	private Operand addFilterJoin(Set<Column> filterJoin, Operand previous,
+			ResultList tempResult, Set<String> tables) {
+		if (filterJoin != null) {
+			for(Column f:filterJoin){
+			Column filterRenamed = new Column(
+					tempResult.getQueryForBaseTable(f.getAlias()),
+					f.getName(), f.getAlias());
+			Column toAddToSip = null;
+			// for (NonUnaryWhereCondition join :
+			// tempResult.getCurrent().getBinaryWhereConditions()) {
+			// if (join.getLeftOp() instanceof Column && join.getRightOp()
+			// instanceof Column) {
+			// if (join.getLeftOp().equals(filterJoin)) {
+			// Column toadd=(Column) join.getRightOp();
+			// if(tables.contains(toadd.getAlias())){
+			toAddToSip = filterRenamed;
+			// break;
+			// //}
+			// }
+			// if (join.getRightOp().equals(filterJoin)) {
+			// Column toadd= (Column) join.getLeftOp();
+			// if(tables.contains(toadd.getAlias())){
+			// toAddToSip = toadd;
+			// break;
+			// }
+			// }
+			// }
+			// }
+			if (toAddToSip == null) {
+				System.out.println("other col null!?");
+			} else {
+				BinaryOperand bo = new BinaryOperand();
+				bo.setOperator("||'-'||");
+				bo.setLeftOp(previous);
+				bo.setRightOp(toAddToSip);
+				previous= bo;
+			}
+		}
+		}
+		return previous;
+	}
+	
 }
+

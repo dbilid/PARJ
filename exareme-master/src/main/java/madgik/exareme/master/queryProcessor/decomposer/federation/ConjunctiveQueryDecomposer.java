@@ -5,6 +5,7 @@
 package madgik.exareme.master.queryProcessor.decomposer.federation;
 
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.ViewInfo;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
@@ -39,6 +40,7 @@ public class ConjunctiveQueryDecomposer {
 	private static int counter = 0;
 	private static final Logger log = Logger.getLogger(ConjunctiveQueryDecomposer.class);
 	private List<NonUnaryWhereCondition> rangeJoins;
+	Map<Set<String>, Set<ViewInfo>> viewinfos = null;
 
 	public ConjunctiveQueryDecomposer(SQLQuery initial, boolean centralized, boolean addRedundantIsNotNull) {
 		this.initialQuery = initial;
@@ -951,6 +953,15 @@ public class ConjunctiveQueryDecomposer {
 
 	List<Table> getInputTables() {
 		return this.initialQuery.getInputTables();
+	}
+
+	public static void resetCounter() {
+		counter = 0;
+	}
+
+	public void setViewInfos(Map<Set<String>, Set<ViewInfo>> viewinfos2) {
+		this.viewinfos = viewinfos2;
+
 	}
 
 }

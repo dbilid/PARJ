@@ -51,6 +51,7 @@ public class DecomposerUtils {
 	public static final boolean REPARTITION;
 	public static final boolean PUSH_UNIONS;
 	public static final boolean KILL_PYTHON;
+	public static final boolean USE_SIP;
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -99,6 +100,7 @@ public class DecomposerUtils {
     	REPARTITION=properties.getBoolean("repartition");
     	PUSH_UNIONS=properties.getBoolean("push.unions");
     	KILL_PYTHON=properties.getBoolean("kill.python");
+    	USE_SIP=properties.getBoolean("use.sip");
     	
         log.trace("Decomposer Properties Loaded.");
     }
