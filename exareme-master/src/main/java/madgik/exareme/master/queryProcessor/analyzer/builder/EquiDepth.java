@@ -117,7 +117,7 @@ public class EquiDepth implements HistogramBuilder {
 
             relMap.put(t.getKey(),
                 new RelInfo(t.getKey(), attrIndex, dbStats.get(t.getKey()).getNumberOfTuples(),
-                    t.getValue().getToupleSize(), RelInfo.DEFAULT_NUM_PARTITIONS, hs));
+                    t.getValue().getTupleSize(), RelInfo.DEFAULT_NUM_PARTITIONS, hs));
 
         }
 

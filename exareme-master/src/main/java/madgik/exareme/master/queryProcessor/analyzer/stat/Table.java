@@ -14,7 +14,7 @@ import java.util.Map;
 public class Table {
     private final String tableName;
     private final int numberOfColumns;
-    private final int toupleSize;
+    private final int tupleSize;
     private Map<String, Column> columnMap;
     private final int numberOfTuples;
     private final String primaryKey;
@@ -23,7 +23,7 @@ public class Table {
         Map<String, Column> columnMap, int not, String pk) {
         this.tableName = tableName;
         this.numberOfColumns = numberOfColumns;
-        this.toupleSize = toupleSize;
+        this.tupleSize = toupleSize;
         this.numberOfTuples = not;
         this.primaryKey = pk;
         this.columnMap = columnMap;
@@ -45,8 +45,8 @@ public class Table {
         return numberOfColumns;
     }
 
-    public int getToupleSize() {
-        return toupleSize;
+    public int getTupleSize() {
+        return tupleSize;
     }
 
     public Map<String, Column> getColumnMap() {
@@ -55,7 +55,7 @@ public class Table {
 
     @Override public String toString() {
         return "Table{" + "tableName=" + tableName + ", numberOfColumns=" + numberOfColumns
-            + ", toupleSize=" + toupleSize + ", columnMap=" + columnMap + '}';
+            + ", toupleSize=" + tupleSize + ", columnMap=" + columnMap + '}';
     }
 
 }

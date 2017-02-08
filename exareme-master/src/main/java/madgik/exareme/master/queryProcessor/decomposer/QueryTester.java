@@ -41,12 +41,12 @@ public class QueryTester {
 				String query=queries.get(file);
 				try{
 				long t1=System.currentTimeMillis();
-				ResultSet rs=s.executeQuery(query);
+				ResultSet rs=s.executeQuery("sparql");
 				int results=0;
 				while(rs.next()){
 					if(results<100){
-					System.out.println(rs.getString(3));
-					System.out.println(rs.getString(6));}
+					System.out.println(rs.getString(1));
+					System.out.println(rs.getString(2));}
 					results++;
 				}
 				rs.close();

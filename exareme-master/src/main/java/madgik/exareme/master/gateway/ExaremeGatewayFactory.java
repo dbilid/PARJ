@@ -3,7 +3,7 @@
  */
 package madgik.exareme.master.gateway;
 
-import madgik.exareme.master.engine.AdpDBManager;
+import madgik.exareme.master.dbmanager.DBManager;
 import madgik.exareme.master.gateway.async.HttpAsyncExaremeGateway;
 import org.apache.log4j.Logger;
 
@@ -15,7 +15,7 @@ import org.apache.log4j.Logger;
 public class ExaremeGatewayFactory {
     private static Logger log = Logger.getLogger(ExaremeGateway.class);
 
-    public static ExaremeGateway createHttpServer(AdpDBManager manager) throws Exception {
+    public static ExaremeGateway createHttpServer(DBManager manager) throws Exception {
         return new HttpAsyncExaremeGateway(manager);
     }
 

@@ -1,13 +1,10 @@
 package madgik.exareme.master.queryProcessor.decomposer.federation;
 
-import madgik.exareme.common.schema.Partition;
-import madgik.exareme.common.schema.PhysicalTable;
+
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
-import madgik.exareme.master.registry.Registry;
-import madgik.exareme.utils.embedded.db.TableInfo;
-import madgik.exareme.worker.art.registry.ArtRegistryLocator;
+
 
 import org.apache.log4j.Logger;
 import org.postgresql.copy.CopyManager;
@@ -247,7 +244,7 @@ public class DataImporter implements Runnable {
 		s.getInputTables()
 				.add(new Table(s.getTemporaryTableName(), s
 						.getTemporaryTableName()));
-		if(this.addToRegistry){
+/*		if(this.addToRegistry){
 			madgik.exareme.common.schema.Table table=new madgik.exareme.common.schema.Table(s.getTemporaryTableName());
 			Registry reg = Registry.getInstance(this.dbPath);
 			table.setSqlDefinition(createTableSQL.toString());
@@ -270,7 +267,7 @@ public class DataImporter implements Runnable {
             //partition0.addPartitionColumn("");
 			pt.addPartition(partition0);
 			reg.addPhysicalTable(pt);
-		}
+		}*/
 
 	}
 	

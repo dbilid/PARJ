@@ -4,7 +4,6 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.federation;
 
-import madgik.exareme.common.schema.PhysicalTable;
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
@@ -12,8 +11,6 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.PartitionCols;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 import madgik.exareme.master.queryProcessor.estimator.NodeCostEstimator;
-import madgik.exareme.master.registry.Registry;
-import madgik.exareme.utils.properties.AdpDBProperties;
 
 import org.apache.log4j.Logger;
 
@@ -85,12 +82,12 @@ public class QueryDecomposer {
 		this.noOfparts = noOfPartitions;
 		workers = noOfPartitions;
 		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
-		for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
+		/*for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
 			byte[] hash = pt.getTable().getHashID();
 			if (hash != null) {
 				registry.put(HashCode.fromBytes(pt.getTable().getHashID()), pt.getTable());
 			}
-		}
+		}*/
 
 		try {
 			// read dbinfo from properties file
@@ -263,8 +260,8 @@ public class QueryDecomposer {
 						if (!this.initialQuery.getTemporaryTableName().startsWith("table")) {
 							// query insert into table ....
 							// check to drop from regisrty
-							Registry reg = Registry.getInstance(this.db);
-							reg.removePhysicalTable(s.getTemporaryTableName());
+							//Registry reg = Registry.getInstance(this.db);
+							//reg.removePhysicalTable(s.getTemporaryTableName());
 						}
 					}
 					DataImporter di = new DataImporter(s, this.db, dbinfo);
@@ -1944,7 +1941,7 @@ public class QueryDecomposer {
 	private SinglePlan searchForBestPlanPruned(Node e, Column c, double limit, double repCost,
 			EquivalentColumnClasses partitionRecord, Set<MemoKey> toMaterialize, Memo memo) {
 
-		if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
+		/*if (useCache && registry.containsKey(e.computeHashIDExpand()) && e.computeHashIDExpand() != null) {
 			madgik.exareme.common.schema.Table t = registry.get(e.computeHashIDExpand());
 			String col = Registry.getInstance(db).getPartitionColumn(t.getName());
 			int ptns = Registry.getInstance(db).getNumOfPartitions(t.getName());
@@ -1956,7 +1953,7 @@ public class QueryDecomposer {
 
 				return r;
 			}
-		}
+		}*/
 
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table

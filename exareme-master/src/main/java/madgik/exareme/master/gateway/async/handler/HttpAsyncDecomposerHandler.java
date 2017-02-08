@@ -68,7 +68,6 @@ import java.util.concurrent.Executors;
 public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpRequest> {
 
 	private static final Logger log = Logger.getLogger(HttpAsyncDecomposerHandler.class);
-	private static final AdpDBManager manager = AdpDBManagerLocator.getDBManager();
 	private static boolean useCache = AdpDBProperties.getAdpDBProps().getString("db.cache").equals("true");
 	private static NamesToAliases n2a = new NamesToAliases();
 	private static boolean killPython =  DecomposerUtils.KILL_PYTHON;
@@ -127,7 +126,116 @@ public class HttpAsyncDecomposerHandler implements HttpAsyncRequestHandler<HttpR
 						.getAttribute("http.connection");
 				boolean streamingResult = false;
 				try {
-					if (query.startsWith("addFederatedEndpoint")) {
+					if(query.startsWith("sparql")){
+						String decomposedQuery="";
+						Map<String, String> resultTblName = new HashMap<String, String>();
+						for(int t=1;t<17;t++){
+							decomposedQuery+=" distributed create temporary table ggggg"+t+" as virtual select * from "
+									+" R"+t+" st cross join w where st.o=w.s;\n";
+							resultTblName.put("ggggg"+t, "select * from ");
+							
+						}
+						String path = dbname;
+						if (!path.endsWith("/")) {
+							path += "/";
+						}
+						AdpDBClientProperties props = new AdpDBClientProperties(dbname, "", "", cacheFinal, false,
+								false, false, -1, 10, null);
+						AdpDBClient dbClient = AdpDBClientFactory.createDBClient(manager, props);
+						AdpDBClientQueryStatus status = null;
+						int timeoutMs = 0;
+						try {
+							timeoutMs = Integer.parseInt(inputContent.get(ExaremeGatewayUtils.REQUEST_TIMEOUT)) * 1000;
+						} catch (NumberFormatException e) {
+							log.error("Timeout not an integer:" + ExaremeGatewayUtils.REQUEST_TIMEOUT);
+							log.error(inputContent.toString());
+						}
+						long start = System.currentTimeMillis();
+						log.debug("Decomposed Query : " + decomposedQuery);
+						log.debug("Result Table : " + resultTblName);
+						log.debug("Executing decomposed query ...");
+						List<ResultTable> result=new ArrayList<ResultTable>();
+						Map<String, String> extraCommands = new HashMap<String, String>();
+						if (resultTblName.size() > 1 || resultTblName.values().iterator().next()!=null) {
+							streamingResult = true;
+							
+							for(String name:resultTblName.keySet()){
+								result.add(new ResultTable(path, name));
+								
+							}
+							ResultTable.allTables.addAll(result);
+							MultipleTableReaderInputStream mtris = new MultipleTableReaderInputStream(result);
+							mtris.setDbClient(dbClient);
+							mtris.setTableNames(resultTblName);
+
+							httpResponse.setEntity(new InputStreamEntity(mtris));
+							httpExchange.submitResponse(new BasicAsyncResponseProducer(httpResponse));
+						}
+
+						
+							status = dbClient.query("dquery", decomposedQuery, extraCommands, result);
+						
+						// AdpDBClientQueryStatus status =
+						// dbClient.query("dquery", decomposedQuery,
+						// hashIDMap);
+
+					
+				
+
+				if (status != null) {
+					while (status.hasFinished() == false && status.hasError() == false) {
+						// System.out.println("Status:::"+c.getStatus());
+						if (timeoutMs > 0 || serverCon.getStatus() == NHttpConnection.CLOSED) {
+							long timePassed = System.currentTimeMillis() - start;
+
+							if (timePassed > timeoutMs || serverCon.getStatus() == NHttpConnection.CLOSED) {
+
+								// status.close();
+								if (killPython) {
+									log.debug("killing python");
+									String[] command = { "/bin/sh", "bin/killPython.sh" };
+									ProcessBuilder probuilder = new ProcessBuilder(command);
+
+									// You can set up your work
+									// directory
+									probuilder.directory(new File("/opt/exareme/ADPControl/"));
+
+									Process process = probuilder.start();
+
+									// Read out dir output
+									InputStream is = process.getInputStream();
+									InputStreamReader isr = new InputStreamReader(is);
+									BufferedReader br = new BufferedReader(isr);
+									String line;
+									while ((line = br.readLine()) != null) {
+										log.debug(line);
+									}
+
+									// Wait to get exit value
+									try {
+										int exitValue = process.waitFor();
+										log.debug("exit value:" + exitValue);
+									} catch (InterruptedException e) {
+										// block
+										e.printStackTrace();
+									}
+								}
+								else{
+									log.debug("Closing status...");
+									status.close();
+								}
+								log.warn("Time out:" + timeoutMs + " ms passed");
+								throw new RuntimeException("Time out:" + timeoutMs + " ms passed");
+							}
+						}
+						Thread.sleep(100);
+					}
+					if (status.hasError()) {
+						throw new RuntimeException(status.getError());
+					}
+					}
+					}
+				else if (query.startsWith("addFederatedEndpoint")) {
 
 						log.debug("Adding endpoint to : " + dbname + "endpoint.db ...");
 						DBInfoWriterDB.write(query, dbname);

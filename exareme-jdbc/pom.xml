@@ -36,11 +36,6 @@
             <artifactId>httpcore</artifactId>
             <type>jar</type>
         </dependency>
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <type>jar</type>
-        </dependency>
     </dependencies>
     <build>
         <plugins>

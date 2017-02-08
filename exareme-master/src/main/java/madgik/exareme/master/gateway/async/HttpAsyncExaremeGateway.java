@@ -1,7 +1,6 @@
 package madgik.exareme.master.gateway.async;
 
-import madgik.exareme.master.gateway.async.handler.HttpAsyncTablesMetadataHandler;
-import madgik.exareme.master.engine.AdpDBManager;
+import madgik.exareme.master.dbmanager.DBManager;
 import madgik.exareme.master.gateway.ExaremeGateway;
 import madgik.exareme.master.gateway.ExaremeGatewayUtils;
 import madgik.exareme.master.gateway.async.handler.*;
@@ -30,9 +29,12 @@ public class HttpAsyncExaremeGateway implements ExaremeGateway {
 
   private static final Logger log = Logger.getLogger(HttpAsyncExaremeGateway.class);
   private final AsyncHttpListener listener;
+  private final DBManager manager;
 
-  public HttpAsyncExaremeGateway(AdpDBManager manager) throws Exception {
+  public HttpAsyncExaremeGateway(DBManager m) throws Exception {
 
+	this.manager=m;
+	  
     final IOReactorConfig reactorConfig = IOReactorConfig.custom()
         .setIoThreadCount(1)
         .setSoKeepAlive(true)
@@ -56,17 +58,8 @@ public class HttpAsyncExaremeGateway implements ExaremeGateway {
     final UriHttpAsyncRequestHandlerMapper registry = new UriHttpAsyncRequestHandlerMapper();
     registry.register("*", new HttpAsyncMainHandler());
     registry.register(ExaremeGatewayUtils.GW_API_FILE, new HttpAsyncFileHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_QUERY, new HttpAsyncQueryHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_DROP_TABLE, new HttpAsyncDropTableHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_TABLE, new HttpAsyncTableHandler());
     registry.register(ExaremeGatewayUtils.GW_API_DECOMPOSER, new HttpAsyncDecomposerHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_EXPLAINQUERY, new HttpAsyncExplainQueryHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY, new HttpAsyncStreamQueryHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY_RESULT, new HttpAsyncResultStreamQueryHandler());
     registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY_DELETE, new HttpAsyncDeleteStreamQueryHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY_INFO, new HttpAsyncStreamQueryInfoHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_HISTORICALSTREAMQUERY, new HttpAsyncOptiqueHistoricalQueriesHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_TABLESMETADATA, new HttpAsyncTablesMetadataHandler());
 
 
     Class.forName("madgik.exareme.master.gateway.OptiqueStreamQueryMetadata.StreamRegisterQuery");

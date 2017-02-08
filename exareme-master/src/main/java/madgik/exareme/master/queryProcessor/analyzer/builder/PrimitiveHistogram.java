@@ -77,7 +77,7 @@ public class PrimitiveHistogram implements HistogramBuilder {
             Set<String> ha = new HashSet<String>();
             ha.add(dbStats.get(t).getPrimaryKey());
             RelInfo r = new RelInfo(dbStats.get(t).getTableName(), attrIndex,
-                dbStats.get(t).getNumberOfTuples(), dbStats.get(t).getToupleSize(),
+                dbStats.get(t).getNumberOfTuples(), dbStats.get(t).getTupleSize(),
                 RelInfo.DEFAULT_NUM_PARTITIONS, ha);
 
             relMap.put(r.getRelName(), r);

@@ -1,9 +1,9 @@
 package madgik.exareme.master.gateway;
 
-import madgik.exareme.master.app.cluster.ExaremeCluster;
-import madgik.exareme.master.app.cluster.ExaremeClusterFactory;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+
+import madgik.exareme.master.dbmanager.DBManager;
 
 import java.rmi.RemoteException;
 
@@ -16,22 +16,15 @@ public class ExaremeGatewayStart {
         Logger.getRootLogger().setLevel(Level.ALL);
 
 
-
-        final ExaremeCluster cluster = ExaremeClusterFactory.createMiniCluster(1098, 8088, 3);
-        cluster.start();
         final ExaremeGateway gateway =
-            ExaremeGatewayFactory.createHttpServer(cluster.getDBManager());
+            ExaremeGatewayFactory.createHttpServer(new DBManager());
 
         gateway.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override public void run() {
                 gateway.stop();
-                try {
-                    cluster.stop(true);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
+               
             }
         });
     }

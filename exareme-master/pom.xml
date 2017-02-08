@@ -34,12 +34,18 @@
             <artifactId>commons-io</artifactId>
             <type>jar</type>
         </dependency>
+        
+        <dependency>
+    		<groupId>org.apache.commons</groupId>
+    		<artifactId>commons-dbcp2</artifactId>
+    		<version>2.1.1</version>
+		</dependency>
 
         <!-- db drivers -->
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.8.11.2</version>
+            <version>3.16.1</version>
             <type>jar</type>
         </dependency>
         <dependency>
@@ -71,26 +77,8 @@
         <!-- internal deps-->
         <dependency>
             <groupId>madgik</groupId>
-            <artifactId>exareme-common</artifactId>
-            <version>0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>madgik</groupId>
             <artifactId>exareme-utils</artifactId>
             <version>0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>madgik</groupId>
-            <artifactId>exareme-worker</artifactId>
-            <version>0.1-SNAPSHOT</version>
-            <type>jar</type>
-        </dependency>
-        <dependency>
-            <groupId>madgik</groupId>
-            <artifactId>exareme-worker</artifactId>
-            <version>0.1-SNAPSHOT</version>
-            <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>madgik</groupId>
@@ -115,6 +103,12 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.4</version>
         </dependency>
+        
+            <dependency>
+      <groupId>org.eclipse.rdf4j</groupId>
+      <artifactId>rdf4j-runtime</artifactId>
+      <version>2.1.6</version>
+    </dependency>
 
 
     </dependencies>

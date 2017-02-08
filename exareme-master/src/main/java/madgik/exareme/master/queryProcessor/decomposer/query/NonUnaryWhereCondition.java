@@ -159,6 +159,9 @@ public class NonUnaryWhereCondition implements Operand {
 	}
 
 	public void addFilterJoin(NonUnaryWhereCondition filter) {
+		if(filterJoins==null){
+			filterJoins=new HashSet<NonUnaryWhereCondition>();
+		}
 		filterJoins.add(filter);
 		
 	}
