@@ -185,7 +185,7 @@ public class Stat implements StatExtractor {
 					if (!diffValFreqMap.containsKey(maxVal))
 						diffValFreqMap.put(maxVal, freq);
 
-					int diffVals = (count/freq)*partitions;
+					int diffVals = (count*partitions/freq);
 
 					Column c = new Column(columnName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
 					columnMap.put(columnName, c);
@@ -197,8 +197,8 @@ public class Stat implements StatExtractor {
 			}
 			String pkey = "DEFAULT_KEY";
 
-			Table t = new Table(tableName, columnCount, tupleSize, columnMap, count, pkey);
-			schema.put(tableName, t);
+			Table t = new Table("prop"+resultTables.getInt(1), columnCount, tupleSize, columnMap, count*partitions, pkey);
+			schema.put("prop"+resultTables.getInt(1), t);
 
 		}
 		resultTables.close();

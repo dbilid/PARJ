@@ -64,7 +64,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	@Override
 	public void makeEstimationForNode(Node n) {
 
-		if (!n.getObject().toString().startsWith("table")) {
+		if (n.getObject() instanceof Table) {
 			estimateBase(n);
 		} else {
 			Node o = n.getChildAt(0);
@@ -300,7 +300,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
 
 				double filterValue = 0;
-				if (!con.isArithmetic()) {
+				/*if (!con.isArithmetic()) {
 					if (con.getValue() instanceof String) {
 						String st = (String) con.getValue();
 						filterValue = StatUtils.hashString(con.getValue().toString());
@@ -312,9 +312,9 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 					}
 
-				} else {
+				} else {*/
 					filterValue = Double.parseDouble(con.getValue().toString());
-				}
+				//}
 
 				if (operator.equals("="))
 					resultHistogram.equal(filterValue);

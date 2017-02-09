@@ -39,9 +39,9 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
 
     @Override public Node put(HashCode key, Node value) {
         if (nse != null && value.getType() == Node.OR && value.getNodeInfo() == null) {
-        	try{
+        	//try{
             nse.makeEstimationForNode(value);
-        	 }catch(Exception ex){
+        	/* }catch(Exception ex){
         		//nse=null;
      			// System.out.println("cannot compute selectivity for node "+n.getObject().toString()+":"+ ex.getMessage());
      			log.error("cannot compute selectivity for node "+value.getObject().toString()+":"+ ex.getMessage());
@@ -51,7 +51,7 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
      			if(!value.getParents().isEmpty()&&value.getFirstParent()!=null){
      				log.error("with parent Operand:"+value.getFirstParent().getObject().toString());
      			}
-     		 }
+     		 }*/
         }
         return super
             .put(key, value); //To change body of generated methods, choose Tools | Templates.

@@ -1,11 +1,9 @@
-package madgik.exareme.master.queryProcessor.decomposer;
+package madgik.exareme.master.queryProcessor.sparql;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,39 +17,36 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.QueryParserUtil;
-import org.eclipse.rdf4j.query.parser.sparql.AbstractASTVisitor;
-import org.eclipse.rdf4j.query.parser.sparql.ast.ASTProjectionElem;
-import org.eclipse.rdf4j.query.parser.sparql.ast.ASTQueryContainer;
-import org.eclipse.rdf4j.query.parser.sparql.ast.ASTSelectQuery;
-import org.eclipse.rdf4j.query.parser.sparql.ast.ASTVar;
-import org.eclipse.rdf4j.query.parser.sparql.ast.ParseException;
-import org.eclipse.rdf4j.query.parser.sparql.ast.SyntaxTreeBuilder;
-import org.eclipse.rdf4j.query.parser.sparql.ast.TokenMgrError;
-import org.eclipse.rdf4j.query.parser.sparql.ast.VisitorException;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
+import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.Constant;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Output;
 import madgik.exareme.master.queryProcessor.decomposer.query.Selection;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
-import madgik.exareme.master.queryProcessor.sparql.JoinClassMap;
 
-public class SPARQLTester {
-	private static int alias;
+public class DagCreator {
 
-	public static void main(String[] args) throws TokenMgrError, ParseException, VisitorException, SQLException {
-		// TODO Auto-generated method stub
-		String prefixes="PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
-		String q="SELECT ?y ?b ?z  WHERE { ?y ?b ?z . ?a ?v ?z }";
-		String q2="SELECT ?x ?y ?z WHERE { ?y ub:teacherOf ?z .  ?y rdf:type ub:FullProfessor . ?z rdf:type ub:Course . ?x ub:advisor ?y . ?x rdf:type ub:UndergraduateStudent . ?x ub:takesCourse ?z }";
-		long start=System.currentTimeMillis();
-		//ParsedQuery pq = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, q, "http://www.ego.com#");
-		System.out.println("time "+(System.currentTimeMillis()-start));
-		 //start=System.currentTimeMillis();
-		ASTQueryContainer parseTree0 = SyntaxTreeBuilder.parseQuery(q);
-		ParsedQuery pq2 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, prefixes+q2, "http://www.ego.com#");
+	
+	private String queryString;
+	private NodeHashValues hashes;
+	private NamesToAliases n2a;
+	private int alias;
+	private IdFetcher fetcher;
+	
+	public DagCreator(String queryString, int partitions, NodeHashValues hashes, IdFetcher fetcher) {
+		super();
+		this.queryString = queryString;
+		this.hashes = hashes;
+		this.fetcher=fetcher;
+	}
+	
+	public Node getRootNode() throws SQLException{
+		
+		ParsedQuery pq2 = QueryParserUtil.parseTupleQuery(QueryLanguage.SPARQL, queryString, "http://www.ego.com#");
 		Node projection=new Node(Node.AND, Node.PROJECT);
 		alias=1;
 		if(pq2.getTupleExpr() instanceof Projection){
@@ -74,10 +69,27 @@ public class SPARQLTester {
 							joinNode.setObject(joins.get(0));
 							joinNode.addChild(top);
 							joinNode.addChild(eqClassesToNodes.get(next));
+							joinNode.addAllDescendantBaseTables(top.getDescendantBaseTables());
+							joinNode.addAllDescendantBaseTables(eqClassesToNodes.get(next).getDescendantBaseTables());
 							Node newTop=new Node(Node.OR);
 							newTop.addChild(joinNode);
+							newTop.addAllDescendantBaseTables(joinNode.getDescendantBaseTables());
 							top=newTop;
 							compatibleFound=true;
+							hashes.put(joinNode.computeHashID(), joinNode);
+							hashes.put(newTop.computeHashID(), newTop);
+							for(int k=1;k<joins.size();k++){
+								Node joinNode2=new Node(Node.AND, Node.JOIN);
+								joinNode2.setObject(joins.get(k));
+								joinNode2.addChild(top);
+								joinNode2.addAllDescendantBaseTables(top.getDescendantBaseTables());
+								Node newTop2=new Node(Node.OR);
+								newTop2.addChild(joinNode2);
+								newTop2.addAllDescendantBaseTables(joinNode2.getDescendantBaseTables());
+								top=newTop2;
+								hashes.put(joinNode2.computeHashID(), joinNode2);
+								hashes.put(newTop2.computeHashID(), newTop2);
+							}
 							break;
 						}
 					}
@@ -96,22 +108,19 @@ public class SPARQLTester {
 					projected.add(proj);
 					prj.addOperand(new Output(pe.getTargetName(), proj));
 				}
-				System.out.println(projection.dotPrint(new HashSet<Node>()));
+				//System.out.println(projection.dotPrint(new HashSet<Node>()));
+				return projection;
 				//Map<String, Set<Column>> eqClasses=new HashMap<String, Set<Column>>();
-				System.out.println("time "+(System.currentTimeMillis()-start));
 			
 		}
-		//pq2.getTupleExpr().
-		System.out.println("time "+(System.currentTimeMillis()-start));
-		ASTQueryContainer parseTree = SyntaxTreeBuilder.parseQuery(prefixes+q2);
-		System.out.println("time "+(System.currentTimeMillis()-start));
-		QueryVariableCollector c=new QueryVariableCollector();
-		c.visit(parseTree, null);
-		System.out.println("time "+(System.currentTimeMillis()-start));
+		else{
+			throw new SQLException("Input query does not contain projection");
+		}
+		
 
 	}
 
-	private static JoinClassMap getNodeForTriplePattern(StatementPattern sp, Node top) throws SQLException {
+	private JoinClassMap getNodeForTriplePattern(StatementPattern sp, Node top) throws SQLException {
 		String predString;
 		boolean selection=false;
 		String aliasString=null;
@@ -128,7 +137,7 @@ public class SPARQLTester {
 			throw new SQLException("constant predicate not supported yet");
 		}
 		else{
-			predString=predicate.getValue().stringValue();
+			predString="prop"+fetcher.getIdForProperty(predicate.getValue().stringValue());
 			aliasString="alias"+alias;
 			predTable=new Table(predString, aliasString);
 			
@@ -175,17 +184,21 @@ public class SPARQLTester {
 		if(selection){
 			Node baseNode=new Node(Node.OR);
 			baseNode.setObject(predTable);
+			hashes.put(baseNode.computeHashID(), baseNode);
 			selNode.addChild(baseNode);
+			hashes.put(selNode.computeHashID(), selNode);
 			top.addChild(selNode);
 		}
 		else{
 			top.setObject(predTable);
+			
 		}
-		
+		hashes.put(top.computeHashID(), top);
+		top.addDescendantBaseTable(aliasString);
 		return result;
 	}
 
-	private static void createSelection(Node selNode, boolean selection, Var sbjOrObj, String aliasString, String sOrO) {
+	private void createSelection(Node selNode, boolean selection, Var sbjOrObj, String aliasString, String sOrO) throws SQLException {
 		//Selection s=null;
 		//if(selection){
 			Selection s=(Selection)selNode.getObject();
@@ -198,12 +211,12 @@ public class SPARQLTester {
 		NonUnaryWhereCondition nuwc=new NonUnaryWhereCondition();
 		nuwc.setOperator("=");
 		nuwc.setLeftOp(new Column(aliasString, sOrO));
-		nuwc.setRightOp(new Constant(sbjOrObj.getValue().stringValue()));
+		nuwc.setRightOp(new Constant(fetcher.getIdForUri(sbjOrObj.getValue().stringValue())));
 		s.addOperand(nuwc);
 		
 	}
 	
-	private static void getNodeFromExpression(Map<JoinClassMap, Node> eqClassesToNodes, TupleExpr expr ) throws SQLException{
+	private void getNodeFromExpression(Map<JoinClassMap, Node> eqClassesToNodes, TupleExpr expr ) throws SQLException{
 		if(expr instanceof Join){
 			Join j=(Join)expr;
 			getNodeFromExpression(eqClassesToNodes, j.getLeftArg());
@@ -220,49 +233,4 @@ public class SPARQLTester {
 		
 	}
 
-}
-
-class QueryVariableCollector extends AbstractASTVisitor {
-
-	private Set<String> variableNames = new LinkedHashSet<String>();
-
-	public Set<String> getVariableNames() {
-		return variableNames;
-	}
-
-	@Override
-	public Object visit(ASTSelectQuery node, Object data)
-		throws VisitorException
-	{
-		// stop visitor from processing body of sub-select, only add variables
-		// from the projection
-		return visit(node.getSelect(), data);
-	}
-
-	@Override
-	public Object visit(ASTProjectionElem node, Object data)
-		throws VisitorException
-	{
-		// only include the actual alias from a projection element in a
-		// subselect, not any variables used as
-		// input to a function
-		String alias = node.getAlias();
-		if (alias != null) {
-			variableNames.add(alias);
-			return null;
-		}
-		else {
-			return super.visit(node, data);
-		}
-	}
-
-	@Override
-	public Object visit(ASTVar node, Object data)
-		throws VisitorException
-	{
-		if (!node.isAnonymous()) {
-			variableNames.add(node.getName());
-		}
-		return super.visit(node, data);
-	}
 }

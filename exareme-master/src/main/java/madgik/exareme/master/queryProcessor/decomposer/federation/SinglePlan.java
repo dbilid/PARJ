@@ -82,7 +82,7 @@ public class SinglePlan {
         return this.rep.getRepAfterOp(i);
     }
 
-    void increaseCost(double c) {
+    public void increaseCost(double c) {
         this.cost += c;
     }
 

@@ -143,18 +143,19 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 	public HashCode computeHashID() {
 
 		List<HashCode> codes = new ArrayList<HashCode>();
-		codes.add(Hashing.sha1().hashInt(opCode));
-		for (Node c : this.children) {
-			codes.add(c.getHashId());
-		}
-		if (o instanceof Table) {
-			Table t = (Table) o;
-			if (!t.getName().startsWith("table")) {
-				// include in hash code only if not temporary tablename
-				codes.add(t.getHashID());
-			}
+		
+		//for (Node c : this.children) {
+		//	codes.add(c.getHashId());
+		//}
+		if (this.type==Node.OR) {
+			
+				codes.add(Hashing.sha1().hashBytes(UUID.randomUUID().toString().getBytes()));
 			this.hash = Hashing.combineUnordered(codes);
 		} else if (o instanceof Operand) {
+			codes.add(Hashing.sha1().hashInt(opCode));
+			for (Node c : this.children) {
+					codes.add(c.getHashId());
+				}
 
 			Operand op = (Operand) o;
 			codes.add(op.getHashID());
@@ -215,7 +216,7 @@ public class Node implements Comparator<Node>, Comparable<Node>{
 
 	public HashCode getHashId() {
 		//if (hashNeedsRecomputing) {
-			this.computeHashID();
+		//	this.computeHashID();
 		//}
 		return this.hash;
 	}
