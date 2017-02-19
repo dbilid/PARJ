@@ -25,8 +25,6 @@ public class SinlgePlanDFLGenerator {
 	private Node root;
 	private int partitionNo;
 	private Memo memo;
-	private Map<String, Set<Column>> matResultUsedCols;
-	private boolean addIndicesToMatQueries = false;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
@@ -35,9 +33,7 @@ public class SinlgePlanDFLGenerator {
 		this.root = n;
 		this.partitionNo = partNo;
 		this.memo = m;
-		if (addIndicesToMatQueries) {
-			matResultUsedCols = new HashMap<String, Set<Column>>();
-		}
+		
 	}
 	
 	public SinlgePlanDFLGenerator(Node n, int partNo, Memo m){
@@ -68,106 +64,7 @@ public class SinlgePlanDFLGenerator {
 			
 				log.error("Decomposer produced empty result");
 			
-		} /*
-			 * else {
-			 * 
-			 * for (int i = 0; i < qs.size(); i++) { if
-			 * (qs.get(i).existsInCache()) { qs.remove(i); i--; } } }
-			 */
-
-		/*
-		 * for (int i = 0; i < qs.size(); i++) { SQLQuery q = qs.get(i); if
-		 * (q.getOutputs().isEmpty()) { for (Table t : q.getInputTables()) {
-		 * boolean found = false; for (int j = 0; j < i; j++) { SQLQuery q2 =
-		 * qs.get(j); if (q2.getTemporaryTableName().equals(t.getName())) { for
-		 * (Output o2 : q2.getOutputs()) { q.addOutput(t.getAlias(),
-		 * o2.getOutputName()); } found = true; break; } } // find Outputs from
-		 * registry if (!found) { for (madgik.exareme.common.schema.Table table
-		 * : registry.values()) { if (table.getName().equals(t.getName())) {
-		 * String schema = table.getSqlDefinition(); schema =
-		 * schema.substring(schema.indexOf("(")); schema = schema.replace(")",
-		 * ""); String[] outputs = schema.split(" "); for (int k = 0; i <
-		 * outputs.length; i++) { String output = outputs[k]; if
-		 * (!output.equals(" ") && !output.toUpperCase().equals("INTEGER") &&
-		 * !output.toUpperCase().equals("INT") &&
-		 * !output.toUpperCase().equals("NUM") &&
-		 * !output.toUpperCase().equals("REAL") &&
-		 * !output.toUpperCase().equals("BLOB") &&
-		 * !output.toUpperCase().equals("NULL") &&
-		 * !output.toUpperCase().equals("NUMERIC") &&
-		 * !output.toUpperCase().equals("TEXT")) { q.addOutput(t.getAlias(),
-		 * output); } } found = true; break; } } } if(!found){ log.error(
-		 * "Input table not found:"+t.getName()); }
-		 * 
-		 * } } }
-		 */
-
-		if (addIndicesToMatQueries) {
-			Map<Column, Column> correspondingCols = new HashMap<Column, Column>();
-			Set<Column> toCreateIndex = new HashSet<Column>();
-			for (int i = 0; i < qs.size() - 1; i++) {
-				SQLQuery q = qs.get(i);
-
-				for (Column c : q.getAllColumns()) {
-					if (correspondingCols.keySet().contains(c)) {
-						Column cor = correspondingCols.get(c);
-						c.setName(cor.getName());
-						c.setAlias(cor.getAlias());
-						c.setBaseTable(cor.getBaseTable());
-					}
-				}
-				if (matResultUsedCols.keySet().contains(q.getTemporaryTableName())) {
-					EquivalentColumnClasses ec = new EquivalentColumnClasses();
-					for (NonUnaryWhereCondition nuwc : q.getBinaryWhereConditions()) {
-						if (nuwc.getOperator().equals("=") && nuwc.getLeftOp() instanceof Column
-								&& nuwc.getRightOp() instanceof Column) {
-							ec.mergePartitionRecords(nuwc);
-						}
-					}
-					for (PartitionCols eqCols : ec.getPartitionSets()) {
-						Column representantive = eqCols.getFirstCol();
-						for (Column col : eqCols.getColumns()) {
-							if (!col.equals(representantive)) {
-								for (int j = 0; j < q.getOutputs().size(); j++) {
-									Output o = q.getOutputs().get(j);
-									if (o.getObject().equals(col)) {
-										q.getOutputs().remove(o);
-										j--;
-									}
-								}
-								correspondingCols.put(
-										new Column(q.getTemporaryTableName(), col.getBaseTable() + "_" + col.getName()),
-										new Column(q.getTemporaryTableName(), representantive.getName(),
-												representantive.getBaseTable()));
-								correspondingCols.put(
-										new Column(q.getTemporaryTableName(), col.getName(), col.getBaseTable()),
-										new Column(q.getTemporaryTableName(), representantive.getName(),
-												representantive.getBaseTable()));
-
-							}
-						}
-					}
-
-					for (Column indexCandidate : matResultUsedCols.get(q.getTemporaryTableName())) {
-						Column renamed = new Column(q.getTemporaryTableName(), indexCandidate.getName(),
-								indexCandidate.getAlias());
-						Column cor = correspondingCols.get(renamed);
-						if (cor == null) {
-							cor = renamed;
-						}
-						toCreateIndex.add(cor);
-					}
-					System.out.println("Indexes::" + toCreateIndex.toString());
-				}
-			}
-			for (Column i : toCreateIndex) {
-				SQLQuery indexQuery = new SQLQuery();
-				indexQuery.setIsCreateIndex();
-				indexQuery.setSQL("distributed create index " + i.getName() + "_" + i.getAlias() + " on " + i.getAlias()
-						+ "(" + i.getBaseTable() + "_" + i.getName() + ")");
-				qs.add(qs.size() - 1, indexQuery);
-			}
-		}
+		} 
 
 
 		boolean pushUnions = DecomposerUtils.PUSH_UNIONS;
@@ -481,8 +378,8 @@ public class SinlgePlanDFLGenerator {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
 			if (op.getOpCode() == Node.PROJECT) {
-				Table t = (Table) e.getObject();
-				current.setTemporaryTableName(t.getName());
+				//Table t = (Table) e.getObject();
+				//current.setTemporaryTableName(t.getName());
 				for (int l = 0; l < current.getOutputs().size(); l++) {
 					Output o = current.getOutputs().get(l);
 					boolean exists = false;
@@ -527,23 +424,29 @@ public class SinlgePlanDFLGenerator {
 			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 			nuwcCloned.addRangeFilters(nuwc);
 			current.addBinaryWhereCondition(nuwcCloned);
-			List<String> inputNames = new ArrayList<String>();
+			//List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
-				String lastRes = tempResult.getLastTable().getAlias();
-				inputNames.add(lastRes);
+				
+				Table last=tempResult.getLastTable();
+				String lastRes = last.getAlias();
+				
+				if(j==1&&nuwc.isRightinv()){
+					last.setName("inv"+last.getName());
+				}
+				
 				if (lastRes != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(tempResult.getLastTable())) {
-					current.addInputTableIfNotExists(tempResult.getLastTable());
+						&& !current.getInputTables().contains(last)) {
+					//if(j==1&&nuwc.isRightinv()){
+					//	Table inv=new Table("inv"+last.getName(), last.getAlias());
+					//	current.addInputTableIfNotExists(inv);
+					//}
+				//	else{
+						current.addInputTableIfNotExists(last);
+					//}
 					addOutputs(current, lastRes, tempResult);
-					if (addIndicesToMatQueries && p.getInputPlan(j).getNode().isMaterialised()) {
-						if (!matResultUsedCols.containsKey(lastRes)) {
-							matResultUsedCols.put(lastRes, new HashSet<Column>());
-						}
-						Set<Column> usedCols = matResultUsedCols.get(lastRes);
-						usedCols.add(nuwc.getOp(j).getAllColumnRefs().get(0));
-					}
+					
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{

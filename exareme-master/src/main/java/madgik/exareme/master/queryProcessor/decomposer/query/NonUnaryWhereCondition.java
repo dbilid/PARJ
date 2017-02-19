@@ -21,6 +21,7 @@ public class NonUnaryWhereCondition implements Operand {
 	protected Set<NonUnaryWhereCondition> filterJoins;
 	// private Operand leftOp;
 	// private Operand rightOp;
+	private boolean rightinv;
 	protected String operator;
 	protected HashCode hash=null;
 
@@ -288,5 +289,15 @@ public class NonUnaryWhereCondition implements Operand {
 		}
 		return true;
 	}
+
+	public boolean isRightinv() {
+		return rightinv;
+	}
+
+	public void setRightinv(boolean rightinv) {
+		this.rightinv = rightinv;
+	}
+	
+	
 	
 }

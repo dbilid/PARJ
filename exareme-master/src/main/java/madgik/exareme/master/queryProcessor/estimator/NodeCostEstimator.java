@@ -35,7 +35,7 @@ public class NodeCostEstimator {
                 return estimateJoin(nuwc, o.getChildAt(0), o.getChildAt(1));
             } catch (Exception ex) {
                 log.error("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
-                
+                System.out.println(ex.getMessage());
                 //System.out.println("Cannot get cost for join op " + o.toString() + ". Assuming dummy cost");
                 return 1.0;
             }
@@ -164,7 +164,34 @@ public class NodeCostEstimator {
        // double rightRelSize = right.getNodeInfo().outputRelSize();
         double responseTime=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
   
-        
+        if(!right.getChildren().isEmpty()){
+        	Selection sel=(Selection)right.getChildAt(0).getObject();
+        	boolean inv=false;
+        	boolean subject=sel.getAllColumnRefs().get(0).getName().equals("s");
+        	if(subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("o")){
+        		inv=rightRelTuples>leftRelTuples;
+        	}
+        	else if(!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("s")){
+        		inv=rightRelTuples<leftRelTuples;
+        	}
+        	else if(!subject){
+        		inv=true;
+        	}
+        	nuwc.setRightinv(inv);
+        	if(inv){
+        		System.out.println("aaa");
+        	}
+        	else{
+        		if(left.getDescendantBaseTables().size()==1&&left.getDescendantBaseTables().contains("alias4")&&right.getDescendantBaseTables().toString().contains("alias1")){
+        			System.out.println("bbbbbbb");
+        			System.out.println(leftRelTuples);
+        		}
+        	}
+        	
+        }
+        if(leftRelTuples<1||rightRelTuples<1){
+    		return 0.0;
+    	}
         
         if (Double.isNaN(responseTime)) {
             throw new Exception("NaN");

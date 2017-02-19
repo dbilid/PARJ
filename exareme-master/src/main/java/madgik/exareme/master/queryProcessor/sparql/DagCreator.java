@@ -99,17 +99,20 @@ public class DagCreator {
 					
 				}
 				projection.addChild(top);
-				Set<Column> projected=new HashSet<Column>();
+				//Set<Column> projected=new HashSet<Column>();
 				
 				madgik.exareme.master.queryProcessor.decomposer.query.Projection prj=new madgik.exareme.master.queryProcessor.decomposer.query.Projection();
 				projection.setObject(prj);
 				for(ProjectionElem pe:p.getProjectionElemList().getElements()){
-					Column proj= new Column(current.getFirstColumn(pe.getSourceName()).getAlias(), pe.getSourceName());
-					projected.add(proj);
+					Column proj=current.getFirstColumn(pe.getSourceName());
+					//Column proj= new Column(current.getFirstColumn(pe.getSourceName()).getAlias(), pe.getSourceName());
+					//projected.add(proj);
 					prj.addOperand(new Output(pe.getTargetName(), proj));
 				}
 				//System.out.println(projection.dotPrint(new HashSet<Node>()));
-				return projection;
+				Node root=new Node(Node.OR);
+				root.addChild(projection);
+				return root;
 				//Map<String, Set<Column>> eqClasses=new HashMap<String, Set<Column>>();
 			
 		}
