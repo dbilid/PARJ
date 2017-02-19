@@ -63,7 +63,7 @@ public class NodeCostEstimator {
              }
         } else if (o.getOpCode() == Node.SELECT) {
         	try {
-            return estimateFilter(o);
+            return estimateFilterBase(o);
         	 } catch (Exception ex) {
                  log.error("Cannot get cost for select op " + o.toString() + ". Assuming dummy cost");
                  return 1.0;
@@ -136,28 +136,36 @@ public class NodeCostEstimator {
     	}
         
     }
+    
+    public double estimateFilterBase(Node n) {
+    	
+    	
+    	return 0;
+
+    	
+        
+    }
 
     public double estimateJoin(NonUnaryWhereCondition nuwc, Node left, Node right)
         throws Exception {
-    	if(this.partitionNo==1&&right.getDescendantBaseTables().size()>1){
+    	/*if(this.partitionNo==1&&right.getDescendantBaseTables().size()>1){
     		//TODO do not consider bushy joins in centralised and not federated execution
     		//System.out.println(nuwc);
     		return 1000000.0;
     	}
     	else if(right.getDescendantBaseTables().size()>1&&!right.isMaterialised()){
     		return 1000000.0;
-    	}
+    	}*/
 
 
         double leftRelTuples = left.getNodeInfo().getNumberOfTuples();
-        double leftRelSize = left.getNodeInfo().outputRelSize();
+        //double leftRelSize = left.getNodeInfo().outputRelSize();
         double rightRelTuples = right.getNodeInfo().getNumberOfTuples();
-        double rightRelSize = right.getNodeInfo().outputRelSize();
-
-        //        double childrenMaxResponseTime = Math.max(leftRelSize, rightRelSize);
-        double responseTime = localJoinProcessingTime(leftRelTuples, leftRelSize, rightRelTuples,
-            rightRelSize);// + childrenMaxResponseTime;
-        //this.planInfo.get(n.getHashId()).setResponseTimeEstimation(responseTime);
+       // double rightRelSize = right.getNodeInfo().outputRelSize();
+        double responseTime=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
+  
+        
+        
         if (Double.isNaN(responseTime)) {
             throw new Exception("NaN");
         }
@@ -232,8 +240,7 @@ public class NodeCostEstimator {
             * 0.000034;        //time for a tuple hushing: 0.000034 sec (disk io + cpu time included)
     }
 
-    private double localJoinProcessingTime(double leftRelTuples, double leftRelSize,
-        double rightRelTuples, double rightRelSize) {
+    private double localJoinProcessingTime(double leftRelTuples, double rightRelTuples) {
     	if(leftRelTuples<1||rightRelTuples<1){
     		return 0.0;
     	}

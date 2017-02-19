@@ -58,6 +58,14 @@ public class DagExpander {
 					boolean useCommutativity = true;
 					NonUnaryWhereCondition bwc = (NonUnaryWhereCondition) op.getObject();
 					if (bwc.getOperator().equals("=")) {
+						for (Node cc : op.getChildren()) {
+							// Table t = (Table) cc.getObject();
+							// if (t.getName().startsWith("table")) {
+							if (cc.getDescendantBaseTables().size() > 1) {
+								useCommutativity = false;
+								break;
+							}
+						}
 						
 						if (useCommutativity) {
 							Node commutativity = new Node(Node.AND, Node.JOIN);
@@ -69,6 +77,9 @@ public class DagExpander {
 							commutativity.setObject(newBwc);
 							if (op.getChildren().size() > 1) {
 								commutativity.addChild(op.getChildAt(1));
+							}
+							if(op.getChildAt(0).getDescendantBaseTables().size()>1){
+								System.out.println("wwwt");
 							}
 							commutativity.addChild(op.getChildAt(0));
 
@@ -107,8 +118,8 @@ public class DagExpander {
 						if (op.getChildren().size() > 1) {
 							Node c2 = op.getChildAt(0);
 							for (Node c3 : c2.getChildren()) {
-								boolean childrenBase = c3.getDescendantBaseTables().size() == 2
-										&& c3.getChildren().size() == 2;
+								//boolean childrenBase = c3.getDescendantBaseTables().size() == 2
+									//	&& c3.getChildren().size() == 2;
 								// if (c2.getChildren().size() > 0) {
 								// Node c3 = c2.getChildAt(0);
 								if (c3.getObject() instanceof NonUnaryWhereCondition) {
@@ -116,6 +127,12 @@ public class DagExpander {
 									if (bwc2.getOperator().equals("=")) {
 										boolean comesFromLeftOp = c3.getChildAt(0).isDescendantOfBaseTable(
 												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
+										//if(c3.getChildren().size()==2){
+											//comesFromLeftOp=comesFromLeftOp&c3.getChildAt(0).getDescendantBaseTables().size()==1;
+										//}
+										if(c3.getChildren().size()==2&&c3.getChildAt(1).getDescendantBaseTables().size()>1){
+											System.out.println("what?");
+										}
 										if (!comesFromLeftOp)
 											continue;
 										Node associativity = new Node(Node.AND, Node.JOIN);
@@ -190,6 +207,9 @@ public class DagExpander {
 
 										if (comesFromLeftOp && c3.getChildren().size() > 1) {
 											associativityTop.addChild(c3.getChildAt(1));
+											if(c3.getChildAt(1).getDescendantBaseTables().size()>1){
+												System.out.println("w0t??");
+											}
 
 										} else if (c3.getChildren().size() > 1) {
 											associativityTop.addChild(c3.getChildAt(0));
@@ -259,7 +279,10 @@ public class DagExpander {
 										boolean comesFromRightOp = c3.getChildAt(0).isDescendantOfBaseTable(
 												bwc.getLeftOp().getAllColumnRefs().get(0).getAlias());
 										Node associativity = new Node(Node.AND, Node.JOIN);
-										if (!comesFromLeftOp && !comesFromRightOp) {
+										//if (!comesFromLeftOp && !comesFromRightOp) {
+										//	continue;
+										//}
+										if (!comesFromRightOp) {
 											continue;
 										}
 										boolean comesFromLeftOp2 = c3.getChildAt(1).isDescendantOfBaseTable(
@@ -280,10 +303,16 @@ public class DagExpander {
 										if (comesFromLeftOp) {
 											associativity.addChild(c3.getChildAt(1));
 											associativity.addChild(c3.getChildAt(0));
+											if(c3.getChildAt(0).getDescendantBaseTables().size()>1){
+												System.out.println("w0t1??");
+											}
 
 										} else {
 											associativity.addChild(c3.getChildAt(0));
 											associativity.addChild(c3.getChildAt(1));
+											if(c3.getChildAt(1).getDescendantBaseTables().size()>1){
+												System.out.println("w0t2??");
+											}
 
 										}
 										Node table = new Node(Node.OR);
@@ -446,7 +475,7 @@ public class DagExpander {
 			
 		} else {
 			resultPlan = searchForBestPlanCentralized(e, limit, memo);
-			CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
+			//CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(ec);
 		
 		}
 		if (resultPlan != null && resultPlan.getCost() < limit) {
@@ -474,8 +503,8 @@ public class DagExpander {
 			Node o = e.getChildAt(k);
 			SinglePlan e2Plan = new SinglePlan(Double.MAX_VALUE);
 			Double opCost = nce.getCostForOperator(o);
-			boolean fed = false;
-			boolean mat = false;
+			//boolean fed = false;
+			//boolean mat = false;
 			// this must go after algorithmic implementation
 			limit -= opCost;
 			// if (limit < 0) {
@@ -503,21 +532,10 @@ public class DagExpander {
 				algPlan.addInputPlan(e2, null);
 				algPlan.increaseCost(t.getCost());
 
-				CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(new MemoKey(e2, null));
-				if (o.getOpCode() == Node.NESTED) {
-					mat = true;
-					Util.setDescNotMaterialised(e2, memo);
-				}
-				if (o.getOpCode() == Node.LEFTJOIN || o.getOpCode() == Node.JOINKEY) {
-					cmv.setMaterialized(true);
-				}
-				if (cmv.isFederated()) {
-					if (o.getOpCode() == Node.JOIN) {
-						cmv.setMaterialized(true);
-					} else {
-						fed = true;
-					}
-				}
+				//CentralizedMemoValue cmv = (CentralizedMemoValue) memo.getMemoValue(new MemoKey(e2, null));
+				
+				
+				
 
 				algLimit -= algPlan.getCost();
 				// if(algLimit<0){
@@ -533,7 +551,7 @@ public class DagExpander {
 			// }
 			if (e2Plan.getCost() < resultPlan.getCost()) {
 				resultPlan = e2Plan;
-				memo.put(e, resultPlan, mat, false, fed);
+				memo.put(e, resultPlan, false, false, false);
 				/*
 				 * if (!e.getParents().isEmpty() &&
 				 * (e.getParents().get(0).getOpCode() == Node.UNION ||

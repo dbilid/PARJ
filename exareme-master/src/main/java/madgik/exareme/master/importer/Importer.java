@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -59,6 +60,7 @@ public class Importer {
 				String prefixes="PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
 				String q="SELECT ?y ?b ?z  WHERE { ?y ?b ?z . ?a ?v ?z }";
 				String q2="SELECT ?x ?y ?z WHERE {  ?y rdf:type ub:FullProfessor . ?y ub:teacherOf ?z .  ?z rdf:type ub:Course . ?x ub:advisor ?y . ?x rdf:type ub:UndergraduateStudent . ?x ub:takesCourse ?z }";
+				String q3="SELECT ?x ?y ?z WHERE {  ?y ub:teacherOf ?z .  ?z rdf:type ub:Course . ?x ub:advisor ?y .  ?x ub:takesCourse ?z }";
 				
 				Schema stats=a.analyze();
 				StatUtils.addSchemaToFile("/media/dimitris/T/test2/" + "histograms.json", stats);
@@ -70,8 +72,10 @@ public class Importer {
 				Node root=creator.getRootNode();
 				//System.out.println(root.count(0));
 				long start=System.currentTimeMillis();
+				//System.out.println(root.dotPrint(new HashSet<Node>()));
 				DagExpander expander=new DagExpander(root.getChildAt(0), hashes);
 				expander.expand();
+				System.out.println(root.dotPrint(new HashSet<Node>()));
 				Memo memo=new Memo();
 				SinglePlan plan = expander.getBestPlanCentralized(root.getChildAt(0), Double.MAX_VALUE, memo);
 				System.out.println(System.currentTimeMillis()-start);
