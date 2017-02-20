@@ -52,6 +52,7 @@ public class DecomposerUtils {
 	public static final boolean PUSH_UNIONS;
 	public static final boolean KILL_PYTHON;
 	public static final boolean USE_SIP;
+	public static final String WRAPPER_VIRTUAL_TABLE; 
 
     static {
         GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -101,6 +102,7 @@ public class DecomposerUtils {
     	PUSH_UNIONS=properties.getBoolean("push.unions");
     	KILL_PYTHON=properties.getBoolean("kill.python");
     	USE_SIP=properties.getBoolean("use.sip");
+    	WRAPPER_VIRTUAL_TABLE=properties.getString("wrapper.virtual.table");
     	
         log.trace("Decomposer Properties Loaded.");
     }

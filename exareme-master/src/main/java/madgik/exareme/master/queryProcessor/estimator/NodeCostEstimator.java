@@ -162,8 +162,9 @@ public class NodeCostEstimator {
         //double leftRelSize = left.getNodeInfo().outputRelSize();
         double rightRelTuples = right.getNodeInfo().getNumberOfTuples();
        // double rightRelSize = right.getNodeInfo().outputRelSize();
-        double responseTime=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
-  
+        //double responseTime=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
+        double responseTime=-1.0;
+        
         if(!right.getChildren().isEmpty()){
         	Selection sel=(Selection)right.getChildAt(0).getObject();
         	boolean inv=false;
@@ -178,17 +179,18 @@ public class NodeCostEstimator {
         		inv=true;
         	}
         	nuwc.setRightinv(inv);
-        	if(inv){
-        		System.out.println("aaa");
-        	}
-        	else{
-        		if(left.getDescendantBaseTables().size()==1&&left.getDescendantBaseTables().contains("alias4")&&right.getDescendantBaseTables().toString().contains("alias1")){
-        			System.out.println("bbbbbbb");
-        			System.out.println(leftRelTuples);
-        		}
+        	
+        	if(rightRelTuples<leftRelTuples){
+        		//return the cost of filter instead
+        		double baseTuples=right.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples();
+        		responseTime=rightRelTuples*Math.log(baseTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
         	}
         	
         }
+        if(responseTime<0){
+        	responseTime=leftRelTuples*Math.log(rightRelTuples)* Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
+        }
+        
         if(leftRelTuples<1||rightRelTuples<1){
     		return 0.0;
     	}

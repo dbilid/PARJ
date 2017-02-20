@@ -23,22 +23,14 @@ import com.google.common.hash.Hashing;
 public class SinlgePlanDFLGenerator {
 
 	private Node root;
-	private int partitionNo;
 	private Memo memo;
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
-	SinlgePlanDFLGenerator(Node n, int partNo, Memo m, 
-			boolean useCache) {
-		this.root = n;
-		this.partitionNo = partNo;
-		this.memo = m;
-		
-	}
+
 	
-	public SinlgePlanDFLGenerator(Node n, int partNo, Memo m){
+	public SinlgePlanDFLGenerator(Node n, Memo m){
 		this.root = n;
-		this.partitionNo = partNo;
 		this.memo = m;
 	}
 
@@ -74,9 +66,7 @@ public class SinlgePlanDFLGenerator {
 				if (last.getUnionqueries().size() > 1) {
 					if (last.isUnionAll()) {
 						for (SQLQuery u : last.getUnionqueries()) {
-							if (u.isFederated()) {
-								continue;
-							}
+							
 							u.setTemporary(false);
 							Set<Column> rippedOuts = new HashSet<Column>();
 							for (Column c : u.getAllOutputColumns()) {
@@ -101,9 +91,7 @@ public class SinlgePlanDFLGenerator {
 					} else {
 						Map<String, List<SQLQuery>> outputsToQueries=new HashMap<String, List<SQLQuery>>();
 						for (SQLQuery u : last.getUnionqueries()) {
-							if (u.isFederated()) {
-								continue;
-							}
+							
 							//u.setTemporary(false);
 							Set<Column> rippedOuts = new HashSet<Column>();
 							for (Column c : u.getAllOutputColumns()) {
@@ -184,11 +172,7 @@ public class SinlgePlanDFLGenerator {
 				current.getUnionqueries().add(allUnions.get(i));
 			}
 		}
-		if (this.partitionNo > 1) {
-			for (SQLQuery s : qs) {
-				s.setNumberOfPartitions(partitionNo);
-			}
-		}
+		
 		return qs;
 	}
 

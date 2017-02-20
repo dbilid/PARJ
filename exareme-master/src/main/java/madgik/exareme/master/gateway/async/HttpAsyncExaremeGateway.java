@@ -1,6 +1,6 @@
 package madgik.exareme.master.gateway.async;
 
-import madgik.exareme.master.dbmanager.DBManager;
+import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.gateway.ExaremeGateway;
 import madgik.exareme.master.gateway.ExaremeGatewayUtils;
 import madgik.exareme.master.gateway.async.handler.*;

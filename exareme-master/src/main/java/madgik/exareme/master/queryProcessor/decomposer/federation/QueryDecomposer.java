@@ -51,7 +51,7 @@ public class QueryDecomposer {
 	private boolean importExternal;
 	private boolean useSIP = DecomposerUtils.USE_SIP;
 	// private Registry registry;
-	private Map<HashCode, madgik.exareme.common.schema.Table> registry;
+	//private Map<HashCode, madgik.exareme.common.schema.Table> registry;
 	private boolean useCache;
 	private final int mostProminent = DecomposerUtils.MOST_PROMINENT;
 	private final boolean useGreedy = DecomposerUtils.USE_GREEDY;
@@ -81,7 +81,7 @@ public class QueryDecomposer {
 		this.initialQuery = initial;
 		this.noOfparts = noOfPartitions;
 		workers = noOfPartitions;
-		registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
+		//registry = new HashMap<HashCode, madgik.exareme.common.schema.Table>();
 		/*for (PhysicalTable pt : Registry.getInstance(database).getPhysicalTables()) {
 			byte[] hash = pt.getTable().getHashID();
 			if (hash != null) {
@@ -216,11 +216,7 @@ public class QueryDecomposer {
 			if (i == res.size() - 1) {
 				s.setTemporary(false);
 			}
-			// if (s.isFederated() && union.getObject().equals("UNION") &&
-			// DecomposerUtils.PUSH_DISTINCT) {
-			if (s.isFederated() && DecomposerUtils.PUSH_DISTINCT) {
-				s.setOutputColumnsDinstict(true);
-			}
+			
 		}
 
 		if (importExternal) {
@@ -246,40 +242,7 @@ public class QueryDecomposer {
 			List<DataImporter> dis = new ArrayList<DataImporter>();
 			for (int i = 0; i < res.size(); i++) {
 				SQLQuery s = res.get(i);
-				if (s.isFederated()) {
-					// DecomposerUtils.ADD_TO_REGISTRY;
-					boolean addToregistry = noOfparts == 1 && DecomposerUtils.ADD_TO_REGISTRY;
-					DB dbinfo = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
-					// StringBuilder createTableSQL = new StringBuilder();
-					if (dbinfo == null) {
-						log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
-						// return;
-					}
-					if (res.size() == 1) {
-						s.setTemporaryTableName(this.initialQuery.getTemporaryTableName());
-						if (!this.initialQuery.getTemporaryTableName().startsWith("table")) {
-							// query insert into table ....
-							// check to drop from regisrty
-							//Registry reg = Registry.getInstance(this.db);
-							//reg.removePhysicalTable(s.getTemporaryTableName());
-						}
-					}
-					DataImporter di = new DataImporter(s, this.db, dbinfo);
-					dis.add(di);
-					di.setAddToRegisrty(addToregistry);
-					es.execute(di);
-					if (addToregistry) {
-						res.remove(i);
-						i--;
-						if (res.isEmpty()) {
-							SQLQuery selectstar = new SQLQuery();
-							selectstar.addInputTable(new Table(s.getTemporaryTableName(), s.getTemporaryTableName()));
-							selectstar.setExistsInCache(true);
-							res.add(selectstar);
-							i++;
-						}
-					}
-				}
+
 			}
 			es.shutdown();
 			boolean finished = es.awaitTermination(160, TimeUnit.MINUTES);
@@ -527,13 +490,9 @@ public class QueryDecomposer {
 		// Plan best = findBestPlan(root, cost, memo, new HashSet<Node>(), cel);
 		// System.out.println(best.getPath().toString());
 
-		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, noOfparts, finalMemo, registry, useCache);
-		dsql.setN2a(n2a);
-		if (this.useSIP) {
-			dsql.setSipStruct(this.sipInfo);
-			dsql.setUseSIP(useSIP);
-			dsql.setSipToUnions(sipToUnions);
-		}
+		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, finalMemo);
+		//dsql.setN2a(n2a);
+		
 		return (List<SQLQuery>) dsql.generate();
 		// return null;
 	}
@@ -2259,14 +2218,7 @@ public class QueryDecomposer {
 	private SinglePlan searchForBestPlanCentralized(Node e, double limit, Memo memo, Map<Node, Double> greedyToMat,
 			boolean useRegistry) {
 
-		if (useRegistry && useCache && registry.containsKey(e.computeHashIDExpand())
-				&& e.computeHashIDExpand() != null) {
-			SinglePlan r = new SinglePlan(0);
-
-			memo.put(e, r, true, true, false);
-
-			return r;
-		}
+		
 		if (!e.getObject().toString().startsWith("table")) {
 			// base table
 			Table t = (Table) e.getObject();

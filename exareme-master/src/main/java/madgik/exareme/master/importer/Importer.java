@@ -3,11 +3,19 @@ package madgik.exareme.master.importer;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -16,7 +24,10 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 
-import madgik.exareme.master.dbmanager.DBManager;
+import madgik.exareme.master.db.DBManager;
+import madgik.exareme.master.db.FinalUnionExecutor;
+import madgik.exareme.master.db.ResultBuffer;
+import madgik.exareme.master.db.SQLiteLocalExecutor;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.SPARQLAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
@@ -41,12 +52,15 @@ public class Importer {
 		boolean importData = false;
 		boolean analyze=false;
 		boolean run=true;
+		boolean createVirtualTables = false;
+		boolean execute=true;
+		int partitions=4;
 		
 		DBManager m=new DBManager();
 		if(importData){
 		InputStream s=readFile("/media/dimitris/T/lubm100/University0-99-clean2.nt");
 		RDFParser rdfParser = Rio.createParser(RDFFormat.TURTLE);
-		ImportHandler h=new ImportHandler(m.getConnection("/media/dimitris/T/test2/"), 4);
+		ImportHandler h=new ImportHandler(m.getConnection("/media/dimitris/T/test2/"), partitions);
 		rdfParser.setRDFHandler(h);
 		try {
 			   rdfParser.parse(s, "http://me.org/");
@@ -83,11 +97,11 @@ public class Importer {
 				String q2="SELECT ?x ?y ?z WHERE {  ?y rdf:type ub:FullProfessor . ?y ub:teacherOf ?z .  ?z rdf:type ub:Course . ?x ub:advisor ?y . ?x rdf:type ub:UndergraduateStudent . ?x ub:takesCourse ?z }";
 				String q3="SELECT ?x ?y ?z WHERE {  ?y ub:teacherOf ?z .  ?z rdf:type ub:Course . ?x ub:advisor ?y .  ?x ub:takesCourse ?z }";
 				
-				NodeSelectivityEstimator nse=new NodeSelectivityEstimator("/home/dimitris/sparqlhist/" + "histograms.json");
+				NodeSelectivityEstimator nse=new NodeSelectivityEstimator("/media/dimitris/T/test2/" + "histograms.json");
 				NodeHashValues hashes=new NodeHashValues();
 				hashes.setSelectivityEstimator(nse);
-				IdFetcher fetcher=new IdFetcher(m.getConnection("/home/dimitris/sparqlhist/"));
-				DagCreator creator=new DagCreator(prefixes+q2, 4, hashes, fetcher);
+				IdFetcher fetcher=new IdFetcher(m.getConnection("/media/dimitris/T/test2/"));
+				DagCreator creator=new DagCreator(prefixes+q2, partitions, hashes, fetcher);
 				Node root=creator.getRootNode();
 				//System.out.println(root.count(0));
 				long start=System.currentTimeMillis();
@@ -96,9 +110,9 @@ public class Importer {
 				expander.expand();
 				//System.out.println(root.dotPrint(new HashSet<Node>()));
 				Memo memo=new Memo();
-				SinglePlan plan = expander.getBestPlanCentralized(root, Double.MAX_VALUE, memo);
+				expander.getBestPlanCentralized(root, Double.MAX_VALUE, memo);
 				System.out.println(System.currentTimeMillis()-start);
-				SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, 1, memo);
+				SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, memo);
 				//dsql.setN2a(n2a);
 				SQLQuery result=dsql.generate().get(0);
 				
@@ -129,6 +143,39 @@ public class Importer {
 				
 				
 				System.out.println( result.toDistSQL() );
+				
+				if(execute){
+					ExecutorService es = Executors.newFixedThreadPool(5);
+					
+					//Connection ccc=getConnection("");
+					List<SQLiteLocalExecutor> executors=new ArrayList<SQLiteLocalExecutor>();
+					ResultBuffer globalBuffer=new ResultBuffer();
+					Set<Integer> finishedQueries=new HashSet<Integer>();
+					for (int i = 0; i < partitions; i++) {
+						String sql=result.getSqlForPartition(i);						
+						
+						SQLiteLocalExecutor ex=new SQLiteLocalExecutor(sql, m.getConnection("/media/dimitris/T/test2/"), true, finishedQueries, i);
+						ex.setGlobalBuffer(globalBuffer);
+						executors.add(ex);
+							
+					}
+					
+					
+					
+					FinalUnionExecutor ex=new FinalUnionExecutor(globalBuffer, null, partitions);
+					es.execute(ex);
+					for(SQLiteLocalExecutor exec:executors){
+						es.execute(exec);
+					}
+					es.shutdown();
+					try {
+						boolean finished = es.awaitTermination(300, TimeUnit.MINUTES);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+				
 				//System.out.println(root.count(0));
 				System.out.println("OK");
 				
@@ -136,6 +183,27 @@ public class Importer {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+		}
+		
+		if(createVirtualTables){
+			Connection c=m.getConnection("/media/dimitris/T/test2/");
+			Statement st=c.createStatement();
+			ResultSet rs=st.executeQuery("select id from properties");
+			while(rs.next()){
+				int propNo=rs.getInt(1);
+				//for(int i=0;i<partitions;i++){
+				Statement st2=c.createStatement();
+					//System.out.println("create virtual table wrapperprop"+propNo+" using wrapper("+partitions+", prop"+propNo+")");
+					//System.out.println("create virtual table wrapperinvprop"+propNo+" using wrapper("+partitions+", invprop"+propNo+")");
+					st2.executeUpdate("create virtual table wrapperprop"+propNo+" using wrapper("+partitions+", prop"+propNo+")");
+					st2.executeUpdate("create virtual table wrapperinvprop"+propNo+" using wrapper("+partitions+", invprop"+propNo+")");
+					st2.close();
+					//st.execute("create virtual table wrapperinvprop"+propNo+"_"+i+" using wrapper(invprop"+propNo+"_"+i+", "+partitions+")");
+				//}
+			}
+			rs.close();
+			st.close();
+			c.close();
 		}
 
 	}

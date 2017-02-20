@@ -1,6 +1,6 @@
 package madgik.exareme.master.admin;
 
-import madgik.exareme.master.dbmanager.DBManager;
+import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.gateway.ExaremeGateway;
 import madgik.exareme.master.gateway.ExaremeGatewayFactory;
 import madgik.exareme.utils.properties.AdpProperties;

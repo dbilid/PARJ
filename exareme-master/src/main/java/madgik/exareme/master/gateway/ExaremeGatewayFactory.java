@@ -3,7 +3,7 @@
  */
 package madgik.exareme.master.gateway;
 
-import madgik.exareme.master.dbmanager.DBManager;
+import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.gateway.async.HttpAsyncExaremeGateway;
 import org.apache.log4j.Logger;
 

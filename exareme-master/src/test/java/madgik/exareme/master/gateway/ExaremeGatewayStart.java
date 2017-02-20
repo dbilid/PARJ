@@ -3,7 +3,7 @@ package madgik.exareme.master.gateway;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import madgik.exareme.master.dbmanager.DBManager;
+import madgik.exareme.master.db.DBManager;
 
 import java.rmi.RemoteException;
 
