@@ -28,6 +28,7 @@ import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
+import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
 
 import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.db.FinalUnionExecutor;
@@ -70,6 +71,7 @@ public class Importer {
 			long start=System.currentTimeMillis();
 			InputStream s = readFile(args[3]);
 			RDFParser rdfParser = Rio.createParser(RDFFormat.NTRIPLES);
+			rdfParser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
 			Connection c=m.getConnection(database);
 			c.setAutoCommit(false);
 			ImportHandler h = new ImportHandler(c, partitions);
