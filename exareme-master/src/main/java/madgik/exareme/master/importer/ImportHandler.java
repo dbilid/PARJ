@@ -141,6 +141,7 @@ public class ImportHandler extends AbstractRDFHandler {
 			ps.executeBatch();
 		}
 		currentCache=0;
+		this.con.commit();
 	}
 
 	private void createPropertyTables() throws SQLException {
@@ -177,14 +178,17 @@ public class ImportHandler extends AbstractRDFHandler {
 					insertId.addBatch();
 				}
 				insertId.executeBatch();
+				con.commit();
 				//idCache.clear();
 			}
 		}
+		rs.close();
 		return result;
 	}
 
 	@Override
 	public void endRDF() throws RDFHandlerException {
+		System.out.println("ending...");
 		try {
 			Iterator<Map.Entry<String, Long>> iter = idCache.entrySet().iterator();
 			while (iter.hasNext()) {
@@ -196,9 +200,10 @@ public class ImportHandler extends AbstractRDFHandler {
 			}
 			insertId.executeBatch();
 			executeBatch();
-			//insertId.close();
-			//getId.close();
-			//insertProperty.close();
+			insertId.close();
+			stmt.close();
+			getId.close();
+			insertProperty.close();
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

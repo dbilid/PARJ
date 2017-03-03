@@ -69,8 +69,9 @@ public class Importer {
 		if (importData) {
 			long start=System.currentTimeMillis();
 			InputStream s = readFile(args[3]);
-			RDFParser rdfParser = Rio.createParser(RDFFormat.TURTLE);
+			RDFParser rdfParser = Rio.createParser(RDFFormat.NTRIPLES);
 			Connection c=m.getConnection(database);
+			c.setAutoCommit(false);
 			ImportHandler h = new ImportHandler(c, partitions);
 			rdfParser.setRDFHandler(h);
 			try {
@@ -82,16 +83,20 @@ public class Importer {
 			} catch (RDFHandlerException e) {
 				// handle a problem encountered by the RDFHandler
 			}
+			c.commit();
+			c.setAutoCommit(true);
 			System.out.println("imported in:"+(System.currentTimeMillis()-start)+" ms");
+			
 			c.createStatement().execute("VACUUM");
 			System.out.println("vacuum in:"+(System.currentTimeMillis()-start)+" ms");
 			analyzeDB(c, partitions, database);
 			System.out.println("analyze in:"+(System.currentTimeMillis()-start)+" ms");
-			c.commit();
+			
 			//c.close();
 			System.out.println("commited"+(System.currentTimeMillis()-start)+" ms");
-			createVirtualTables(m.getConnection(database), partitions, database);
+			createVirtualTables(c, partitions, database);
 			System.out.println("vtables in:"+(System.currentTimeMillis()-start)+" ms");
+			c.close();
 			return;
 		}
 		
