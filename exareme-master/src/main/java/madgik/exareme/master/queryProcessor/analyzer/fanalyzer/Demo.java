@@ -11,41 +11,41 @@ import java.util.Set;
  * and open the template in the editor.
  */
 
-
 /**
  * @author jim
  */
 public class Demo {
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) throws Exception {
-        // TODO code application logic here
+	/**
+	 * @param args
+	 *            the command line arguments
+	 */
+	public static void main(String[] args) throws Exception {
+		// TODO code application logic here
 
 		/* analyze all tables */
-    /*
-     * FederatedAnalyzer fa = new FederatedAnalyzer(); fa.analyzeAll();
+		/*
+		 * FederatedAnalyzer fa = new FederatedAnalyzer(); fa.analyzeAll();
 		 */
 
 		/* analyze specific table */
-        FederatedAnalyzer fa = new FederatedAnalyzer();
-        Set<String> tableNames = new HashSet<String>();
+		FederatedAnalyzer fa = new FederatedAnalyzer();
+		Set<String> tableNames = new HashSet<String>();
 
-        // This txt file contains all the tables we need to analyze
-        try (BufferedReader br = new BufferedReader(new FileReader("./files/input/slegge.txt"))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                // process the line.
-                tableNames.add(line);
-            }
-        }
+		// This txt file contains all the tables we need to analyze
+		try (BufferedReader br = new BufferedReader(new FileReader("./files/input/slegge.txt"))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				// process the line.
+				tableNames.add(line);
+			}
+		}
 
-        for (String s : tableNames) {
-            fa.analyzeTable(s);
-        }
-        fa.closeConnection();
+		for (String s : tableNames) {
+			fa.analyzeTable(s);
+		}
+		fa.closeConnection();
 
-    }
+	}
 
 }

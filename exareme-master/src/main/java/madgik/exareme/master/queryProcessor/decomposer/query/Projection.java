@@ -13,138 +13,138 @@ import java.util.Set;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 
+import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+
 /**
  * @author dimitris
  */
 public class Projection implements Operand {
-    private List<Output> ops;
-    private boolean distinct;
-    private HashCode hash;
+	private List<Output> ops;
+	private boolean distinct;
+	private HashCode hash;
 
-    public Projection(List<Output> operands) {
-        this.ops = operands;
-        this.distinct = false;
-    }
+	public Projection(List<Output> operands) {
+		this.ops = operands;
+		this.distinct = false;
+	}
 
-    public Projection() {
-        super();
-        ops = new ArrayList<Output>();
-    }
+	public Projection() {
+		super();
+		ops = new ArrayList<Output>();
+	}
 
-    public List<Column> getAllColumnRefs() {
-        List<Column> res = new ArrayList<Column>();
-        for (Output out : this.ops) {
-            Operand o = out.getObject();
-            for (Column c : o.getAllColumnRefs()) {
-                res.add(c);
-            }
-        }
-        return res;
-    }
+	public List<Column> getAllColumnRefs() {
+		List<Column> res = new ArrayList<Column>();
+		for (Output out : this.ops) {
+			Operand o = out.getObject();
+			for (Column c : o.getAllColumnRefs()) {
+				res.add(c);
+			}
+		}
+		return res;
+	}
 
-    public void setOperandAt(int i, Output o) {
-        this.ops.set(i, o);
-    }
+	public void setOperandAt(int i, Output o) {
+		this.ops.set(i, o);
+	}
 
-    public void addOperand(Output o) {
-        this.ops.add(o);
-    }
+	public void addOperand(Output o) {
+		this.ops.add(o);
+	}
 
-    public List<Output> getOperands() {
-        return this.ops;
-    }
+	public List<Output> getOperands() {
+		return this.ops;
+	}
 
-    @Override public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("PROJECT(");
-        String sep = "";
-        for (int i = 0; i < this.ops.size(); i++) {
-            //multiway join
-            sb.append(sep);
-            sep = ", ";
-            sb.append(ops.get(i).toString().replaceAll("\"", ""));
-        }
-        sb.append(")");
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("PROJECT(");
+		String sep = "";
+		for (int i = 0; i < this.ops.size(); i++) {
+			// multiway join
+			sb.append(sep);
+			sep = ", ";
+			sb.append(ops.get(i).toString().replaceAll("\"", ""));
+		}
+		sb.append(")");
 
-        return sb.toString();
-    }
+		return sb.toString();
+	}
 
-    @Override public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (obj.getClass() != this.getClass())) {
-            return false;
-        }
-        Projection other = (Projection) obj;
-        if (other.getOperands().size() == this.ops.size()) {
-            for (Output o : this.ops) {
-                if (!other.getOperands().contains(o)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if ((obj == null) || (obj.getClass() != this.getClass())) {
+			return false;
+		}
+		Projection other = (Projection) obj;
+		if (other.getOperands().size() == this.ops.size()) {
+			for (Output o : this.ops) {
+				if (!other.getOperands().contains(o)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
 
-    @Override public int hashCode() {
-        int hash = 7;
-        for (Output o : this.ops) {
-            //Ignore table name if operand is column!!!!!!
+	@Override
+	public int hashCode() {
+		int hash = 7;
+		for (Output o : this.ops) {
+			// Ignore table name if operand is column!!!!!!
 
-            if(o.getObject() instanceof Column){
-                Column c=(Column) o.getObject();
-                hash=31 * hash + Objects.hashCode(o.getOutputName()) + Objects.hashCode(c.getName());
+			if (o.getObject() instanceof Column) {
+				Column c = (Column) o.getObject();
+				hash = 31 * hash + Objects.hashCode(o.getOutputName()) + Objects.hashCode(c.getName());
 
-            }
-            else{
-            	hash=31 * hash + Objects.hashCode(o.getOutputName()) + o.getObject().hashCode();
-            }
-        }
-        return hash;
-    }
+			} else {
+				hash = 31 * hash + Objects.hashCode(o.getOutputName()) + o.getObject().hashCode();
+			}
+		}
+		return hash;
+	}
 
-    public void changeColumn(Column oldCol, Column newCol) {
-        for (Output out : this.getOperands()) {
-            out.getObject().changeColumn(oldCol, newCol);
-        }
-    }
+	public void changeColumn(Column oldCol, Column newCol) {
+		for (Output out : this.getOperands()) {
+			out.getObject().changeColumn(oldCol, newCol);
+		}
+	}
 
-    @Override public Projection clone() throws CloneNotSupportedException {
-        Projection cloned = new Projection();
-        for (Output o : this.ops) {
-            cloned.ops.add(o.clone());
-        }
-        return cloned;
-    }
+	@Override
+	public Projection clone() throws CloneNotSupportedException {
+		Projection cloned = new Projection();
+		for (Output o : this.ops) {
+			cloned.ops.add(o.clone());
+		}
+		return cloned;
+	}
 
+	public void setDistinct(boolean b) {
+		this.distinct = b;
 
-    public void setDistinct(boolean b) {
-        this.distinct = b;
+	}
 
-    }
+	public boolean isDistinct() {
+		return this.distinct;
+	}
 
-    public boolean isDistinct() {
-        return this.distinct;
-    }
-    
-    @Override
+	@Override
 	public HashCode getHashID() {
-    	if(hash==null){
-    		hash=Hashing.sha1().hashBytes(this.toString().getBytes());
-    	}
-    	return hash;
-    	/*List<HashCode> codes=new ArrayList<HashCode>();
-		for(Output o:this.ops){
-			codes.add(o.getHashID());
+		if (hash == null) {
+			hash = Node.f.hashBytes(this.toString().getBytes());
 		}
-		if(distinct){
-			codes.add(Hashing.sha1().hashBytes("true".getBytes()));
-		}
-		else{
-			codes.add(Hashing.sha1().hashBytes("false".getBytes()));
-		}
-		return Hashing.combineUnordered(codes);*/
+		return hash;
+		/*
+		 * List<HashCode> codes=new ArrayList<HashCode>(); for(Output
+		 * o:this.ops){ codes.add(o.getHashID()); } if(distinct){
+		 * codes.add(Hashing.goodFastHash(32).hashBytes("true".getBytes())); } else{
+		 * codes.add(Hashing.goodFastHash(32).hashBytes("false".getBytes())); } return
+		 * Hashing.combineUnordered(codes);
+		 */
 	}
 }

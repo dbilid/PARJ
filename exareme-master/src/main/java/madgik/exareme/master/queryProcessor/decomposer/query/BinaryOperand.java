@@ -17,77 +17,81 @@ import com.google.common.hash.Hashing;
  */
 public class BinaryOperand implements Operand {
 
-    private Operand leftOp;
-    private Operand rightOp;
-    private String operator;
+	private Operand leftOp;
+	private Operand rightOp;
+	private String operator;
 
-    @Override public List<Column> getAllColumnRefs() {
-        List<Column> res = new ArrayList<Column>();
-        for (Column c : leftOp.getAllColumnRefs()) {
-            res.add(c);
-        }
-        for (Column c : rightOp.getAllColumnRefs()) {
-            res.add(c);
-        }
-        return res;
-    }
+	@Override
+	public List<Column> getAllColumnRefs() {
+		List<Column> res = new ArrayList<Column>();
+		for (Column c : leftOp.getAllColumnRefs()) {
+			res.add(c);
+		}
+		for (Column c : rightOp.getAllColumnRefs()) {
+			res.add(c);
+		}
+		return res;
+	}
 
-    public void setOperator(String op) {
-        this.operator = op;
-    }
+	public void setOperator(String op) {
+		this.operator = op;
+	}
 
-    public String getOperator() {
-        return this.operator;
-    }
+	public String getOperator() {
+		return this.operator;
+	}
 
-    public void setLeftOp(Operand op) {
-        this.leftOp = op;
-    }
+	public void setLeftOp(Operand op) {
+		this.leftOp = op;
+	}
 
-    public void setRightOp(Operand op) {
-        this.rightOp = op;
-    }
+	public void setRightOp(Operand op) {
+		this.rightOp = op;
+	}
 
-    public Operand getLeftOp() {
-        return this.leftOp;
-    }
+	public Operand getLeftOp() {
+		return this.leftOp;
+	}
 
-    public Operand getRightOp() {
-        return this.rightOp;
-    }
+	public Operand getRightOp() {
+		return this.rightOp;
+	}
 
-    @Override public String toString() {
-        return "(" + leftOp.toString() + " " + operator + " " + rightOp.toString() + ")";
-    }
+	@Override
+	public String toString() {
+		return "(" + leftOp.toString() + " " + operator + " " + rightOp.toString() + ")";
+	}
 
-    @Override public void changeColumn(Column oldCol, Column newCol) {
-        if (leftOp.getClass().equals(Column.class)) {
-            if (((Column) leftOp).equals(oldCol)) {
-                leftOp = newCol;
-            }
-        } else {
-            leftOp.changeColumn(oldCol, newCol);
-        }
+	@Override
+	public void changeColumn(Column oldCol, Column newCol) {
+		if (leftOp.getClass().equals(Column.class)) {
+			if (((Column) leftOp).equals(oldCol)) {
+				leftOp = newCol;
+			}
+		} else {
+			leftOp.changeColumn(oldCol, newCol);
+		}
 
-        if (rightOp.getClass().equals(Column.class)) {
-            if (((Column) rightOp).equals(oldCol)) {
-                rightOp = newCol;
-            }
-        } else {
-            rightOp.changeColumn(oldCol, newCol);
-        }
-    }
+		if (rightOp.getClass().equals(Column.class)) {
+			if (((Column) rightOp).equals(oldCol)) {
+				rightOp = newCol;
+			}
+		} else {
+			rightOp.changeColumn(oldCol, newCol);
+		}
+	}
 
-    @Override public BinaryOperand clone() throws CloneNotSupportedException {
-        BinaryOperand cloned = (BinaryOperand) super.clone();
-        cloned.setLeftOp(leftOp.clone());
-        cloned.setRightOp(rightOp.clone());
-        return cloned;
-    }
+	@Override
+	public BinaryOperand clone() throws CloneNotSupportedException {
+		BinaryOperand cloned = (BinaryOperand) super.clone();
+		cloned.setLeftOp(leftOp.clone());
+		cloned.setRightOp(rightOp.clone());
+		return cloned;
+	}
 
 	@Override
 	public HashCode getHashID() {
-		List<HashCode> codes=new ArrayList<HashCode>();
+		List<HashCode> codes = new ArrayList<HashCode>();
 		codes.add(this.leftOp.getHashID());
 		codes.add(this.rightOp.getHashID());
 		codes.add(Hashing.sha1().hashBytes(operator.getBytes()));
@@ -130,5 +134,5 @@ public class BinaryOperand implements Operand {
 			return false;
 		return true;
 	}
-	
+
 }

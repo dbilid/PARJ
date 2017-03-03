@@ -15,5 +15,5 @@ import java.util.Map;
  * @author jim
  */
 public interface HistogramBuilder {
-    public Schema build(Map<String, Table> dbStats);
+	public Schema build(Map<String, Table> dbStats);
 }

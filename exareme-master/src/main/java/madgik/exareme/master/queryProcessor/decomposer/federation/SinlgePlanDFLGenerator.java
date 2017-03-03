@@ -27,9 +27,7 @@ public class SinlgePlanDFLGenerator {
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(SinlgePlanDFLGenerator.class);
 
-
-	
-	public SinlgePlanDFLGenerator(Node n, Memo m){
+	public SinlgePlanDFLGenerator(Node n, Memo m) {
 		this.root = n;
 		this.memo = m;
 	}
@@ -37,14 +35,14 @@ public class SinlgePlanDFLGenerator {
 	public ResultList generate() {
 		ResultList qs = new ResultList();
 		MemoKey rootkey = new MemoKey(root, null);
-	memo.getMemoValue(rootkey).setMaterialized(true);
+		memo.getMemoValue(rootkey).setMaterialized(true);
 
 		// printPlan(rootkey);
 		qs.setCurrent(new SQLQuery());
 		try {
 
-					combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
-		
+			combineOperatorsAndOutputQueriesCentralized(rootkey, qs, new HashMap<MemoKey, SQLQuery>());
+
 		} catch (CloneNotSupportedException clone) {
 			log.error("Could not generate plan " + clone.getMessage());
 		}
@@ -53,20 +51,19 @@ public class SinlgePlanDFLGenerator {
 		// }
 
 		if (qs.isEmpty()) {
-			
-				log.error("Decomposer produced empty result");
-			
-		} 
 
+			log.error("Decomposer produced empty result");
+
+		}
 
 		boolean pushUnions = DecomposerUtils.PUSH_UNIONS;
-		if (qs.size() > 1 && pushUnions ) {
+		if (qs.size() > 1 && pushUnions) {
 			SQLQuery last = qs.get(qs.size() - 1);
 			if (last.getOrderBy().isEmpty() && last.getGroupBy().isEmpty() && last.getLimit() < 0) {
 				if (last.getUnionqueries().size() > 1) {
 					if (last.isUnionAll()) {
 						for (SQLQuery u : last.getUnionqueries()) {
-							
+
 							u.setTemporary(false);
 							Set<Column> rippedOuts = new HashSet<Column>();
 							for (Column c : u.getAllOutputColumns()) {
@@ -89,10 +86,10 @@ public class SinlgePlanDFLGenerator {
 						}
 						qs.remove(last);
 					} else {
-						Map<String, List<SQLQuery>> outputsToQueries=new HashMap<String, List<SQLQuery>>();
+						Map<String, List<SQLQuery>> outputsToQueries = new HashMap<String, List<SQLQuery>>();
 						for (SQLQuery u : last.getUnionqueries()) {
-							
-							//u.setTemporary(false);
+
+							// u.setTemporary(false);
 							Set<Column> rippedOuts = new HashSet<Column>();
 							for (Column c : u.getAllOutputColumns()) {
 								rippedOuts.add(c);
@@ -109,38 +106,36 @@ public class SinlgePlanDFLGenerator {
 									}
 								}
 							}
-							if(!outputsToQueries.containsKey(u.getOutputSQL())){
+							if (!outputsToQueries.containsKey(u.getOutputSQL())) {
 								outputsToQueries.put(u.getOutputSQL(), new ArrayList<SQLQuery>());
 							}
 							outputsToQueries.get(u.getOutputSQL()).add(u);
-							//last.setStringOutputs(u.getOutputSQL());
+							// last.setStringOutputs(u.getOutputSQL());
 							u.setOutputs(newOuts);
 						}
-						if(outputsToQueries.size()==1){
+						if (outputsToQueries.size() == 1) {
 							last.setStringOutputs(outputsToQueries.keySet().iterator().next());
-						}
-						else{
+						} else {
 							qs.remove(last);
-							for(String o:outputsToQueries.keySet()){
-								if(outputsToQueries.get(o).size()>1){
-								SQLQuery union=new SQLQuery();
-								union.setStringOutputs(o);
-								union.setUnionAll(false);
-								union.setUnionqueries(outputsToQueries.get(o));
-								}
-								else{
-									SQLQuery out=outputsToQueries.get(o).get(0);
+							for (String o : outputsToQueries.keySet()) {
+								if (outputsToQueries.get(o).size() > 1) {
+									SQLQuery union = new SQLQuery();
+									union.setStringOutputs(o);
+									union.setUnionAll(false);
+									union.setUnionqueries(outputsToQueries.get(o));
+								} else {
+									SQLQuery out = outputsToQueries.get(o).get(0);
 									out.setOutputColumnsDistinct(true);
 									out.setStringOutputs(o);
 								}
 							}
 						}
-						
+
 					}
 				}
 			}
 		}
- if (DecomposerUtils.REMOVE_OUTPUTS) {
+		if (DecomposerUtils.REMOVE_OUTPUTS) {
 			removeOutputs(qs);
 		}
 
@@ -172,7 +167,7 @@ public class SinlgePlanDFLGenerator {
 				current.getUnionqueries().add(allUnions.get(i));
 			}
 		}
-		
+
 		return qs;
 	}
 
@@ -183,7 +178,7 @@ public class SinlgePlanDFLGenerator {
 			for (int i = qs.size() - 2; i > -1; i--) {
 				// Set<SQLQuery> queriesUsingQ=new HashSet<SQLQuery>();
 				SQLQuery q = qs.get(i);
-				if (unions.contains(q)||!q.isTemporary()) {
+				if (unions.contains(q) || !q.isTemporary()) {
 					continue;
 				}
 				// log.debug("removing from:"+q.getTemporaryTableName());
@@ -247,7 +242,6 @@ public class SinlgePlanDFLGenerator {
 					 * using.setHashId(Hashing.combineOrdered(
 					 * newHashForQueryUsing)); }
 					 */
-					
 
 				}
 				if (removedOutputs.isEmpty() && q.existsInCache()) {
@@ -266,7 +260,7 @@ public class SinlgePlanDFLGenerator {
 				}
 			}
 		}
-		
+
 	}
 
 	private void printPlan(MemoKey key) {
@@ -305,8 +299,6 @@ public class SinlgePlanDFLGenerator {
 
 	}
 
-
-
 	private void combineOperatorsAndOutputQueriesCentralized(MemoKey k, ResultList tempResult,
 			HashMap<MemoKey, SQLQuery> visited) throws CloneNotSupportedException {
 
@@ -324,12 +316,9 @@ public class SinlgePlanDFLGenerator {
 			return;
 		}
 
-	
-
 		if (e.getObject() instanceof Table) {
 			Table t = (Table) k.getNode().getObject();
 			tempResult.setLastTable(t);
-			
 
 			tempResult.trackBaseTableFromQuery(t.getAlias(), t.getAlias());
 
@@ -362,8 +351,8 @@ public class SinlgePlanDFLGenerator {
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 
 			if (op.getOpCode() == Node.PROJECT) {
-				//Table t = (Table) e.getObject();
-				//current.setTemporaryTableName(t.getName());
+				// Table t = (Table) e.getObject();
+				// current.setTemporaryTableName(t.getName());
 				for (int l = 0; l < current.getOutputs().size(); l++) {
 					Output o = current.getOutputs().get(l);
 					boolean exists = false;
@@ -402,35 +391,36 @@ public class SinlgePlanDFLGenerator {
 
 			}
 
-			
 		} else if (op.getOpCode() == Node.JOIN) {
 			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op.getObject();
 			NonUnaryWhereCondition nuwcCloned = nuwc.clone();
 			nuwcCloned.addRangeFilters(nuwc);
 			current.addBinaryWhereCondition(nuwcCloned);
-			//List<String> inputNames = new ArrayList<String>();
+			// List<String> inputNames = new ArrayList<String>();
 			for (int j = 0; j < op.getChildren().size(); j++) {
 
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(j), tempResult, visited);
-				
-				Table last=tempResult.getLastTable();
+
+				Table last = tempResult.getLastTable();
 				String lastRes = last.getAlias();
-				
-				if(j==1&&nuwc.isRightinv()){
-					last.setName("inv"+last.getName());
+				if (j == 0 && nuwc.isLeftinv()) {
+					last.setName("inv" + last.getName());
 				}
-				
-				if (lastRes != current.getTemporaryTableName()
-						&& !current.getInputTables().contains(last)) {
-					//if(j==1&&nuwc.isRightinv()){
-					//	Table inv=new Table("inv"+last.getName(), last.getAlias());
-					//	current.addInputTableIfNotExists(inv);
-					//}
-				//	else{
-						current.addInputTableIfNotExists(last);
-					//}
+				if (j == 1 && nuwc.isRightinv()) {
+					last.setName("inv" + last.getName());
+				}
+
+				if (lastRes != current.getTemporaryTableName() && !current.getInputTables().contains(last)) {
+					// if(j==1&&nuwc.isRightinv()){
+					// Table inv=new Table("inv"+last.getName(),
+					// last.getAlias());
+					// current.addInputTableIfNotExists(inv);
+					// }
+					// else{
+					current.addInputTableIfNotExists(last);
+					// }
 					addOutputs(current, lastRes, tempResult);
-					
+
 					for (Output o : current.getOutputs()) {
 						for (Column c : o.getObject().getAllColumnRefs()) {
 							{
@@ -465,8 +455,6 @@ public class SinlgePlanDFLGenerator {
 
 				}
 			}
-	
-
 
 		} else if (op.getOpCode() == Node.UNION || op.getOpCode() == Node.UNIONALL) {
 			List<SQLQuery> unions = new ArrayList<SQLQuery>();
@@ -481,13 +469,13 @@ public class SinlgePlanDFLGenerator {
 				combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(l), tempResult, visited);
 				if (memo.getMemoValue(p.getInputPlan(l)).isMaterialised()) {
 					u = tempResult.get(tempResult.getLastTable().getAlias());
-					
+
 				} else {
 					// visited.put(p.getInputPlan(l), u);
 					tempResult.add(u);
 				}
 				u.setHashId(p.getInputPlan(l).getNode().computeHashIDExpand());
-				
+
 				unions.add(u);
 
 			}
@@ -511,7 +499,7 @@ public class SinlgePlanDFLGenerator {
 			}
 
 		} else if (op.getOpCode() == Node.SELECT) {
-			
+
 			combineOperatorsAndOutputQueriesCentralized(p.getInputPlan(0), tempResult, visited);
 			String inputName = tempResult.getLastTable().getAlias();
 			Selection s = (Selection) op.getObject();
@@ -572,7 +560,7 @@ public class SinlgePlanDFLGenerator {
 				}
 
 			}
-			
+
 		} else if (op.getOpCode() == Node.LIMIT) {
 			current.setLimit(((Integer) op.getObject()).intValue());
 			current.setHashId(p.getInputPlan(0).getNode().computeHashIDExpand());
@@ -665,10 +653,10 @@ public class SinlgePlanDFLGenerator {
 			tempResult.setLastTable(current);
 			// }
 			current.setHashId(e.computeHashIDExpand());
-			log.debug("cardinality estimation for " + current.getTemporaryTableName() + ":");
-			if (e.getNodeInfo() != null) {
-				log.debug(e.getNodeInfo().getNumberOfTuples());
-			}
+			//log.debug("cardinality estimation for " + current.getTemporaryTableName() + ":");
+			//if (e.getNodeInfo() != null) {
+				//log.debug(e.getNodeInfo().getNumberOfTuples());
+			//}
 			for (String alias : e.getDescendantBaseTables()) {
 				tempResult.trackBaseTableFromQuery(alias, tempResult.getLastTable().getAlias());
 			}
@@ -719,11 +707,7 @@ public class SinlgePlanDFLGenerator {
 					current.addOutput(inputName, o.getOutputName());
 				}
 			}
-		} 
+		}
 	}
 
-
-
-	
 }
-

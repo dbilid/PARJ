@@ -24,66 +24,63 @@ import org.apache.log4j.Logger;
 public class PrimitiveHistogram implements HistogramBuilder {
 	private static final Logger log = Logger.getLogger(PrimitiveHistogram.class);
 
-    @Override public Schema build(Map<String, Table> dbStats) {
+	@Override
+	public Schema build(Map<String, Table> dbStats) {
 
-        Map<String, RelInfo> relMap = new HashMap<String, RelInfo>();
-        Schema schema = new Schema("FULL_SCHEMA", relMap);
+		Map<String, RelInfo> relMap = new HashMap<String, RelInfo>();
+		Schema schema = new Schema("FULL_SCHEMA", relMap);
 
-        //double diffVals = 0;
+		// double diffVals = 0;
 
-        for (String t : dbStats.keySet()) {
+		for (String t : dbStats.keySet()) {
 
-            Map<String, AttrInfo> attrIndex = new HashMap<String, AttrInfo>();
+			Map<String, AttrInfo> attrIndex = new HashMap<String, AttrInfo>();
 
-            //System.out.println(dbStats.get(t).getColumnMap().keySet().size());
+			// System.out.println(dbStats.get(t).getColumnMap().keySet().size());
 
-            for (String c : dbStats.get(t).getColumnMap().keySet()) {
-                NavigableMap<Double, Bucket> bucketIndex = new TreeMap<Double, Bucket>();
-                log.debug("building primitive histogram for column:" + c);
-                
-                
-                int count = dbStats.get(t).getNumberOfTuples();
-                int nodv = dbStats.get(t).getColumnMap().get(c).getNumberOfDiffValues();
-                // int limit = (int)Math.round(Stat.LIMIT_FACTOR *
-                // dbStats.get(t).getNumberOfTuples()) + 1;
-                //int limit = 1000;
+			for (String c : dbStats.get(t).getColumnMap().keySet()) {
+				NavigableMap<Double, Bucket> bucketIndex = new TreeMap<Double, Bucket>();
+				log.debug("building primitive histogram for column:" + c);
 
-                // System.out.println(c);
-                // System.out.println("count: " + count + " dv: " + nodv +
-                // " limit: " + limit);
+				int count = dbStats.get(t).getNumberOfTuples();
+				int nodv = dbStats.get(t).getColumnMap().get(c).getNumberOfDiffValues();
+				// int limit = (int)Math.round(Stat.LIMIT_FACTOR *
+				// dbStats.get(t).getNumberOfTuples()) + 1;
+				// int limit = 1000;
 
-                // diffVals = ((double)nodv * (double)count) / ((double)limit);
-                //System.out.println("diffVals estimation: " + diffVals);
-                //System.out.println("nodv: " + nodv + "count: " + count
-                //	+ "limit: " + limit);
+				// System.out.println(c);
+				// System.out.println("count: " + count + " dv: " + nodv +
+				// " limit: " + limit);
 
-                // Bucket b = new
-                // Bucket(BuildUtil.computeMeanVal(dbStats.get(t).getColumnMap().get(c).getDiffValFreqMap()),
-                // diffVals);
-                Bucket b = new Bucket(((double) count) / (double) nodv, (double) nodv);
+				// diffVals = ((double)nodv * (double)count) / ((double)limit);
+				// System.out.println("diffVals estimation: " + diffVals);
+				// System.out.println("nodv: " + nodv + "count: " + count
+				// + "limit: " + limit);
 
-                bucketIndex
-                    .put(Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMinValue()), b);
-                bucketIndex.put(Math.nextAfter(
-                    Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMaxValue()),
-                    Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
-                Histogram h = new Histogram(bucketIndex);
+				// Bucket b = new
+				// Bucket(BuildUtil.computeMeanVal(dbStats.get(t).getColumnMap().get(c).getDiffValFreqMap()),
+				// diffVals);
+				Bucket b = new Bucket(((double) count) / (double) nodv, (double) nodv);
 
-                AttrInfo a = new AttrInfo(dbStats.get(t).getColumnMap().get(c).getColumnName(), h,
-                    dbStats.get(t).getColumnMap().get(c).getColumnLength());
-                attrIndex.put(a.getAttrName(), a);
-                log.debug("Primitive histogram built for column:" + c);
-            }
-            Set<String> ha = new HashSet<String>();
-            ha.add(dbStats.get(t).getPrimaryKey());
-            RelInfo r = new RelInfo(dbStats.get(t).getTableName(), attrIndex,
-                dbStats.get(t).getNumberOfTuples(), dbStats.get(t).getTupleSize(),
-                RelInfo.DEFAULT_NUM_PARTITIONS, ha);
+				bucketIndex.put(Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMinValue()), b);
+				bucketIndex.put(Math.nextAfter(Double.parseDouble(dbStats.get(t).getColumnMap().get(c).getMaxValue()),
+						Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
+				Histogram h = new Histogram(bucketIndex);
 
-            relMap.put(r.getRelName(), r);
-        }
+				AttrInfo a = new AttrInfo(dbStats.get(t).getColumnMap().get(c).getColumnName(), h,
+						dbStats.get(t).getColumnMap().get(c).getColumnLength());
+				attrIndex.put(a.getAttrName(), a);
+				log.debug("Primitive histogram built for column:" + c);
+			}
+			Set<String> ha = new HashSet<String>();
+			ha.add(dbStats.get(t).getPrimaryKey());
+			RelInfo r = new RelInfo(dbStats.get(t).getTableName(), attrIndex, dbStats.get(t).getNumberOfTuples(),
+					dbStats.get(t).getTupleSize(), RelInfo.DEFAULT_NUM_PARTITIONS, ha);
 
-        return schema;
-    }
+			relMap.put(r.getRelName(), r);
+		}
+
+		return schema;
+	}
 
 }

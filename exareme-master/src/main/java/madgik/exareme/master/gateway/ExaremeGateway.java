@@ -4,21 +4,21 @@
 package madgik.exareme.master.gateway;
 
 /**
- * Exareme Gateway interface provided
- * for blocking and non blocking implementations.
+ * Exareme Gateway interface provided for blocking and non blocking
+ * implementations.
  *
  * @author alex
  * @since 0.1
  */
 public interface ExaremeGateway {
 
-    String getName();
+	String getName();
 
-    int getPort();
+	int getPort();
 
-    void start() throws Exception;
+	void start() throws Exception;
 
-    boolean isUp();
+	boolean isUp();
 
-    void stop();
+	void stop();
 }

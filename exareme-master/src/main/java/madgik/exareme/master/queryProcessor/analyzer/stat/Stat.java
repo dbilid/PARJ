@@ -6,7 +6,6 @@
 
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
-import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.log4j.Logger;
 
@@ -130,62 +129,64 @@ public class Stat implements StatExtractor {
 		return schema;
 
 	}
-	
+
 	public Map<String, Table> extractSPARQLStats(int partitions) throws Exception {
-		
-		Statement st=con.createStatement();
+
+		Statement st = con.createStatement();
 		ResultSet resultTables = st.executeQuery("select id from properties");
 		log.debug("Starting extracting stats");
 		while (resultTables.next()) {
 			Map<String, Column> columnMap = new HashMap<String, Column>();
-			String tableName = "prop"+resultTables.getInt(1)+"_0";
+			String tableName = "prop" + resultTables.getInt(1) + "_0";
 			log.debug("Analyzing table " + tableName);
 
 			int columnCount = 2;
 			int tupleSize = 8; // in bytes
 
-			
 			int count = getCount(tableName);
 
 			if (count == 0) {
 				log.debug("Empty table");
 				continue;
 			}
-			String columnName="s";
-			String inv="";
-			for(int h=0;h<2;h++) {
- 
+			String columnName = "s";
+			String inv = "";
+			for (int h = 0; h < 2; h++) {
+
 				try {
 
 					// computing column's min and max values
-					MinMax mm = computeMinMaxPartitioned(inv+"prop"+resultTables.getInt(1)+"_", columnName, partitions);
+					MinMax mm = computeMinMaxPartitioned(inv + "prop" + resultTables.getInt(1) + "_", columnName,
+							partitions);
 					String minVal = mm.getMin();
 					String maxVal = mm.getMax();
-					
 
 					// /
-					Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequencySPARQL(inv+"prop"+resultTables.getInt(1)+"_0", columnName, partitions);
+					Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequencySPARQL(
+							inv + "prop" + resultTables.getInt(1) + "_0", columnName, partitions);
 
-					if(diffValFreqMap.isEmpty()){
-						//empty partition 0
+					if (diffValFreqMap.isEmpty()) {
+						// empty partition 0
 						diffValFreqMap.put(minVal, count);
 					}
-					
+
 					// for (ValFreq k : freqs) {
 					// diffValFreqMap.put(k.getVal(), k.getFreq());
 
 					// }
-					int freq=diffValFreqMap.values().iterator().next();
+					int freq = diffValFreqMap.values().iterator().next();
 
 					// /add min max diff vals in the sampling values
-					//int minOcc = computeValOccurences(tableName, columnName, minVal);
+					// int minOcc = computeValOccurences(tableName, columnName,
+					// minVal);
 					if (!diffValFreqMap.containsKey(minVal))
 						diffValFreqMap.put(minVal, freq);
-					//int maxOcc = computeValOccurences(tableName, columnName, maxVal);
+					// int maxOcc = computeValOccurences(tableName, columnName,
+					// maxVal);
 					if (!diffValFreqMap.containsKey(maxVal))
 						diffValFreqMap.put(maxVal, freq);
 
-					int diffVals = (count*partitions/freq);
+					int diffVals = (count * partitions / freq);
 
 					Column c = new Column(columnName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
 					columnMap.put(columnName, c);
@@ -193,12 +194,13 @@ public class Stat implements StatExtractor {
 					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
 				}
 				columnName = "o";
-				inv="inv";
+				inv = "inv";
 			}
 			String pkey = "DEFAULT_KEY";
 
-			Table t = new Table("prop"+resultTables.getInt(1), columnCount, tupleSize, columnMap, count*partitions, pkey);
-			schema.put("prop"+resultTables.getInt(1), t);
+			Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count * partitions,
+					pkey);
+			schema.put("prop" + resultTables.getInt(1), t);
 
 		}
 		resultTables.close();
@@ -249,21 +251,21 @@ public class Stat implements StatExtractor {
 
 		return new MinMax(minVal, maxVal);
 	}
-	
+
 	private MinMax computeMinMaxPartitioned(String tableName, String columnName, int partitions) throws Exception {
-		StringBuffer query1 =new StringBuffer();
+		StringBuffer query1 = new StringBuffer();
 		query1.append("select min(");
 		query1.append(columnName);
 		query1.append(") as minVal, max(");
 		query1.append(columnName);
 		query1.append(") as maxVal  from (");
-		String union="";
-		for(int i=0;i<partitions;i++){
+		String union = "";
+		for (int i = 0; i < partitions; i++) {
 			query1.append(union);
 			query1.append(" select * from ");
 			query1.append(tableName);
 			query1.append(i);
-			union=" union all ";
+			union = " union all ";
 		}
 		query1.append(")");
 		String minVal = "", maxVal = "";
@@ -328,26 +330,26 @@ public class Stat implements StatExtractor {
 
 		return freqs;
 	}
-	
-	private Map<String, Integer> computeDistinctValuesFrequencySPARQL(String table_sample, String columnName, int partitions)
-			throws Exception {
+
+	private Map<String, Integer> computeDistinctValuesFrequencySPARQL(String table_sample, String columnName,
+			int partitions) throws Exception {
 		Map<String, Integer> freqs = new HashMap<String, Integer>();
 
-		String query = "select min(" + columnName + ") as val from " + table_sample ;
+		String query = "select min(" + columnName + ") as val from " + table_sample;
 
 		Statement stmt = con.createStatement();
 		ResultSet rs = stmt.executeQuery(query);
-		String min="";
+		String min = "";
 		while (rs.next()) {
-			//freqs.put(rs.getString("val"), rs.getInt("freq"));
-			min=rs.getString(1);
+			// freqs.put(rs.getString("val"), rs.getInt("freq"));
+			min = rs.getString(1);
 		}
-		int all=getCount(table_sample);
-		int distinct=getCount( "(select distinct "+columnName+" from "+table_sample+")");
-		if(distinct==0){
+		int all = getCount(table_sample);
+		int distinct = getCount("(select distinct " + columnName + " from " + table_sample + ")");
+		if (distinct == 0) {
 			return freqs;
 		}
-		int freq=all/distinct;
+		int freq = all / distinct;
 		freqs.put(min, freq);
 		rs.close();
 		stmt.close();

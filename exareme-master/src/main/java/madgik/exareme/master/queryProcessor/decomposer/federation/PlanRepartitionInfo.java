@@ -15,32 +15,32 @@ import java.util.Map;
  */
 public class PlanRepartitionInfo {
 
-    private Column repBeforeOp;
-    private Map<Integer, Column> repsAferOp;
+	private Column repBeforeOp;
+	private Map<Integer, Column> repsAferOp;
 
-    public PlanRepartitionInfo() {
-        this.repBeforeOp = null;
-        this.repsAferOp = new HashMap<Integer, Column>();
-    }
+	public PlanRepartitionInfo() {
+		this.repBeforeOp = null;
+		this.repsAferOp = new HashMap<Integer, Column>();
+	}
 
-    public Column getRepBeforeOp() {
-        return repBeforeOp;
-    }
+	public Column getRepBeforeOp() {
+		return repBeforeOp;
+	}
 
-    public void setRepBeforeOp(Column repBeforeOp) {
-        this.repBeforeOp = repBeforeOp;
-    }
+	public void setRepBeforeOp(Column repBeforeOp) {
+		this.repBeforeOp = repBeforeOp;
+	}
 
-    public Column getRepAfterOp(int i) {
-        if (repsAferOp.containsKey(i)) {
-            return repsAferOp.get(i);
-        } else {
-            return null;
-        }
-    }
+	public Column getRepAfterOp(int i) {
+		if (repsAferOp.containsKey(i)) {
+			return repsAferOp.get(i);
+		} else {
+			return null;
+		}
+	}
 
-    void setRepAfterOp(int i, Column c) {
-        this.repsAferOp.put(i, c);
-    }
+	void setRepAfterOp(int i, Column c) {
+		this.repsAferOp.put(i, c);
+	}
 
 }

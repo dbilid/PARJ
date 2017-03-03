@@ -13,25 +13,26 @@ import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
  */
 public class HashStringDemo {
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) {
-        // TODO code application logic here
+	/**
+	 * @param args
+	 *            the command line arguments
+	 */
+	public static void main(String[] args) {
+		// TODO code application logic here
 
-        String str1 = "aaa";
-        String str2 = "z";
+		String str1 = "aaa";
+		String str2 = "z";
 
-        double str1h = StatUtils.hashString(str1);
-        double str2h = StatUtils.hashString(str2);
+		double str1h = StatUtils.hashString(str1);
+		double str2h = StatUtils.hashString(str2);
 
-        System.out.println(str1h);
-        System.out.println(str2h);
+		System.out.println(str1h);
+		System.out.println(str2h);
 
-        if (str1h >= str2h)
-            System.out.println("str1 > str2");
-        else
-            System.out.println("str1 < str2");
-    }
+		if (str1h >= str2h)
+			System.out.println("str1 > str2");
+		else
+			System.out.println("str1 < str2");
+	}
 
 }

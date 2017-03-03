@@ -6,7 +6,6 @@
 
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
-import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.OptiqueAnalyzer;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.log4j.Logger;
 
@@ -107,90 +106,89 @@ public class ExternalStat implements StatExtractor {
 		while (resultColumns.next()) {
 
 			String columnName = StringEscapeUtils.escapeJava(resultColumns.getString(4));
-			try{
-			String colNamePattern = columnName;
-			if (con.getClass().getName().contains("postgresql")) {
-				colNamePattern = "\"" + columnName + "\"";
-			}
-			int columnType = resultColumns.getInt(5);
-
-			// computing column's size in bytes
-			int columnSize = computeColumnSize(colNamePattern, columnType, tableNamePattern);
-			toupleSize += columnSize;
-
-			// execute queries for numberOfDiffValues, minVal, maxVal
-			// Map<String, Integer> diffValFreqMap = new HashMap<String,
-			// Integer>();
-
-			// computing column's min and max values
-			String minVal="0";
-			String maxVal="0";
-			if (columnType != Types.BLOB){
-			MinMax mm = computeMinMax(tableNamePattern, colNamePattern);
-			minVal = mm.getMin();
-			maxVal = mm.getMax();
-			}
-			Map<String, Integer> diffValFreqMap=new HashMap<String, Integer>();
-			//only for equidepth!
-			
-
-			// for (ValFreq k : freqs) {
-			// diffValFreqMap.put(k.getVal(), k.getFreq());
-
-			// }
-
-			// /add min max diff vals in the sampling values
-			
-			int minOcc = 1;
-			int maxOcc = 1;
-			int diffVals = 0;
-			boolean equidepth=false;
-			if(equidepth){
-				
-				//diffValFreqMap is used only in equidepth, do not compute it
-				//if we have primitive
-				diffValFreqMap = computeDistinctValuesFrequency(tableNamePattern, colNamePattern);
-				
-				String minValChar = minVal;
-				String maxValChar = maxVal;
-				if (columnType == Types.VARCHAR || columnType == Types.CHAR || columnType == Types.LONGNVARCHAR
-						|| columnType == Types.DATE) {
-					minValChar = "\'" + minVal + "\'";
-					maxValChar = "\'" + maxVal + "\'";
-				}
 			try {
-				minOcc = computeValOccurences(tableNamePattern, colNamePattern, minValChar);
-			} catch (Exception e) {
-				log.error(
-						"Could not compute value occurences for column:" + colNamePattern + " and value:" + minValChar);
-			}
-			if (equidepth&&!diffValFreqMap.containsKey(minVal))
-				diffValFreqMap.put(minVal, minOcc);
-			
-			try {
-				maxOcc = computeValOccurences(tableNamePattern, colNamePattern, maxValChar);
-			} catch (Exception e) {
-				log.error(
-						"Could not compute value occurences for column:" + colNamePattern + " and value:" + maxValChar);
-			}
-			if (diffValFreqMap.containsKey(maxVal))
-				diffValFreqMap.put(maxVal, maxOcc);
-
-			 diffVals = diffValFreqMap.size();
-			}else{
-				diffVals=computeDiffVals(tableNamePattern, colNamePattern, columnType);
-			}
-			if(diffVals==0){
-				//all values are null!
-				continue;
-			}
-			Column c = new Column(columnName, columnType, columnSize, diffVals, minVal, maxVal, diffValFreqMap);
-			columnMap.put(columnName, c);
-			}
-				catch(Exception ex){
-					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
+				String colNamePattern = columnName;
+				if (con.getClass().getName().contains("postgresql")) {
+					colNamePattern = "\"" + columnName + "\"";
 				}
-			
+				int columnType = resultColumns.getInt(5);
+
+				// computing column's size in bytes
+				int columnSize = computeColumnSize(colNamePattern, columnType, tableNamePattern);
+				toupleSize += columnSize;
+
+				// execute queries for numberOfDiffValues, minVal, maxVal
+				// Map<String, Integer> diffValFreqMap = new HashMap<String,
+				// Integer>();
+
+				// computing column's min and max values
+				String minVal = "0";
+				String maxVal = "0";
+				if (columnType != Types.BLOB) {
+					MinMax mm = computeMinMax(tableNamePattern, colNamePattern);
+					minVal = mm.getMin();
+					maxVal = mm.getMax();
+				}
+				Map<String, Integer> diffValFreqMap = new HashMap<String, Integer>();
+				// only for equidepth!
+
+				// for (ValFreq k : freqs) {
+				// diffValFreqMap.put(k.getVal(), k.getFreq());
+
+				// }
+
+				// /add min max diff vals in the sampling values
+
+				int minOcc = 1;
+				int maxOcc = 1;
+				int diffVals = 0;
+				boolean equidepth = false;
+				if (equidepth) {
+
+					// diffValFreqMap is used only in equidepth, do not compute
+					// it
+					// if we have primitive
+					diffValFreqMap = computeDistinctValuesFrequency(tableNamePattern, colNamePattern);
+
+					String minValChar = minVal;
+					String maxValChar = maxVal;
+					if (columnType == Types.VARCHAR || columnType == Types.CHAR || columnType == Types.LONGNVARCHAR
+							|| columnType == Types.DATE) {
+						minValChar = "\'" + minVal + "\'";
+						maxValChar = "\'" + maxVal + "\'";
+					}
+					try {
+						minOcc = computeValOccurences(tableNamePattern, colNamePattern, minValChar);
+					} catch (Exception e) {
+						log.error("Could not compute value occurences for column:" + colNamePattern + " and value:"
+								+ minValChar);
+					}
+					if (equidepth && !diffValFreqMap.containsKey(minVal))
+						diffValFreqMap.put(minVal, minOcc);
+
+					try {
+						maxOcc = computeValOccurences(tableNamePattern, colNamePattern, maxValChar);
+					} catch (Exception e) {
+						log.error("Could not compute value occurences for column:" + colNamePattern + " and value:"
+								+ maxValChar);
+					}
+					if (diffValFreqMap.containsKey(maxVal))
+						diffValFreqMap.put(maxVal, maxOcc);
+
+					diffVals = diffValFreqMap.size();
+				} else {
+					diffVals = computeDiffVals(tableNamePattern, colNamePattern, columnType);
+				}
+				if (diffVals == 0) {
+					// all values are null!
+					continue;
+				}
+				Column c = new Column(columnName, columnType, columnSize, diffVals, minVal, maxVal, diffValFreqMap);
+				columnMap.put(columnName, c);
+			} catch (Exception ex) {
+				log.error("could not analyze column " + columnName + ":" + ex.getMessage());
+			}
+
 		}
 
 		Table t = new Table(tblName, columnCount, toupleSize, columnMap, count, pkey);

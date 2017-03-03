@@ -63,7 +63,6 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	@Override
 	public void makeEstimationForNode(Node n) {
-
 		if (n.getObject() instanceof Table) {
 			estimateBase(n);
 		} else {
@@ -80,7 +79,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			} else if (o.getOpCode() == Node.SELECT) {
 				Selection s = (Selection) o.getObject();
 				estimateFilter(n, s, o.getChildAt(0));
-			} else if (o.getOpCode() == Node.UNION||o.getOpCode() == Node.UNIONALL) {
+			} else if (o.getOpCode() == Node.UNION || o.getOpCode() == Node.UNIONALL) {
 				estimateUnion(n);
 			} else if (o.getOpCode() == Node.NESTED) {
 				NodeInfo nested = new NodeInfo();
@@ -300,21 +299,19 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
 
 				double filterValue = 0;
-				/*if (!con.isArithmetic()) {
-					if (con.getValue() instanceof String) {
-						String st = (String) con.getValue();
-						filterValue = StatUtils.hashString(con.getValue().toString());
-						String newSt = "";
-						if (st.startsWith("\'")) {
-							newSt = st.replaceAll("\'", "");
-							filterValue = StatUtils.hashString(newSt);
-						}
-
-					}
-
-				} else {*/
-					filterValue = Double.parseDouble(con.getValue().toString());
-				//}
+				/*
+				 * if (!con.isArithmetic()) { if (con.getValue() instanceof
+				 * String) { String st = (String) con.getValue(); filterValue =
+				 * StatUtils.hashString(con.getValue().toString()); String newSt
+				 * = ""; if (st.startsWith("\'")) { newSt = st.replaceAll("\'",
+				 * ""); filterValue = StatUtils.hashString(newSt); }
+				 * 
+				 * }
+				 * 
+				 * } else {
+				 */
+				filterValue = Double.parseDouble(con.getValue().toString());
+				// }
 
 				if (operator.equals("="))
 					resultHistogram.equal(filterValue);
@@ -395,7 +392,6 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
-		resultRel.getHashAttr().addAll(newR.getHashAttr());
 
 		// TODO: fix nodeInfo
 		ni.setNumberOfTuples(resultRel.getNumberOfTuples());
@@ -455,7 +451,6 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
-		resultRel.getHashAttr().addAll(rRel.getHashAttr());
 
 		// TODO: fix nodeInfo
 		ni.setNumberOfTuples(resultRel.getNumberOfTuples());

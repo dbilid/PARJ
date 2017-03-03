@@ -13,14 +13,16 @@ import com.google.common.hash.HashCode;
  */
 public interface Operand extends Cloneable {
 
-    public List<Column> getAllColumnRefs();
+	public List<Column> getAllColumnRefs();
 
-    /*changes the old column in every member of the operand with the new.
-     * Convinient way to change a column instead of deep copying the whole object
-     */
-    public void changeColumn(Column oldCol, Column newCol);
+	/*
+	 * changes the old column in every member of the operand with the new.
+	 * Convinient way to change a column instead of deep copying the whole
+	 * object
+	 */
+	public void changeColumn(Column oldCol, Column newCol);
 
-    public Operand clone() throws CloneNotSupportedException;
-    
-    public HashCode getHashID();
+	public Operand clone() throws CloneNotSupportedException;
+
+	public HashCode getHashID();
 }

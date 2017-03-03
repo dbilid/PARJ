@@ -1,10 +1,8 @@
 package madgik.exareme.master.queryProcessor.decomposer.federation;
 
-
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
-
 
 import org.apache.log4j.Logger;
 import org.postgresql.copy.CopyManager;
@@ -23,31 +21,31 @@ public class DataImporter implements Runnable {
 	private String fedSQLFalse;
 	private String error;
 	Map<String, String> correspondingOutputs;
-	
+
 	private static final Logger log = Logger.getLogger(DataImporter.class);
 
 	public DataImporter(SQLQuery q, String db, DB dbinfo) {
-		this.db=dbinfo;
+		this.db = dbinfo;
 		this.s = q;
 		this.dbPath = db;
-		this.addToRegistry=false;
-        correspondingOutputs=new HashMap<String, String>();
+		this.addToRegistry = false;
+		correspondingOutputs = new HashMap<String, String>();
 		if (this.db.getDriver().contains("OracleDriver")) {
-			correspondingOutputs=s.renameOracleOutputs();
+			correspondingOutputs = s.renameOracleOutputs();
 		}
-		fedSQLTrue=s.getExecutionStringInFederatedSource(true);
-		fedSQLFalse=s.getExecutionStringInFederatedSource(false);
-		
+		fedSQLTrue = s.getSqlForPartition(0);
+		fedSQLFalse = s.getSqlForPartition(0);
+
 	}
 
 	@Override
 	public void run() {
-		int columnsNumber=0;
-		//DB db = DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
+		int columnsNumber = 0;
+		// DB db =
+		// DBInfoReaderDB.dbInfo.getDBForMadis(s.getMadisFunctionString());
 		StringBuilder createTableSQL = new StringBuilder();
 		if (db == null) {
-			log.error("Could not import Data. DB not found:"
-					+ s.getMadisFunctionString());
+			//log.error("Could not import Data. DB not found:" + s.getMadisFunctionString());
 			return;
 		}
 		String driverClass = db.getDriver();
@@ -60,11 +58,8 @@ public class DataImporter implements Runnable {
 		}
 
 		String conString = db.getURL();
-		
-		
-		
 
-		//fedSQL = s.getExecutionStringInFederatedSource(true);
+		// fedSQL = s.getExecutionStringInFederatedSource(true);
 		log.debug("importing:" + fedSQLTrue);
 		Connection connection = null;
 		Statement statement = null;
@@ -73,21 +68,20 @@ public class DataImporter implements Runnable {
 		int count = 0;
 		Connection sqliteConnection = null;
 		PreparedStatement sqliteStatement = null;
-		String importString="import/";
-		String part=".db";
-		if(addToRegistry){
-			importString="";
-			part=".0.db";
+		String importString = "import/";
+		String part = ".db";
+		if (addToRegistry) {
+			importString = "";
+			part = ".0.db";
 		}
 
 		try {
-			
-			sqliteConnection = DriverManager.getConnection("jdbc:sqlite:"
-					+ dbPath + importString + s.getTemporaryTableName() + part);
+
+			sqliteConnection = DriverManager
+					.getConnection("jdbc:sqlite:" + dbPath + importString + s.getTemporaryTableName() + part);
 			// statement.setQueryTimeout(30);
 			sqliteConnection.setAutoCommit(false);
-			connection = DriverManager.getConnection(conString, db.getUser(),
-					db.getPass());
+			connection = DriverManager.getConnection(conString, db.getUser(), db.getPass());
 			int fetch = 100;
 			if (db.getDriver().contains("OracleDriver")) {
 				fetch = DecomposerUtils.FETCH_SIZE_ORACLE;
@@ -95,32 +89,29 @@ public class DataImporter implements Runnable {
 				fetch = DecomposerUtils.FETCH_SIZE_POSTGRES;
 				connection.setAutoCommit(false);
 			} else if (db.getDriver().contains("mysql")) {
-				//hint to mysql jdbc to "stream" results
+				// hint to mysql jdbc to "stream" results
 				fetch = Integer.MIN_VALUE;
 				connection.setAutoCommit(false);
 			}
 
-			String sql = "insert into " + s.getTemporaryTableName()
-					+ " values (";
+			String sql = "insert into " + s.getTemporaryTableName() + " values (";
 
-			
 			createTableSQL.append("CREATE TABLE ");
 			createTableSQL.append(s.getTemporaryTableName());
 			createTableSQL.append("( ");
 
-			statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY,
-					ResultSet.CONCUR_READ_ONLY);
+			statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			statement.setFetchSize(fetch);
 			start = System.currentTimeMillis();
 
-			if (db.getDriver().contains("postgresql")
-					&& DecomposerUtils.USE_POSTGRES_COPY) {
-				SQLiteWriter swriter=new SQLiteWriter(sqliteConnection, DecomposerUtils.NO_OF_RECORDS, fedSQLFalse, statement, sql, createTableSQL);
+			if (db.getDriver().contains("postgresql") && DecomposerUtils.USE_POSTGRES_COPY) {
+				SQLiteWriter swriter = new SQLiteWriter(sqliteConnection, DecomposerUtils.NO_OF_RECORDS, fedSQLFalse,
+						statement, sql, createTableSQL);
 				CopyManager copyManager = new CopyManager((BaseConnection) connection);
-	            count=(int)copyManager.copyOut("COPY ("+fedSQLTrue+") TO STDOUT WITH DELIMITER '#'", swriter);
-	            swriter.close();
+				count = (int) copyManager.copyOut("COPY (" + fedSQLTrue + ") TO STDOUT WITH DELIMITER '#'", swriter);
+				swriter.close();
 			} else {
-				StringBuffer primaryKeySQL=new StringBuffer();
+				StringBuffer primaryKeySQL = new StringBuffer();
 				primaryKeySQL.append(", PRIMARY KEY(");
 				resultSet = statement.executeQuery(fedSQLTrue);
 
@@ -132,9 +123,9 @@ public class DataImporter implements Runnable {
 					sql += questionmark;
 					questionmark = ",?";
 					String l = rsmd.getColumnLabel(i);
-					
-					if(correspondingOutputs.containsKey(l.toUpperCase())){
-						l=correspondingOutputs.get(l.toUpperCase());						
+
+					if (correspondingOutputs.containsKey(l.toUpperCase())) {
+						l = correspondingOutputs.get(l.toUpperCase());
 					}
 					int type = rsmd.getColumnType(i);
 					String coltype = "";
@@ -158,33 +149,29 @@ public class DataImporter implements Runnable {
 					comma = ",";
 				}
 				sql += ")";
-				if(DecomposerUtils.USE_ROWID&&s.isOutputColumnsDinstict()&&rsmd.getColumnCount()==1){
+				if (DecomposerUtils.USE_ROWID && s.isOutputColumnsDinstict() && rsmd.getColumnCount() == 1) {
 					primaryKeySQL.append(") ) without rowid");
 					createTableSQL.append(primaryKeySQL);
-				}
-				else{
+				} else {
 					createTableSQL.append(")");
 				}
-				
+
 				Statement creatSt = sqliteConnection.createStatement();
 				log.debug("dropping table if exists");
-				creatSt.execute("drop table if exists "+s.getTemporaryTableName());
-				log.debug("executing:" +createTableSQL);
+				creatSt.execute("drop table if exists " + s.getTemporaryTableName());
+				log.debug("executing:" + createTableSQL);
 				creatSt.execute(createTableSQL.toString());
 				creatSt.close();
 				sqliteStatement = sqliteConnection.prepareStatement(sql);
 				final int batchSize = DecomposerUtils.NO_OF_RECORDS;
 				while (resultSet.next()) {
 
-					
-
 					for (int i = 1; i <= columnsNumber; i++) {
-						Object ob=resultSet.getObject(i);
-						if(ob instanceof Date){
+						Object ob = resultSet.getObject(i);
+						if (ob instanceof Date) {
 							sqliteStatement.setObject(i, ob.toString());
-						}
-						else{
-						sqliteStatement.setObject(i, ob);
+						} else {
+							sqliteStatement.setObject(i, ob);
 						}
 					}
 
@@ -195,93 +182,86 @@ public class DataImporter implements Runnable {
 					}
 				}
 				sqliteStatement.executeBatch(); // insert remaining records
-				/*if(DecomposerUtils.USE_ROWID&&!s.isOutputColumnsDinstict()&&rsmd.getColumnCount()==1){
-					String index="create index "+rsmd.getColumnName(1)+"index"+" on "+s.getTemporaryTableName()+"("+
-							rsmd.getColumnLabel(1)+")";
-					log.debug(index);
-					sqliteStatement.execute(index);
-				}*/
+				/*
+				 * if(DecomposerUtils.USE_ROWID&&!s.isOutputColumnsDinstict()&&
+				 * rsmd.getColumnCount()==1){ String index="create index "
+				 * +rsmd.getColumnName(1)+"index"+" on "
+				 * +s.getTemporaryTableName()+"("+ rsmd.getColumnLabel(1)+")";
+				 * log.debug(index); sqliteStatement.execute(index); }
+				 */
 				sqliteStatement.close();
 				resultSet.close();
 			}
-			if(DecomposerUtils.USE_ROWID&&!s.isOutputColumnsDinstict()&&s.getOutputs().size()==1){
-				String index="create index "+s.getOutputAliases().get(0)+"index"+" on "+s.getTemporaryTableName()+"("+
-						s.getOutputAliases().get(0)+")";
+			if (DecomposerUtils.USE_ROWID && !s.isOutputColumnsDinstict() && s.getOutputs().size() == 1) {
+				String index = "create index " + s.getOutputAliases().get(0) + "index" + " on "
+						+ s.getTemporaryTableName() + "(" + s.getOutputAliases().get(0) + ")";
 				log.debug(index);
 				Statement creatindex = sqliteConnection.createStatement();
 				creatindex.execute(index);
 				creatindex.close();
 			}
-			
+
 			sqliteConnection.commit();
-			
+
 			sqliteConnection.close();
-			
+
 			statement.close();
 			connection.close();
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			log.error("Could not import data from endpoint\n" + e.getMessage() +
-					" from query:"+fedSQLTrue);
-			error="Could not import data from endpoint\n" + e.getMessage() +
-					" from query:"+fedSQLTrue;
+			log.error("Could not import data from endpoint\n" + e.getMessage() + " from query:" + fedSQLTrue);
+			error = "Could not import data from endpoint\n" + e.getMessage() + " from query:" + fedSQLTrue;
 			return;
 		}
 
-		log.debug(count + " rows were imported in "
-				+ (System.currentTimeMillis() - start) + "msec from query: "+ fedSQLTrue);
+		log.debug(count + " rows were imported in " + (System.currentTimeMillis() - start) + "msec from query: "
+				+ fedSQLTrue);
 		StringBuilder madis = new StringBuilder();
 		madis.append("sqlite '");
 		madis.append(this.dbPath);
 		madis.append("import/");
 		madis.append(s.getTemporaryTableName());
 		madis.append(".db' ");
-		s.setMadisFunctionString(madis.toString());
+		//s.setMadisFunctionString(madis.toString());
 		s.setSelectAll(true);
 
 		s.removeInfo();
-		s.getInputTables()
-				.add(new Table(s.getTemporaryTableName(), s
-						.getTemporaryTableName()));
-/*		if(this.addToRegistry){
-			madgik.exareme.common.schema.Table table=new madgik.exareme.common.schema.Table(s.getTemporaryTableName());
-			Registry reg = Registry.getInstance(this.dbPath);
-			table.setSqlDefinition(createTableSQL.toString());
-			//TableInfo ti=new TableInfo(s.getTemporaryTableName());
-			//ti.setSqlDefinition(createTableSQL.toString());
-			table.setTemp(false);
-			table.setSqlQuery(s.toDistSQL());
-			table.setSize(count*columnsNumber*4);//to be fixed
-			if(s.getHashId()==null){
-				log.error("null hash ID for query "+fedSQLTrue);
-				table.setHashID(null);
-			}
-			else{
-				table.setHashID(s.getHashId().asBytes());
-			}
-			PhysicalTable pt=new PhysicalTable(table);
-			Partition partition0 = new Partition(s.getTemporaryTableName(), 0);
-			//partition0.addLocation("127.0.0.1");
-            partition0.addLocation(ArtRegistryLocator.getLocalRmiRegistryEntityName().getIP());
-            //partition0.addPartitionColumn("");
-			pt.addPartition(partition0);
-			reg.addPhysicalTable(pt);
-		}*/
+		s.getInputTables().add(new Table(s.getTemporaryTableName(), s.getTemporaryTableName()));
+		/*
+		 * if(this.addToRegistry){ madgik.exareme.common.schema.Table table=new
+		 * madgik.exareme.common.schema.Table(s.getTemporaryTableName());
+		 * Registry reg = Registry.getInstance(this.dbPath);
+		 * table.setSqlDefinition(createTableSQL.toString()); //TableInfo ti=new
+		 * TableInfo(s.getTemporaryTableName());
+		 * //ti.setSqlDefinition(createTableSQL.toString());
+		 * table.setTemp(false); table.setSqlQuery(s.toDistSQL());
+		 * table.setSize(count*columnsNumber*4);//to be fixed
+		 * if(s.getHashId()==null){ log.error("null hash ID for query "
+		 * +fedSQLTrue); table.setHashID(null); } else{
+		 * table.setHashID(s.getHashId().asBytes()); } PhysicalTable pt=new
+		 * PhysicalTable(table); Partition partition0 = new
+		 * Partition(s.getTemporaryTableName(), 0);
+		 * //partition0.addLocation("127.0.0.1");
+		 * partition0.addLocation(ArtRegistryLocator.
+		 * getLocalRmiRegistryEntityName().getIP());
+		 * //partition0.addPartitionColumn(""); pt.addPartition(partition0);
+		 * reg.addPhysicalTable(pt); }
+		 */
 
 	}
-	
-	public void setAddToRegisrty(boolean b){
-		this.addToRegistry=b;
+
+	public void setAddToRegisrty(boolean b) {
+		this.addToRegistry = b;
 	}
 
 	public void setFedSQL(String fedSQL) {
 		this.fedSQLTrue = fedSQL;
 		this.fedSQLFalse = fedSQL;
 	}
-	public String getError(){
+
+	public String getError() {
 		return error;
 	}
-	
 
 }

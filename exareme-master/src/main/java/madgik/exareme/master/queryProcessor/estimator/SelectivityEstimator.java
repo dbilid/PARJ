@@ -11,6 +11,6 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
  */
 public interface SelectivityEstimator {
 
-    public void makeEstimationForNode(Node n);
+	public void makeEstimationForNode(Node n);
 
 }

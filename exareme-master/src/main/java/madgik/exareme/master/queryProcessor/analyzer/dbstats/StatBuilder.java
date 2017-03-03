@@ -24,68 +24,66 @@ import java.util.Map;
  */
 public class StatBuilder {
 
-    private String path;
-    private String[] db;
-    private HistogramBuildMethod method;
-    private Map<String, Table> dbStats;
-    private String fileName = "NOVAL";
+	private String path;
+	private String[] db;
+	private HistogramBuildMethod method;
+	private Map<String, Table> dbStats;
+	private String fileName = "NOVAL";
 
-    public StatBuilder(String[] db, HistogramBuildMethod method, Map<String, Table> schema)
-        throws Exception {
-        this.db = db;
-        this.method = method;
-        this.dbStats = loadData(schema);
-    }
+	public StatBuilder(String[] db, HistogramBuildMethod method, Map<String, Table> schema) throws Exception {
+		this.db = db;
+		this.method = method;
+		this.dbStats = loadData(schema);
+	}
 
-    public StatBuilder(String path, String[] db, HistogramBuildMethod method) throws Exception {
-        this.path = path;
-        this.db = db;
-        this.method = method;
-        this.dbStats = loadData();
-    }
+	public StatBuilder(String path, String[] db, HistogramBuildMethod method) throws Exception {
+		this.path = path;
+		this.db = db;
+		this.method = method;
+		this.dbStats = loadData();
+	}
 
-    public Schema build() throws Exception {
-        HistogramBuilder hb = null;
-        switch (this.method) {
-            case Primitive:
-                fileName = "primitive";
-                hb = new PrimitiveHistogram();
-                break;
-            case EquiDepth:
-                fileName = "equiDepth";
-                hb = new EquiDepth();
-                break;
-        }
-        return hb.build(dbStats);
+	public Schema build() throws Exception {
+		HistogramBuilder hb = null;
+		switch (this.method) {
+		case Primitive:
+			fileName = "primitive";
+			hb = new PrimitiveHistogram();
+			break;
+		case EquiDepth:
+			fileName = "equiDepth";
+			hb = new EquiDepth();
+			break;
+		}
+		return hb.build(dbStats);
 
-        //		s.exportToJson("schema_" + fileName);
-    }
+		// s.exportToJson("schema_" + fileName);
+	}
 
-    /* private - helper methods */
-    private Map<String, Table> loadData() throws Exception {
+	/* private - helper methods */
+	private Map<String, Table> loadData() throws Exception {
 
-        Map<String, Table> compositeSchema = new HashMap<String, Table>();
+		Map<String, Table> compositeSchema = new HashMap<String, Table>();
 
-        for (String s : this.db) {
-            Gson gson = new Gson();
-            BufferedReader br = new BufferedReader(new FileReader(path + s + ".json"));
-            // convert the json string back to object
-            Map<String, Table> schema = gson.fromJson(br, new TypeToken<Map<String, Table>>() {
-            }.getType());
-            compositeSchema.putAll(schema);
-        }
+		for (String s : this.db) {
+			Gson gson = new Gson();
+			BufferedReader br = new BufferedReader(new FileReader(path + s + ".json"));
+			// convert the json string back to object
+			Map<String, Table> schema = gson.fromJson(br, new TypeToken<Map<String, Table>>() {
+			}.getType());
+			compositeSchema.putAll(schema);
+		}
 
-        return compositeSchema;
-    }
+		return compositeSchema;
+	}
 
-    private Map<String, Table> loadData(Map<String, Table> schema) throws Exception {
+	private Map<String, Table> loadData(Map<String, Table> schema) throws Exception {
 
-        Map<String, Table> compositeSchema = new HashMap<String, Table>();
+		Map<String, Table> compositeSchema = new HashMap<String, Table>();
 
-        compositeSchema.putAll(schema);
+		compositeSchema.putAll(schema);
 
-
-        return compositeSchema;
-    }
+		return compositeSchema;
+	}
 
 }

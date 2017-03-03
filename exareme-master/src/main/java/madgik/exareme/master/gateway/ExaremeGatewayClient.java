@@ -7,6 +7,6 @@ import java.io.InputStream;
  */
 public interface ExaremeGatewayClient {
 
-    InputStream query(String database, String query);
+	InputStream query(String database, String query);
 
 }

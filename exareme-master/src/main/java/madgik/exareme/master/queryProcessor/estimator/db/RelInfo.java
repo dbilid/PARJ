@@ -25,7 +25,6 @@ public class RelInfo {
 	private double numberOfTuples;
 	private int tupleLength;
 	private int numberOfPartitions;
-	private Set<String> hashAttr;
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(RelInfo.class);
 
 	/* constructor */
@@ -37,7 +36,6 @@ public class RelInfo {
 		this.numberOfTuples = numberOfTuples;
 		this.tupleLength = tupleLength;
 		this.numberOfPartitions = numberOfPartitions;
-		this.hashAttr = hashAttr;
 	}
 
 	/* copy constructor */
@@ -47,10 +45,9 @@ public class RelInfo {
 		this.tupleLength = rel.getTupleLength();
 		this.numberOfPartitions = rel.getNumberOfPartitions();
 		this.attrIndex = new HashMap<String, AttrInfo>();
-		this.hashAttr = new HashSet<String>(rel.getHashAttr());
 
 		for (Map.Entry<String, AttrInfo> e : rel.getAttrIndex().entrySet()) {
-			if(e.getValue()==null){
+			if (e.getValue() == null) {
 				continue;
 			}
 			this.attrIndex.put(e.getKey(), new AttrInfo(e.getValue()));
@@ -63,29 +60,11 @@ public class RelInfo {
 		this.tupleLength = rel.getTupleLength();
 		this.numberOfPartitions = rel.getNumberOfPartitions();
 		this.attrIndex = new HashMap<String, AttrInfo>();
-		this.hashAttr = new HashSet<String>(rel.getHashAttr());
-		if (!isNested) {
 			for (Map.Entry<String, AttrInfo> e : rel.getAttrIndex().entrySet()) {
-				this.attrIndex.put(tableAlias + "." + e.getKey(), new AttrInfo(e.getValue()));
+				this.attrIndex.put(tableAlias + "." + e.getKey(), e.getValue());
 			}
-		} else {
-			for (Map.Entry<String, AttrInfo> e : rel.getAttrIndex().entrySet()) {
-				// replace previous alias with nested alias
-				String previousAlias = "";
-				if (e.getKey().indexOf(".") > -1) {
-					previousAlias = e.getKey().substring(0, e.getKey().indexOf("."));
-					this.attrIndex.put(e.getKey().replace(previousAlias, tableAlias), new AttrInfo(e.getValue()));
-
-				} else {
-					previousAlias = tableAlias + "_";
-					if (e.getValue() != null) {
-						this.attrIndex.put(e.getKey().replace(previousAlias, tableAlias + "."),
-								new AttrInfo(e.getValue()));
-					}
-
-				}
-			}
-		}
+			
+		
 	}
 
 	/* getters and seters */
@@ -129,13 +108,6 @@ public class RelInfo {
 		this.numberOfPartitions = numberOfPartitions;
 	}
 
-	public Set<String> getHashAttr() {
-		return hashAttr;
-	}
-
-	public void setHashAttr(Set<String> hashAttr) {
-		this.hashAttr = hashAttr;
-	}
 
 	public double totalRelSize() {
 		return this.numberOfTuples * this.tupleLength;
@@ -146,7 +118,7 @@ public class RelInfo {
 	public String toString() {
 		return "Relation{" + "relName=" + relName + ", attrIndex=" + attrIndex + ", numberOfTuples=" + numberOfTuples
 				+ ", tupleLength=" + tupleLength + ", numberOfPartitions=" + numberOfPartitions + ", hashAttr="
-				+ hashAttr + '}';
+			 + '}';
 	}
 
 	/* interface methods */
@@ -182,11 +154,11 @@ public class RelInfo {
 		for (AttrInfo attr : this.attrIndex.values()) {
 			if (!attr.getAttrName().equals(attrName)) {
 				recTableDiff = numOfTuples - attr.getHistogram().numberOfTuples();
-				//if(recTableDiff<0){
-				//	recTableDiff=0;
-				//}
+				// if(recTableDiff<0){
+				// recTableDiff=0;
+				// }
 				percentage = recTableDiff / attr.getHistogram().numberOfTuples();
-				
+
 				if (Double.isInfinite(percentage)) {
 					percentage = Double.MAX_VALUE;
 				}
@@ -203,9 +175,9 @@ public class RelInfo {
 						if (!entry.getValue().equals(Bucket.FINAL_HISTOGRAM_BUCKET)) {
 							double frequency = entry.getValue().getFrequency()
 									+ percentage * entry.getValue().getFrequency();
-							//if(frequency<1.0){
-							//	frequency=1.0;
-							//}
+							// if(frequency<1.0){
+							// frequency=1.0;
+							// }
 							entry.getValue().setFrequency(frequency);
 						}
 					}

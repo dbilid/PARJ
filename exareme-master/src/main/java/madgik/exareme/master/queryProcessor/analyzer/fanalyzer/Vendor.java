@@ -6,10 +6,9 @@ package madgik.exareme.master.queryProcessor.analyzer.fanalyzer;
  * and open the template in the editor.
  */
 
-
 /**
  * @author jim
  */
 public enum Vendor {
-    Oracle, Postgres, Mysql;
+	Oracle, Postgres, Mysql;
 }

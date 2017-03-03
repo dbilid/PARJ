@@ -22,54 +22,52 @@ import java.util.Set;
  */
 public class ExternalGatherer {
 
-    private Map<String, Table> schema;
-    private String tblName;
-    private String schName;
-    private Connection conn;
-    Set<String> attrs;
+	private Map<String, Table> schema;
+	private String tblName;
+	private String schName;
+	private Connection conn;
+	Set<String> attrs;
 
-    public ExternalGatherer(Connection c, String tblName, String sch, Set<String> attrs) {
-        this.conn=c;
-        this.tblName = tblName;
-        schName=sch;
-    }
+	public ExternalGatherer(Connection c, String tblName, String sch, Set<String> attrs) {
+		this.conn = c;
+		this.tblName = tblName;
+		schName = sch;
+	}
 
-    public Map<String, Table> gather(String dbpath) throws Exception {
-    	ExternalStat stat = new ExternalStat(conn, tblName, schName);
-        schema = stat.extractStats();
+	public Map<String, Table> gather(String dbpath) throws Exception {
+		ExternalStat stat = new ExternalStat(conn, tblName, schName);
+		schema = stat.extractStats();
 
-        //
+		//
 
-	/*	for (Entry<String, Table> e : schema.entrySet()) {
+		/*
+		 * for (Entry<String, Table> e : schema.entrySet()) {
+		 * 
+		 * System.out.println("TABLE: " + e.getKey() + " TUPLES: " +
+		 * e.getValue().getNumberOfTuples()); for (Entry<String, Column> ee :
+		 * schema.get(e.getKey()) .getColumnMap().entrySet()) {
+		 * 
+		 * int s = 0; for (int i : ee.getValue().getDiffValFreqMap().values()) s
+		 * += i;
+		 * 
+		 * System.out.println("COLUMN: " + ee.getKey() + " TUPLES: " + s); }
+		 * 
+		 * }
+		 */
 
-			System.out.println("TABLE: " + e.getKey() + " TUPLES: "
-					+ e.getValue().getNumberOfTuples());
-			for (Entry<String, Column> ee : schema.get(e.getKey())
-					.getColumnMap().entrySet()) {
+		// dataToJson(dbName, dbpath);
+		return schema;
 
-				int s = 0;
-				for (int i : ee.getValue().getDiffValFreqMap().values())
-					s += i;
+	}
 
-				System.out.println("COLUMN: " + ee.getKey() + " TUPLES: " + s);
-			}
+	private void dataToJson(String filename, String dbpath) throws Exception {
 
-		}*/
+		Gson gson = new Gson();
+		String jsonStr = gson.toJson(schema);
 
-        //dataToJson(dbName, dbpath);
-        return schema;
+		PrintWriter writer = new PrintWriter(dbpath + filename + ".json", "UTF-8");
+		writer.println(jsonStr);
+		writer.close();
 
-    }
-
-
-    private void dataToJson(String filename, String dbpath) throws Exception {
-
-        Gson gson = new Gson();
-        String jsonStr = gson.toJson(schema);
-
-        PrintWriter writer = new PrintWriter(dbpath + filename + ".json", "UTF-8");
-        writer.println(jsonStr);
-        writer.close();
-
-    }
+	}
 }

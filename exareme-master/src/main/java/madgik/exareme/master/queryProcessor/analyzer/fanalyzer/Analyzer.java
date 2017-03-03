@@ -12,9 +12,9 @@ import java.util.Set;
  * @author jim
  */
 public interface Analyzer {
-    public void analyzeAll() throws Exception;
+	public void analyzeAll() throws Exception;
 
-    public void analyzeTable(String tableName) throws Exception;
+	public void analyzeTable(String tableName) throws Exception;
 
-    public void analyzeAttrs(String tableName, Set<String> attrs) throws Exception;
+	public void analyzeAttrs(String tableName, Set<String> attrs) throws Exception;
 }

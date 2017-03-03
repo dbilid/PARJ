@@ -8,7 +8,6 @@ import com.foundationdb.sql.StandardException;
 import com.foundationdb.sql.parser.*;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
-import madgik.exareme.master.queryProcessor.decomposer.query.visitors.ColumnReferenceVisitor;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -20,146 +19,7 @@ import java.util.logging.Logger;
  */
 public class QueryUtils {
 
-	public static Operand getOperandFromNode(ValueNode node) {
-		Operand result = new Constant();
-		// node.treePrint();
-		if (node instanceof ColumnReference) {
-			ColumnReference c = (ColumnReference) node;
-			result = new Column(c.getTableName(), c.getColumnName());
-		} else if (node instanceof ConstantNode) {
-			ConstantNode cn = (ConstantNode) node;
 
-			if (cn.getValue() == null) {
-				result = new Constant("null");
-			} else if (cn.getNodeType() == NodeTypes.CHAR_CONSTANT_NODE) {
-				if (((ConstantNode) node).getValue().toString().equals("'")) {
-					// parser bug!!!!
-					result = new Constant("''''");
-				} else {
-					result = new Constant("'" + ((ConstantNode) node).getValue().toString() + "'");
-				}
-			} else {
-				result = new Constant(((ConstantNode) node).getValue().toString());
-			}
-
-			if (arithmeticConstantNodes().contains(cn.getNodeType())) {
-				((Constant) result).setArithmetic(true);
-			}
-		} else if (node instanceof BinaryOperatorNode) {
-			BinaryOperatorNode bnode = (BinaryOperatorNode) node;
-			BinaryOperand bo = new BinaryOperand();
-			bo.setOperator(bnode.getOperator());
-			bo.setLeftOp(getOperandFromNode(bnode.getLeftOperand()));
-			bo.setRightOp(getOperandFromNode(bnode.getRightOperand()));
-			result = bo;
-		} else if (node instanceof AggregateNode) {
-			AggregateNode call = (AggregateNode) node;
-			Function func = new Function();
-			func.setFunctionName(call.getAggregateName().toLowerCase());
-			// func.outputName = parserColumn.getName();
-			func.addParameter(getOperandFromNode(call.getOperand()));
-			result = func;
-		} else if (node instanceof JavaToSQLValueNode) {
-			Function func = new Function();
-			JavaValueNode jvn = ((JavaToSQLValueNode) node).getJavaValueNode();
-			if (jvn instanceof StaticMethodCallNode) {
-				StaticMethodCallNode call = (StaticMethodCallNode) ((JavaToSQLValueNode) node).getJavaValueNode();
-				func.setFunctionName(call.getMethodName().toLowerCase());
-				// Params
-				for (JavaValueNode param : call.getMethodParameters()) {
-					SQLToJavaValueNode jNode = (SQLToJavaValueNode) param;
-					func.addParameter(getOperandFromNode(jNode.getSQLValueNode()));
-				}
-			} else if (jvn instanceof NonStaticMethodCallNode) {
-				try {
-					NonStaticMethodCallNode call = (NonStaticMethodCallNode) ((JavaToSQLValueNode) node)
-							.getJavaValueNode();
-					ColumnReferenceVisitor crv = new ColumnReferenceVisitor();
-					call.accept(crv);
-					StringBuilder functionName = new StringBuilder();
-					if (crv.getTablename() != null) {
-						functionName.append(crv.getTablename());
-						functionName.append(".");
-					}
-					if (crv.getColumnname() != null) {
-						functionName.append(crv.getColumnname());
-						functionName.append(".");
-					}
-					functionName.append(call.getMethodName());
-					func.setFunctionName(functionName.toString());
-					// Params
-					for (JavaValueNode param : call.getMethodParameters()) {
-						SQLToJavaValueNode jNode = (SQLToJavaValueNode) param;
-						func.addParameter(getOperandFromNode(jNode.getSQLValueNode()));
-					}
-				} catch (StandardException ex) {
-					Logger.getLogger(QueryUtils.class.getName()).log(Level.SEVERE, null, ex);
-				}
-			}
-
-			result = func;
-		} else if (node instanceof CastNode) {
-			CastNode cNode = (CastNode) node;
-			// parses for some reason parses CAST AS CHAR -> CAST AS CHAR(1)
-			if (cNode.getType().getSQLstring().equalsIgnoreCase("char(1)")) {
-				CastOperand co = new CastOperand(QueryUtils.getOperandFromNode(cNode.getCastOperand()), "CHAR(1000)");
-				result = co;
-			} else {
-				CastOperand co = new CastOperand(QueryUtils.getOperandFromNode(cNode.getCastOperand()),
-						cNode.getType().getSQLstring());
-				result = co;
-			}
-
-		} else if (node instanceof NotNode) {
-			// IS NOT NULL
-			NotNode not = (NotNode) node;
-			if (not.getOperand() instanceof IsNullNode) {
-				IsNullNode isNull = (IsNullNode) not.getOperand();
-				ColumnReference cr = (ColumnReference) isNull.getOperand();
-				UnaryWhereCondition unary = new UnaryWhereCondition(UnaryWhereCondition.IS_NULL,
-						new Column(cr.getTableName(), cr.getColumnName()), true);
-				result = unary;
-			}
-		} else if (node instanceof IsNullNode) {
-			// IS NULL
-			IsNullNode isNull = (IsNullNode) node;
-			ColumnReference cr = (ColumnReference) isNull.getOperand();
-			UnaryWhereCondition unary = new UnaryWhereCondition(UnaryWhereCondition.IS_NULL,
-					new Column(cr.getTableName(), cr.getColumnName()), false);
-			result = unary;
-
-		} else if (node instanceof TernaryOperatorNode) {
-			// substring!
-
-			TernaryOperatorNode ton = (TernaryOperatorNode) node;
-			Function func = new Function();
-			func.setFunctionName(ton.getMethodName());
-			if (func.getFunctionName().equalsIgnoreCase("substring")) {
-				func.setFunctionName("substr");
-			}
-			// func.outputName = parserColumn.getName();
-			func.addParameter(getOperandFromNode(ton.getReceiver()));
-			func.addParameter(getOperandFromNode(ton.getLeftOperand()));
-			if (ton.getRightOperand() != null) {
-				func.addParameter(getOperandFromNode(ton.getRightOperand()));
-			}
-
-			result = func;
-		} else if (node instanceof SimpleStringOperatorNode) {
-			SimpleStringOperatorNode vn = (SimpleStringOperatorNode) node;
-			String method = vn.getMethodName();
-			Operand o = getOperandFromNode(vn.getOperand());
-			Function f = new Function();
-			f.setFunctionName(method);
-			f.addParameter(o);
-			result = f;
-		} else {
-			// Exception?
-
-		}
-
-		return result;
-	}
 
 	public static Operand convertToMySQLDialect(Operand o) {
 		// returns CONCAT('a', b') from 'a' || 'b'
@@ -239,18 +99,17 @@ public class QueryUtils {
 			BinaryOperand bo = (BinaryOperand) o;
 			if (bo.getOperator().equals("=") && bo.getLeftOp().getAllColumnRefs().size() > 0
 					&& bo.getRightOp().getAllColumnRefs().size() > 0) {
-				
-					Column col= bo.getLeftOp().getAllColumnRefs().get(0);
-					if(op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())&&
-							!op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())){
-						return col;
-					}
 
-					col= bo.getRightOp().getAllColumnRefs().get(0);
-					if(op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias()) &&
-							!op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())){
-						return col;
-					
+				Column col = bo.getLeftOp().getAllColumnRefs().get(0);
+				if (op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())
+						&& !op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())) {
+					return col;
+				}
+
+				col = bo.getRightOp().getAllColumnRefs().get(0);
+				if (op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())
+						&& !op.getChildAt(i).getDescendantBaseTables().contains(col.getAlias())) {
+					return col;
 
 				}
 			} else if (bo.getOperator().equalsIgnoreCase("and")) {
@@ -267,60 +126,58 @@ public class QueryUtils {
 		return null;
 	}
 
-	public static void reorderBinaryConditions(Operand op, Set<String> left,
-			Set<String> right) {
-		if(op instanceof BinaryOperand){
-			BinaryOperand bo=(BinaryOperand)op;
-			if(bo.getOperator().equalsIgnoreCase("and")){
+	public static void reorderBinaryConditions(Operand op, Set<String> left, Set<String> right) {
+		if (op instanceof BinaryOperand) {
+			BinaryOperand bo = (BinaryOperand) op;
+			if (bo.getOperator().equalsIgnoreCase("and")) {
 				reorderBinaryConditions(bo.getLeftOp(), left, right);
 				reorderBinaryConditions(bo.getRightOp(), left, right);
-			}
-			else{
-				Operand lo=bo.getLeftOp();
-				Operand ro=bo.getRightOp();
-				if(lo.getAllColumnRefs().size()>0 &&ro.getAllColumnRefs().size()>0){
-					if(!left.contains(lo.getAllColumnRefs().get(0).getAlias())){
-						//reorder
+			} else {
+				Operand lo = bo.getLeftOp();
+				Operand ro = bo.getRightOp();
+				if (lo.getAllColumnRefs().size() > 0 && ro.getAllColumnRefs().size() > 0) {
+					if (!left.contains(lo.getAllColumnRefs().get(0).getAlias())) {
+						// reorder
 						bo.setLeftOp(ro);
 						bo.setRightOp(lo);
 					}
 				}
 			}
 		}
-		
+
 	}
 
 	public static NonUnaryWhereCondition getJoinCondition(BinaryOperand bo, Node o) {
-		NonUnaryWhereCondition result=null;
-		if(bo.getLeftOp() instanceof Column && bo.getRightOp() instanceof Column){
-			Column l=(Column)bo.getLeftOp();
-			Column r=(Column)bo.getRightOp();
-			if(o.getChildAt(0).getDescendantBaseTables().contains(r.getAlias())&&
-					o.getChildAt(1).getDescendantBaseTables().contains(l.getAlias())){
-				result=new NonUnaryWhereCondition();
+		NonUnaryWhereCondition result = null;
+		if (bo.getLeftOp() instanceof Column && bo.getRightOp() instanceof Column) {
+			Column l = (Column) bo.getLeftOp();
+			Column r = (Column) bo.getRightOp();
+			if (o.getChildAt(0).getDescendantBaseTables().contains(r.getAlias())
+					&& o.getChildAt(1).getDescendantBaseTables().contains(l.getAlias())) {
+				result = new NonUnaryWhereCondition();
 				result.setLeftOp(r);
 				result.setRightOp(l);
 				result.setOperator(bo.getOperator());
 				return result;
 			}
-			if(o.getChildAt(1).getDescendantBaseTables().contains(r.getAlias())&&
-					o.getChildAt(0).getDescendantBaseTables().contains(l.getAlias())){
-				result=new NonUnaryWhereCondition();
+			if (o.getChildAt(1).getDescendantBaseTables().contains(r.getAlias())
+					&& o.getChildAt(0).getDescendantBaseTables().contains(l.getAlias())) {
+				result = new NonUnaryWhereCondition();
 				result.setLeftOp(l);
 				result.setRightOp(r);
 				result.setOperator(bo.getOperator());
 				return result;
 			}
 		}
-		if(bo.getLeftOp() instanceof BinaryOperand){
-			result=getJoinCondition((BinaryOperand) bo.getLeftOp(), o);
-			if(result!=null){
+		if (bo.getLeftOp() instanceof BinaryOperand) {
+			result = getJoinCondition((BinaryOperand) bo.getLeftOp(), o);
+			if (result != null) {
 				return result;
 			}
 		}
-		if(bo.getRightOp() instanceof BinaryOperand){
-			result=getJoinCondition((BinaryOperand) bo.getRightOp(), o);
-				return result;
+		if (bo.getRightOp() instanceof BinaryOperand) {
+			result = getJoinCondition((BinaryOperand) bo.getRightOp(), o);
+			return result;
 		}
 		return null;
 	}

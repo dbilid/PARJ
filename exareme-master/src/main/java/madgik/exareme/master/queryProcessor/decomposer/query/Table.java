@@ -22,167 +22,168 @@ import com.google.common.hash.Hashing;
  */
 public class Table {
 
-    private Boolean hasDBIdRemoved;
-    private String name;
-    private String alias;
-    private HashCode hash=null;
-    private static final org.apache.log4j.Logger log = org.apache.log4j.Logger
-			.getLogger(Table.class);
+	private Boolean hasDBIdRemoved;
+	private String name;
+	private String alias;
+	private HashCode hash = null;
+	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(Table.class);
 
-    public Table() {
-        hasDBIdRemoved = false;
-        this.name = "";
-        this.alias = "";
-    }
+	public Table() {
+		hasDBIdRemoved = false;
+		this.name = "";
+		this.alias = "";
+	}
 
-    public Table(String n, String a) {
-        hasDBIdRemoved = false;
-        this.name = n;
-        this.alias = a;
-    }
+	public Table(String n, String a) {
+		hasDBIdRemoved = false;
+		this.name = n;
+		this.alias = a;
+	}
 
-    public boolean isFederated() {
-        for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
-            if (getName().toUpperCase().startsWith(id.toUpperCase() + "_")) {
-                return true;
-            }
-        }
-        return false;
-    }
+	public boolean isFederated() {
+		for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
+			if (getName().toUpperCase().startsWith(id.toUpperCase() + "_")) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-    public String getlocalName() {
-      /*  if(!this.hasDBIdRemoved){
-        for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
-            if (getName().startsWith(id + "_")) {
-                DB db=DBInfoReaderDB.dbInfo.getDB(id);
-                return db.getSchema()+"."+getName().substring(id.length() + 1);
-            }
-        }}
-*/
-        return getName();
+	public String getlocalName() {
+		/*
+		 * if(!this.hasDBIdRemoved){ for (String id :
+		 * DBInfoReaderDB.dbInfo.getAllDBIDs()) { if (getName().startsWith(id +
+		 * "_")) { DB db=DBInfoReaderDB.dbInfo.getDB(id); return
+		 * db.getSchema()+"."+getName().substring(id.length() + 1); } }}
+		 */
+		return getName();
 
-    }
+	}
 
-    public String getDBName() {
-    	if(name == null){
-    		log.debug("null table name:"+this.toString());
-    		return null;
-    	}
-    	//log.debug("searching for endpoint with id:"+getName().toUpperCase());
-        for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
-        	//log.debug("next endpoint has id:"+id);
-            if (getName().toUpperCase().startsWith(id.toUpperCase() + "_")) {
-            	//log.debug("found!");
-                return id;
-            }
-        }
+	public String getDBName() {
+		if (name == null) {
+			log.debug("null table name:" + this.toString());
+			return null;
+		}
+		// log.debug("searching for endpoint with id:"+getName().toUpperCase());
+		for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
+			// log.debug("next endpoint has id:"+id);
+			if (getName().toUpperCase().startsWith(id.toUpperCase() + "_")) {
+				// log.debug("found!");
+				return id;
+			}
+		}
 
-        return null;
-    }
+		return null;
+	}
 
-    @Override public String toString() {
-        return this.getlocalName() + " " + getAlias();
-    }
+	@Override
+	public String toString() {
+		return this.getlocalName() + " " + getAlias();
+	}
 
-    public String dotPrint() {
-        return this.getlocalName();
-    }
+	public String dotPrint() {
+		return this.getlocalName();
+	}
 
-    public void removeDBIdFromAlias() {
-        for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
-            if (getAlias().toUpperCase().startsWith(id.toUpperCase() + "_")) {
-                setAlias(getAlias().substring(id.length() + 1));
-                break;
-            }
-        }
-    }
+	public void removeDBIdFromAlias() {
+		for (String id : DBInfoReaderDB.dbInfo.getAllDBIDs()) {
+			if (getAlias().toUpperCase().startsWith(id.toUpperCase() + "_")) {
+				setAlias(getAlias().substring(id.length() + 1));
+				break;
+			}
+		}
+	}
 
-    @Override public boolean equals(Object other) {
-        if (other == null) {
-            return false;
-        }
-        if (!(other instanceof Table)) {
-            return false;
-        }
-        Table otherT = (Table) other;
-        if (this.getName() == null && otherT.getName() == null) {
-        	            return this.getAlias().equals(otherT.getAlias());
-        	        }
-        if (this.getAlias() == null&&otherT.getAlias() == null) {
-            return this.getName().equals(otherT.getName());
-        }
-        return (this.getName().equals(otherT.getName()) && this.getAlias()
-            .equals(otherT.getAlias()));
-    }
+	@Override
+	public boolean equals(Object other) {
+		if (other == null) {
+			return false;
+		}
+		if (!(other instanceof Table)) {
+			return false;
+		}
+		Table otherT = (Table) other;
+		if (this.getName() == null && otherT.getName() == null) {
+			return this.getAlias().equals(otherT.getAlias());
+		}
+		if (this.getAlias() == null && otherT.getAlias() == null) {
+			return this.getName().equals(otherT.getName());
+		}
+		return (this.getName().equals(otherT.getName()) && this.getAlias().equals(otherT.getAlias()));
+	}
 
-    @Override public int hashCode() {
-        int hash = 7;
-        hash = 89 * hash + Objects.hashCode(this.getAlias());
-        hash = 89 * hash + Objects.hashCode(this.getName());
-        return hash;
-    }
-    
-    public int getHashId() {
-        int hash = 31;
-        String aliasUp=alias.toUpperCase();
-        String nameUp=name.toUpperCase();
-        
-        int last=aliasUp.charAt(aliasUp.length()-1)+19;
-        last*=last;
-        hash = 31*hash+last;
-        hash = 89 * hash + aliasUp.hashCode();
-        hash = 89 * hash + nameUp.hashCode();
-        hash = 89 * hash +(new StringBuilder(aliasUp).reverse().toString()).hashCode();
-        hash = 89 * hash +(new StringBuilder(nameUp).reverse().toString()).hashCode();
-        return hash;
-    }
+	@Override
+	public int hashCode() {
+		int hash = 7;
+		hash = 89 * hash + Objects.hashCode(this.getAlias());
+		hash = 89 * hash + Objects.hashCode(this.getName());
+		return hash;
+	}
 
-    /**
-     * @return the name
-     */
-    public String getName() {
-        return name;
-    }
+	public int getHashId() {
+		int hash = 31;
+		String aliasUp = alias.toUpperCase();
+		String nameUp = name.toUpperCase();
 
-    /**
-     * @param name the name to set
-     */
-    public void setName(String name) {
-        this.name = name;
-        hash=null;
-    }
+		int last = aliasUp.charAt(aliasUp.length() - 1) + 19;
+		last *= last;
+		hash = 31 * hash + last;
+		hash = 89 * hash + aliasUp.hashCode();
+		hash = 89 * hash + nameUp.hashCode();
+		hash = 89 * hash + (new StringBuilder(aliasUp).reverse().toString()).hashCode();
+		hash = 89 * hash + (new StringBuilder(nameUp).reverse().toString()).hashCode();
+		return hash;
+	}
 
-    /**
-     * @return the alias
-     */
-    public String getAlias() {
-        return alias;
-    }
+	/**
+	 * @return the name
+	 */
+	public String getName() {
+		return name;
+	}
 
-    /**
-     * @param alias the alias to set
-     */
-    public void setAlias(String alias) {
-        this.alias = alias;
-        hash=null;
-    }
+	/**
+	 * @param name
+	 *            the name to set
+	 */
+	public void setName(String name) {
+		this.name = name;
+		hash = null;
+	}
 
-    public boolean hasDBIdRemoved() {
-        return this.hasDBIdRemoved;
-    }
+	/**
+	 * @return the alias
+	 */
+	public String getAlias() {
+		return alias;
+	}
 
-    public void setDBIdRemoved() {
-        this.hasDBIdRemoved = true;
-    }
+	/**
+	 * @param alias
+	 *            the alias to set
+	 */
+	public void setAlias(String alias) {
+		this.alias = alias;
+		hash = null;
+	}
+
+	public boolean hasDBIdRemoved() {
+		return this.hasDBIdRemoved;
+	}
+
+	public void setDBIdRemoved() {
+		this.hasDBIdRemoved = true;
+	}
 
 	public HashCode getHashID() {
-		if(hash==null){
-		List<HashCode> codes=new ArrayList<HashCode>();
-		codes.add(Hashing.sha1().hashBytes(alias.toUpperCase().getBytes()));
-		codes.add(Hashing.sha1().hashBytes(name.toUpperCase().getBytes()));
-		hash= Hashing.combineOrdered(codes);
+		if (hash == null) {
+			List<HashCode> codes = new ArrayList<HashCode>();
+			codes.add(Hashing.sha1().hashBytes(alias.toUpperCase().getBytes()));
+			codes.add(Hashing.sha1().hashBytes(name.toUpperCase().getBytes()));
+			hash = Hashing.combineOrdered(codes);
 		}
 		return hash;
-		
+
 	}
 }

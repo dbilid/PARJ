@@ -17,62 +17,63 @@ import java.io.StringWriter;
 import java.util.Locale;
 
 public class HttpAsyncDeleteStreamQueryHandler implements HttpAsyncRequestHandler<HttpRequest> {
-    private static final Logger log = Logger.getLogger(HttpAsyncDeleteStreamQueryHandler.class);
+	private static final Logger log = Logger.getLogger(HttpAsyncDeleteStreamQueryHandler.class);
 
-    public HttpAsyncDeleteStreamQueryHandler() {
-    }
+	public HttpAsyncDeleteStreamQueryHandler() {
+	}
 
-    @Override public HttpAsyncRequestConsumer<HttpRequest> processRequest(HttpRequest request,
-        HttpContext context) throws HttpException, IOException {
-        return new BasicAsyncRequestConsumer();
-    }
+	@Override
+	public HttpAsyncRequestConsumer<HttpRequest> processRequest(HttpRequest request, HttpContext context)
+			throws HttpException, IOException {
+		return new BasicAsyncRequestConsumer();
+	}
 
-    @Override
-    public void handle(HttpRequest httpRequest, HttpAsyncExchange httpExchange, HttpContext context)
-        throws HttpException, IOException {
+	@Override
+	public void handle(HttpRequest httpRequest, HttpAsyncExchange httpExchange, HttpContext context)
+			throws HttpException, IOException {
 
-        HttpResponse httpResponse = httpExchange.getResponse();
+		HttpResponse httpResponse = httpExchange.getResponse();
 
-        log.info("Validating request ..");
-        String method = httpRequest.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
+		log.info("Validating request ..");
+		String method = httpRequest.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
 
-        if (!"DELETE".equals(method) && !"GET".equals(method)) {
-            throw new UnsupportedHttpVersionException(method + " not supported.");
-        }
+		if (!"DELETE".equals(method) && !"GET".equals(method)) {
+			throw new UnsupportedHttpVersionException(method + " not supported.");
+		}
 
-        String target = httpRequest.getRequestLine().getUri();
+		String target = httpRequest.getRequestLine().getUri();
 
-        // TODO: DIRTY! ADD PROXY
-        CloseableHttpClient httpclient = HttpClients.createDefault();
-        HttpGet httpGet = new HttpGet("http://127.0.0.1:9595" + target);
+		// TODO: DIRTY! ADD PROXY
+		CloseableHttpClient httpclient = HttpClients.createDefault();
+		HttpGet httpGet = new HttpGet("http://127.0.0.1:9595" + target);
 
-        CloseableHttpResponse response = null;
-        try {
+		CloseableHttpResponse response = null;
+		try {
 
-            log.info("AAAAAAAAAAAAAAAAAAAA ..");
-            response = httpclient.execute(httpGet);
+			log.info("AAAAAAAAAAAAAAAAAAAA ..");
+			response = httpclient.execute(httpGet);
 
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                httpResponse.setStatusCode(response.getStatusLine().getStatusCode());
-            }
+			if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+				httpResponse.setStatusCode(response.getStatusLine().getStatusCode());
+			}
 
-            httpResponse.addHeader("Access-Control-Allow-Origin", "*");
+			httpResponse.addHeader("Access-Control-Allow-Origin", "*");
 
-            HttpEntity entity = response.getEntity();
-            if (entity != null) {
-                StringWriter writer = new StringWriter();
-                IOUtils.copy(entity.getContent(), writer, "UTF-8");
-                httpResponse.setEntity(new StringEntity(writer.toString()));
-                httpExchange.submitResponse(new BasicAsyncResponseProducer(httpResponse));
-            }
-        } catch (IOException e) {
-            log.error(e);
-            response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-            response.setEntity(new NStringEntity("ERROR"));
-        } finally {
-            if (response != null) {
-                response.close();
-            }
-        }
-    }
+			HttpEntity entity = response.getEntity();
+			if (entity != null) {
+				StringWriter writer = new StringWriter();
+				IOUtils.copy(entity.getContent(), writer, "UTF-8");
+				httpResponse.setEntity(new StringEntity(writer.toString()));
+				httpExchange.submitResponse(new BasicAsyncResponseProducer(httpResponse));
+			}
+		} catch (IOException e) {
+			log.error(e);
+			response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+			response.setEntity(new NStringEntity("ERROR"));
+		} finally {
+			if (response != null) {
+				response.close();
+			}
+		}
+	}
 }

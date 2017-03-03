@@ -20,7 +20,7 @@ public class ViewInfo {
 		this.outColumns = outputs;
 		unaryConditions = new HashSet<UnaryWhereCondition>();
 		binaryConditions = new HashSet<NonUnaryWhereCondition>();
-		or=false;
+		or = false;
 	}
 
 	public boolean addCondition(Object toAdd) {
@@ -31,9 +31,6 @@ public class ViewInfo {
 		else
 			return false;
 	}
-
-
-	
 
 	@Override
 	public int hashCode() {
@@ -79,14 +76,13 @@ public class ViewInfo {
 	}
 
 	public boolean containsCondition(Object o) {
-		if (o instanceof NonUnaryWhereCondition){
-			if(binaryConditions.size()==1){
-			return binaryConditions.iterator().next().equals(o);}
-			else{
+		if (o instanceof NonUnaryWhereCondition) {
+			if (binaryConditions.size() == 1) {
+				return binaryConditions.iterator().next().equals(o);
+			} else {
 				return binaryConditions.contains(o);
 			}
-		}
-		else if (o instanceof UnaryWhereCondition)
+		} else if (o instanceof UnaryWhereCondition)
 			return unaryConditions.contains(o);
 		else
 			return false;
@@ -101,18 +97,17 @@ public class ViewInfo {
 	}
 
 	public int getNumberOfConditions() {
-		if(this.or){
+		if (this.or) {
 			return 1;
-		}
-		else{
-			return unaryConditions.size()+binaryConditions.size();
+		} else {
+			return unaryConditions.size() + binaryConditions.size();
 		}
 	}
 
 	public void addConditions(ViewInfo other) {
 		this.binaryConditions.addAll(other.binaryConditions);
 		this.unaryConditions.addAll(other.unaryConditions);
-		
+
 	}
 
 	public boolean isOr() {
@@ -126,7 +121,5 @@ public class ViewInfo {
 	public boolean orsAreEqual(Set<NonUnaryWhereCondition> ors) {
 		return ors.equals(this.binaryConditions);
 	}
-	
-	
 
 }

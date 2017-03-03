@@ -6,53 +6,51 @@ import java.util.Set;
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.PartitionCols;
 
-
-
 public class PartitionedMemoValue implements MemoValue {
-    private SinglePlan p;
-    private double repCost;
-    private boolean materialized;
-    private PartitionCols dlvdPart;
-    private int used;
-    private boolean multiUsed;
-    private Set<MemoKey> toMat;
+	private SinglePlan p;
+	private double repCost;
+	private boolean materialized;
+	private PartitionCols dlvdPart;
+	private int used;
+	private boolean multiUsed;
+	private Set<MemoKey> toMat;
 
-    public PartitionedMemoValue(SinglePlan p, double repCost) {
-        this.p = p;
-        this.repCost = repCost;
-        this.materialized = false;
-    }
+	public PartitionedMemoValue(SinglePlan p, double repCost) {
+		this.p = p;
+		this.repCost = repCost;
+		this.materialized = false;
+	}
 
-    public SinglePlan getPlan() {
-        return p;
-    }
+	public SinglePlan getPlan() {
+		return p;
+	}
 
-    public double getRepCost() {
-        return repCost;
-    }
+	public double getRepCost() {
+		return repCost;
+	}
 
-    public void setMaterialized(boolean b) {
-        this.materialized = b;
-    }
+	public void setMaterialized(boolean b) {
+		this.materialized = b;
+	}
 
-    public boolean isMaterialised() {
-        return this.materialized;
-    }
+	public boolean isMaterialised() {
+		return this.materialized;
+	}
 
-    public PartitionCols getDlvdPart() {
-        return dlvdPart;
-    }
+	public PartitionCols getDlvdPart() {
+		return dlvdPart;
+	}
 
-    public void setDlvdPart(PartitionCols dlvdPart) {
-        this.dlvdPart = dlvdPart;
-    }
+	public void setDlvdPart(PartitionCols dlvdPart) {
+		this.dlvdPart = dlvdPart;
+	}
 
 	@Override
 	public void addUsed(int b) {
-		if(used==1 && b==1){
-			this.multiUsed=true;
+		if (used == 1 && b == 1) {
+			this.multiUsed = true;
 		}
-		this.used=b;
+		this.used = b;
 	}
 
 	@Override
@@ -70,13 +68,11 @@ public class PartitionedMemoValue implements MemoValue {
 	}
 
 	public void setToMat(Set<MemoKey> toMaterialize) {
-		toMat=toMaterialize;
+		toMat = toMaterialize;
 	}
 
 	public boolean isMultiUsed() {
 		return multiUsed;
 	}
-	
-	
 
 }

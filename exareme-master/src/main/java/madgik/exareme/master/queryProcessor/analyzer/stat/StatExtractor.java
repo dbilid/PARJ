@@ -13,6 +13,6 @@ import java.util.Map;
  */
 public interface StatExtractor {
 
-    public Map<String, Table> extractStats() throws Exception;
+	public Map<String, Table> extractStats() throws Exception;
 
 }

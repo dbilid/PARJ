@@ -9,5 +9,5 @@ package madgik.exareme.master.queryProcessor.analyzer.builder;
  * @author jim
  */
 public enum HistogramBuildMethod {
-    Primitive, EquiDepth;
+	Primitive, EquiDepth;
 }

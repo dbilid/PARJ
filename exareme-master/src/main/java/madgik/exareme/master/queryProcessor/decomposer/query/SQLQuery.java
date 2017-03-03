@@ -8,8 +8,6 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.ResultList;
 import madgik.exareme.master.queryProcessor.decomposer.federation.DBInfoReaderDB;
 import madgik.exareme.master.queryProcessor.decomposer.federation.NamesToAliases;
-import madgik.exareme.master.queryProcessor.decomposer.federation.SipInfo;
-import madgik.exareme.master.queryProcessor.decomposer.federation.SipJoin;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 
 import org.apache.log4j.Logger;
@@ -39,12 +37,12 @@ public class SQLQuery {
 	private String temporaryTableName;
 	private boolean selectAll;
 	private boolean temporary;
-	private String madisFunctionString; // madis function String for execution
-										// in remote DB
+	// in remote DB
 	private boolean outputColumnsDinstict;
 	// public final List<String> dbs = new ArrayList<String>();
 	// public final HashMap<String, DB> dbs = new HashMap<String, DB>();
 	// public DBInfo dbInfo;
+	private int tableToSplit;
 	private int limit;
 	private boolean isUnionAll;
 	private String unionAlias;
@@ -59,7 +57,6 @@ public class SQLQuery {
 	private boolean materialised;
 	private Node nestedNode;
 	private HashCode hashId = null;
-	private String createSipTables = null;
 
 	private boolean existsInCache;
 	private boolean isDrop;
@@ -68,7 +65,6 @@ public class SQLQuery {
 
 	private List<Operand> joinOperands;
 
-	private List<SipJoin> sis;
 	private String sql;
 	private boolean isStringSQL;
 	private boolean isCreateIndex;
@@ -90,13 +86,12 @@ public class SQLQuery {
 		binaryWhereConditions = new ArrayList<NonUnaryWhereCondition>();
 		nestedSelectSubqueries = new HashMap<SQLQuery, String>();
 		limit = -1;
-		madisFunctionString = new String();
 		materialised = false;
 		nestedNode = null;
 		existsInCache = false;
 		joinNode = null;
 		joinOperands = new ArrayList<Operand>();
-		sis = null;
+		tableToSplit = -1;
 	}
 
 	public String toDistSQL() {
@@ -109,9 +104,7 @@ public class SQLQuery {
 			return output.toString();
 		}
 
-		
-			this.convertUDFs();
-		
+		this.convertUDFs();
 
 		// Print project columns
 		output.append("distributed create");
@@ -124,18 +117,17 @@ public class SQLQuery {
 
 		if (this.isStringSQL) {
 			output.append(" as ");
-			
+
 			output.append(sql);
 			output.append(";");
 			return output.toString();
 		}
 
-		
 		output.append(" \n");
 		output.append("as ");
-		
-			output.append("direct ");
-		
+
+		output.append("direct ");
+
 		output.append("\n");
 		output.append(toSQL());
 		return output.toString();
@@ -144,7 +136,7 @@ public class SQLQuery {
 	public String toSQL() {
 		StringBuilder output = new StringBuilder();
 		String separator = "";
-	
+
 		// if (!this.isHasUnionRootNode()) {
 		output.append("select ");
 		// }
@@ -173,16 +165,16 @@ public class SQLQuery {
 
 			for (int tableNo = 0; tableNo < this.inputTables.size() - 1; tableNo++) {
 				output.append("(");
-				
-					output.append(inputTables.get(tableNo).toString().toLowerCase());
-				
+
+				output.append(inputTables.get(tableNo).toString().toLowerCase());
+
 				output.append(" ");
 				output.append(getJoinType());
 				output.append(" ");
 			}
-			
-				output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
-			
+
+			output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
+
 			output.append(" on ");
 			separator = "";
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
@@ -251,41 +243,23 @@ public class SQLQuery {
 					separator = ", \n";
 				} // }
 			} // else {
-			if (this.getMadisFunctionString().startsWith("postgres")) {
+
+			String joinKeyword = " JOIN \n";
+			if (DecomposerUtils.USE_CROSS_JOIN) {
+				joinKeyword = " CROSS JOIN \n";
+
 				for (Table t : getInputTables()) {
 					output.append(separator);
-					String localName = t.getlocalName();
-					if (localName.contains(".")) {
-						localName = localName.split("\\.")[1];
-					}
-					output.append(localName + " " + t.getAlias());
-					separator = ", \n";
-				}
-			
-			} else {
-				String joinKeyword = " JOIN \n";
-				if (DecomposerUtils.USE_CROSS_JOIN) {
-					joinKeyword = " CROSS JOIN \n";
-				}
-				for (Table t : getInputTables()) {
-					output.append(separator);
-					
-						output.append(t.toString().toLowerCase());
-					
+
+					output.append(t.toString().toLowerCase());
+
 					separator = joinKeyword;
 				}
 
 			}
 		}
 		separator = "";
-		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()
-				|| (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle "))) {
-			// if (this.getJoinType() != null) {
-			// output.append(" on (");
-			// } else {
-			output.append(" \nwhere \n");
-			// }
-		}
+
 		for (NonUnaryWhereCondition wc : getBinaryWhereConditions()) {
 			output.append(separator);
 			output.append(wc.toString());
@@ -295,11 +269,6 @@ public class SQLQuery {
 			output.append(separator);
 			output.append(wc.toString());
 			separator = " and \n";
-		}
-		if (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(separator);
-			output.append("rownum <=");
-			output.append(this.limit);
 		}
 
 		if (!groupBy.isEmpty()) {
@@ -320,11 +289,7 @@ public class SQLQuery {
 				separator = ", ";
 			}
 		}
-		if (getLimit() > -1 && !this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(" \nlimit ");
-			output.append(getLimit());
-		}
-		
+
 		output.append(";");
 		return output.toString();
 	}
@@ -397,18 +362,14 @@ public class SQLQuery {
 		if (this.temporary != other.temporary) {
 			return false;
 		}
-		
-		if ((this.madisFunctionString == null) ? (other.madisFunctionString != null)
-				: !this.madisFunctionString.equals(other.madisFunctionString)) {
-			return false;
-		}
+
 		if (this.outputColumnsDinstict != other.outputColumnsDinstict) {
 			return false;
 		}
 		if (this.limit != other.limit) {
 			return false;
 		}
-		
+
 		if (this.isUnionAll != other.isUnionAll) {
 			return false;
 		}
@@ -483,10 +444,6 @@ public class SQLQuery {
 		this.temporary = b;
 	}
 
-	public void setMadisFunctionString(String s) {
-		this.madisFunctionString = s;
-	}
-
 	/* returns columns included in OutputColumns and OutputFunctions */
 	public ArrayList<Column> getAllOutputColumns() {
 		ArrayList<Column> result = new ArrayList<Column>();
@@ -518,7 +475,7 @@ public class SQLQuery {
 		for (UnaryWhereCondition wc : this.getUnaryWhereConditions()) {
 			result.add(wc.getAllColumnRefs().get(0));
 		}
-		
+
 		for (Operand o : joinOperands) {
 			for (Column c : o.getAllColumnRefs()) {
 				result.add(c);
@@ -639,9 +596,6 @@ public class SQLQuery {
 		}
 		return result;
 	}
-
-
-	
 
 	/**
 	 * @return the outputs
@@ -778,14 +732,6 @@ public class SQLQuery {
 		this.temporaryTableName = temporaryTableName;
 	}
 
-
-	/**
-	 * @return the madisFunctionString
-	 */
-	public String getMadisFunctionString() {
-		return madisFunctionString;
-	}
-
 	/**
 	 * @return the outputColumnsDinstict
 	 */
@@ -815,8 +761,6 @@ public class SQLQuery {
 	public void setLimit(int limit) {
 		this.limit = limit;
 	}
-
-
 
 	/**
 	 * @return the isUnionAll
@@ -1192,7 +1136,6 @@ public class SQLQuery {
 			normalized.setLimit(this.limit);
 			normalized.selectAll = this.selectAll;
 			normalized.temporary = this.temporary;
-			normalized.madisFunctionString = this.madisFunctionString;
 			normalized.outputColumnsDinstict = this.outputColumnsDinstict;
 
 			normalized.isUnionAll = this.isUnionAll;
@@ -1237,17 +1180,7 @@ public class SQLQuery {
 	public void addInputTableIfNotExists(Table table) {
 		if (!this.inputTables.contains(table) && !table.getName().equals(this.getTemporaryTableName())) {
 			this.inputTables.add(table);
-			if (this.sis != null) {
-				Set<SipJoin> toDelete = new HashSet<SipJoin>();
-				for (SipJoin sj : this.sis) {
-					if (sj.isDeleteOnTableInsert()) {
-						toDelete.add(sj);
-					}
-				}
-				for (SipJoin d : toDelete) {
-					sis.remove(d);
-				}
-			}
+
 		}
 	}
 
@@ -1472,8 +1405,6 @@ public class SQLQuery {
 
 	}
 
-	
-
 	public void pushLimit(int limit) {
 		// push limit in nested queries
 		// This is correct only for CQ!!!
@@ -1557,40 +1488,15 @@ public class SQLQuery {
 				String schema = DBInfoReaderDB.dbInfo.getDB(db).getSchema();
 				replace.setName(t.getName().substring(db.length() + 1));
 				replace.setAlias(t.getAlias());
-				if (this.getMadisFunctionString().startsWith("postgres")) {
-					if (!replace.getName().endsWith("\"")) {
-						if (!replace.getName().startsWith(schema + ".")) {
-							replace.setName(schema + "." + "\"" + replace.getName() + "\"");
-						} else {
-							String name = replace.getName().replace(schema + ".", "");
-							name = schema + "." + "\"" + name + "\"";
-							replace.setName(name);
-						}
 
-					}
-				} else {
-					if (!replace.getName().startsWith(schema + ".")) {
-						replace.setName(schema + "." + replace.getName());
-					}
+				if (!replace.getName().startsWith(schema + ".")) {
+					replace.setName(schema + "." + replace.getName());
 				}
+
 				this.inputTables.remove(i);
 				this.inputTables.add(i, replace);
 			}
-			if (this.getMadisFunctionString().startsWith("oracle")) {
-				for (Column c : this.groupBy) {
-					String n = c.getName();
-					if (!n.startsWith("\"")) {
-						c.setName("\"" + n + "\"");
-					}
-				}
-				for (ColumnOrderBy c : this.orderBy) {
-					String n = c.getName();
-					if (!n.startsWith("\"")) {
-						c.setName("\"" + n + "\"");
-					}
-				}
-			}
-			this.setMadisFunctionString(DBInfoReaderDB.dbInfo.getDB(dbID).getMadisString());
+
 		}
 
 	}
@@ -1663,22 +1569,6 @@ public class SQLQuery {
 
 	}
 
-	public void removePasswordFromMadis() {
-		String[] split = this.madisFunctionString.split("p:");
-		if (split.length != 2) {
-			log.warn("Could not find password in madis String.");
-			this.madisFunctionString = "";
-		} else {
-			if (split[1].contains(" ")) {
-				String rest = split[1].substring(split[1].indexOf(" "));
-				this.madisFunctionString = split[0] + "p:****" + rest;
-			} else {
-				this.madisFunctionString = split[0] + "p:****";
-			}
-		}
-
-	}
-
 	public void renameTable(String oldName, String newName) {
 		boolean exists = false;
 		for (Table t : this.inputTables) {
@@ -1735,7 +1625,6 @@ public class SQLQuery {
 
 	}
 
-
 	public void setExistsInCache(boolean b) {
 		this.existsInCache = b;
 	}
@@ -1785,8 +1674,6 @@ public class SQLQuery {
 		}
 
 	}
-
-	
 
 	public List<Operand> getJoinOperands() {
 		return joinOperands;
@@ -1854,7 +1741,7 @@ public class SQLQuery {
 	}
 
 	public boolean isSelectAllFromInternal() {
-		return ((this.isSelectAll() || this.getOutputs().isEmpty())  && this.inputTables.size() == 1
+		return ((this.isSelectAll() || this.getOutputs().isEmpty()) && this.inputTables.size() == 1
 				&& this.binaryWhereConditions.isEmpty() && this.unaryWhereConditions.isEmpty()
 				&& this.nestedSelectSubqueries.isEmpty() && this.unionqueries.isEmpty()
 				&& !this.getInputTables().get(0).isFederated() && this.orderBy.isEmpty() && this.groupBy.isEmpty()
@@ -1913,7 +1800,7 @@ public class SQLQuery {
 		separator = "";
 		// if (!this.isHasUnionRootNode()) {
 		output.append(" from ");
-		String result=output.toString().replaceAll("\"", "\\\\\"");
+		String result = output.toString().replaceAll("\"", "\\\\\"");
 		return result;
 	}
 
@@ -1924,6 +1811,7 @@ public class SQLQuery {
 	public void setStringOutputs(String stringOutputs) {
 		this.stringOutputs = stringOutputs;
 	}
+
 	public boolean sipJoinIsLast() {
 		if (this.inputTables.isEmpty()) {
 			return false;
@@ -1955,387 +1843,6 @@ public class SQLQuery {
 		return 0;
 	}
 
-	public void addSipJoin(String si) {
-		for (SipJoin sj : this.sis) {
-			if (sj.getSipName().equals(si)) {
-				this.addBinaryWhereCondition(sj.getBwc());
-				this.addInputTableIfNotExists(new Table("siptable", si), sj.getNumber());
-				return;
-			}
-		}
-		log.warn("SipJoin not found");
-	}
-
-	public String getMostProminentSipjoin() {
-		if (this.sis != null) {
-			int min = this.getInputTables().size();
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				if (sj.getNumber() < min) {
-					min = sj.getNumber();
-					result = sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-
-	public String getLeastProminentSipjoin() {
-		if (this.sis != null) {
-			int max = 0;
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				if (sj.getNumber() > max) {
-					max = sj.getNumber();
-					result = sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-
-	public void adddAllSips(Map<String, Boolean> sips) {
-	
-		if (sis != null) {
-			while (!sis.isEmpty()) {
-				SipJoin[] joins = sis.toArray(new SipJoin[sis.size()]);
-				int max = joins[0].getNumber();
-				SipJoin next = joins[0];
-				for (int i = 1; i < sis.size(); i++) {
-					if (joins[i].getNumber() > max) {
-						max = joins[i].getNumber();
-						next = joins[i];
-					}
-				}
-				sis.remove(next);
-				if (sips.containsKey(next.getSipName())&&sips.get(next.getSipName())) {
-					this.addBinaryWhereCondition(next.getBwc());
-					this.addInputTableIfNotExists(new Table(next.getSipName(), next.getSipName()), next.getNumber());
-				}
-			}
-		}
-	}
-
-	public String getCreateSipTables() {
-		return createSipTables;
-	}
-
-	public void setCreteSipTables(String creteSipTables) {
-		this.createSipTables = creteSipTables;
-	}
-
-	public void appendCreateSipTables(String c) {
-		if (this.createSipTables == null) {
-			createSipTables = c;
-		} else if (!createSipTables.contains(c)) {
-			createSipTables += c;
-		}
-
-	}
-
-	public String getMostProminentSipjoin(Set<String> keySet) {
-		if (this.sis != null) {
-			int min = this.getInputTables().size()+1;
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				if (sj.getNumber() < min) {
-					min = sj.getNumber();
-					result = sj.getSipName();
-				} else if (keySet.contains(sj.getSipName()) && sj.getNumber() - 2 < min) {
-					min = sj.getNumber() - 2;
-					result = sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-	
-	public String getEstimatedSipjoin(ResultList qs, int i, Map<String, Set<SQLQuery>> queriesToSip) {
-		double weight=0.5;
-		if (this.sis != null) {
-			double best = 0;
-			String result = null;
-			for (SipJoin sj : this.sis) {
-				double tempScore=0;
-				if(queriesToSip.containsKey(sj.getSipName())){
-					tempScore+=queriesToSip.get(sj.getSipName()).size();
-				}
-				for(int j=i+1;j<qs.size();j++){
-					SQLQuery next=qs.get(j);
-					if(next.getSipInfo()!=null){
-					for(SipJoin nextSj:next.getSipInfo()){
-						if(nextSj.getSipName().equals(sj.getSipName())){
-							tempScore++;
-							break;
-						}
-					}
-					}
-				}
-				if(this.inputTables.size()>1){
-					tempScore=weight*(this.inputTables.size()-sj.getNumber())*tempScore;
-				}
-				if(best<tempScore){
-					best=tempScore;
-					result=sj.getSipName();
-				}
-			}
-			return result;
-		}
-		return null;
-	}
-
-	public void addSipInfo(SipJoin si) {
-		if (this.sis == null) {
-			// this.deleteSipInfo();
-			this.sis = new ArrayList<SipJoin>();
-		}
-		if(!this.sis.contains(si)){
-			this.sis.add(0, si);
-		}
-		}
-
-	public List<SipJoin> getSipInfo() {
-		return sis;
-	}
-
-	public String toSipSQL() {
-		StringBuilder output = new StringBuilder();
-		String separator = "";
-		
-		// if (!this.isHasUnionRootNode()) {
-		output.append("select ");
-		// }
-		separator = "";
-		if (this.isSelectAll() || this.getOutputs().isEmpty()) {
-			output.append("*");
-		} else {
-			if (this.isOutputColumnsDinstict()) {
-				output.append("distinct ");
-			}
-			for (Output c : getOutputs()) {
-				output.append(separator);
-				separator = ", \n";
-				output.append(c.toString());
-			}
-			/*
-			 * for (Function f : outputFunctions) { output.append(separator);
-			 * separator = ", "; output.append(f.toString()); }
-			 */
-		}
-		separator = "";
-		// if (!this.isHasUnionRootNode()) {
-		output.append(" from \n");
-		// }
-		if (this.getJoinType() != null) {
-
-			for (int tableNo = 0; tableNo < this.inputTables.size() - 1; tableNo++) {
-				output.append("(");
-				
-					output.append(inputTables.get(tableNo).toString().toLowerCase());
-				
-				output.append(" ");
-				output.append(getJoinType());
-				output.append(" ");
-			}
-			
-				output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
-			
-
-			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
-				output.append(" on ");
-				output.append(joinOperands.get(joinOp).toString());
-				output.append(")");
-
-			}
-			/*
-			 * output.append(this.getLeftJoinTable().getResultTableName()); if
-			 * (this.getLeftJoinTableAlias() != null) { output.append(" as ");
-			 * output.append(getLeftJoinTableAlias()); }
-			 * output.append(inputTables.get(0)); output.append(" ");
-			 * output.append(getJoinType()); output.append(" ");
-			 * output.append(inputTables.get(1));
-			 * output.append(this.getRightJoinTable().getResultTableName()); if
-			 * (this.getRightJoinTableAlias() != null) { output.append(" as ");
-			 * output.append(getRightJoinTableAlias()); } output.append(" on ");
-			 * output.append(joinOperand.toString());
-			 */
-
-		} else if (!this.unionqueries.isEmpty()) {
-			// UNIONS
-			return "";
-
-		} else {
-			if (!this.nestedSelectSubqueries.isEmpty()) {
-				// nested select subqueries
-				for (SQLQuery nested : getNestedSelectSubqueries().keySet()) {
-					String alias = this.nestedSelectSubqueries.get(nested);
-					output.append(separator);
-					output.append("(select ");
-					if (nested.isOutputColumnsDinstict()) {
-						output.append("distinct ");
-					}
-					output.append("* from \n");
-					output.append(nested.getResultTableName());
-					output.append(")");
-					// if (nestedSelectSubqueryAlias != null) {
-					output.append(" ");
-					output.append(alias);
-					separator = ", \n";
-				} // }
-			} // else {
-			if (this.getMadisFunctionString().startsWith("postgres")) {
-				for (Table t : getInputTables()) {
-					output.append(separator);
-					String localName = t.getlocalName();
-					if (localName.contains(".")) {
-						localName = localName.split("\\.")[1];
-					}
-					output.append(localName + " " + t.getAlias());
-					separator = ", \n";
-				}
-			} else {
-				boolean newb = true;
-				if (newb) {
-					// output.append("(");
-					for (Table t : getInputTables()) {
-						
-
-						if (t.getAlias().startsWith("siptable")) {
-							separator = " ,  ";
-						}
-						output.append(separator);
-						output.append(t.toString());
-						separator = " , ";
-						// if (t.getAlias().startsWith("siptable")) {
-						// separator = " CROSS JOIN ";
-						// }
-
-					}
-					// output.append(")");
-
-				}
-
-				/*
-				 * if(newb){ String otherTable=""; String sipTable=""; Column
-				 * otherCol=null; for(NonUnaryWhereCondition
-				 * nuwc:this.binaryWhereConditions){ if(!(nuwc.getLeftOp()
-				 * instanceof Column && nuwc.getRightOp() instanceof Column)){
-				 * continue; }
-				 * if(nuwc.getRightOp().getAllColumnRefs().get(0).getAlias
-				 * ().startsWith("sip")){
-				 * otherCol=nuwc.getLeftOp().getAllColumnRefs().get(0); Column
-				 * sipCol=nuwc.getRightOp().getAllColumnRefs().get(0);
-				 * sipCol.setName("y");
-				 * otherTable=nuwc.getLeftOp().getAllColumnRefs
-				 * ().get(0).getAlias();
-				 * sipTable=nuwc.getRightOp().getAllColumnRefs
-				 * ().get(0).getAlias(); break; } } for (Table t :
-				 * getInputTables()) { if(t.getAlias().equals(otherTable)){
-				 * output.append(t.toString()); output.append(" CROSS JOIN ");
-				 * break; } } output.append("siptable"); output.append(" ");
-				 * output.append(sipTable); output.append(" JOIN (");
-				 * separator=""; for (Table t : getInputTables()) {
-				 * if(t.getAlias().equals(otherTable)){ continue; }
-				 * if(t.getAlias().equals(sipTable)){ continue; }
-				 * output.append(separator); output.append(t.toString());
-				 * separator=" JOIN ";
-				 * 
-				 * } output.append(")"); if(!b){ output.append(" CROSS JOIN ");
-				 * output.append("siptable"); output.append(" ");
-				 * output.append(sipTable); output.append("2");
-				 * this.binaryWhereConditions.add(new
-				 * NonUnaryWhereCondition(otherCol, new Column(sipTable+"2",
-				 * "x"), "=")); } } if(!b){ for (Table t : getInputTables()) {
-				 * if(t.getName().startsWith("sip")){ t.setName("siptable");
-				 * separator=" CROSS JOIN "; } output.append(separator);
-				 * if(this.isFederated){ output.append(t.toString()); } else{
-				 * output.append(t.toString().toLowerCase()); } separator =
-				 * ", \n"; } } else{ String otherTable=""; String sipTable="";
-				 * for(NonUnaryWhereCondition nuwc:this.binaryWhereConditions){
-				 * if(!(nuwc.getLeftOp() instanceof Column && nuwc.getRightOp()
-				 * instanceof Column)){ continue; }
-				 * if(nuwc.getRightOp().getAllColumnRefs
-				 * ().get(0).getAlias().startsWith("sip")){ Column
-				 * sipCol=nuwc.getRightOp().getAllColumnRefs().get(0);
-				 * sipCol.setName("y");
-				 * otherTable=nuwc.getLeftOp().getAllColumnRefs
-				 * ().get(0).getAlias();
-				 * sipTable=nuwc.getRightOp().getAllColumnRefs
-				 * ().get(0).getAlias(); break; } } for (Table t :
-				 * getInputTables()) { if(t.getAlias().equals(otherTable)){
-				 * output.append(t.toString()); output.append(" CROSS JOIN ");
-				 * break; } } output.append("siptable ");
-				 * output.append(sipTable); output.append(" JOIN (");
-				 * separator=""; for (Table t : getInputTables()) {
-				 * if(t.getAlias().equals(otherTable)){ continue; }
-				 * if(t.getName().equals(sipTable)){ continue; }
-				 * output.append(separator); output.append(t.toString());
-				 * separator=" JOIN ";
-				 * 
-				 * 
-				 * } output.append(")"); }
-				 */
-
-			}
-		}
-		separator = "";
-		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()
-				|| (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle "))) {
-			if (this.getJoinType() != null) {
-				output.append(" on (");
-			} else {
-				output.append(" \nwhere \n");
-			}
-		}
-		for (NonUnaryWhereCondition wc : getBinaryWhereConditions()) {
-			output.append(separator);
-			output.append(wc.toString());
-			separator = " and \n";
-		}
-		for (UnaryWhereCondition wc : getUnaryWhereConditions()) {
-			output.append(separator);
-			output.append(wc.toString());
-			separator = " and \n";
-		}
-		if (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(separator);
-			output.append("rownum <=");
-			output.append(this.limit);
-		}
-		if (this.getJoinType() != null) {
-			output.append(") ");
-		}
-
-		if (!groupBy.isEmpty()) {
-			separator = "";
-			output.append(" \ngroup by ");
-			for (Column c : getGroupBy()) {
-				output.append(separator);
-				output.append(c.toString());
-				separator = ", ";
-			}
-		}
-		if (!orderBy.isEmpty()) {
-			separator = "";
-			output.append(" \norder by ");
-			for (ColumnOrderBy c : getOrderBy()) {
-				output.append(separator);
-				output.append(c.toString());
-				separator = ", ";
-			}
-		}
-		if (getLimit() > -1 && !this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(" \nlimit ");
-			output.append(getLimit());
-		}
-		
-		// output.append(";");
-		return output.toString();
-	}
-
 	public void setSQL(String string) {
 		this.sql = string;
 
@@ -2347,9 +1854,14 @@ public class SQLQuery {
 	}
 
 	public String getSqlForPartition(int i) {
+
+		if (this.tableToSplit > this.inputTables.size() && i > 0) {
+			return null;
+		}
+
 		StringBuilder output = new StringBuilder();
 		String separator = "";
-	
+
 		// if (!this.isHasUnionRootNode()) {
 		output.append("select ");
 		// }
@@ -2378,16 +1890,15 @@ public class SQLQuery {
 
 			for (int tableNo = 0; tableNo < this.inputTables.size() - 1; tableNo++) {
 				output.append("(");
-				
-					output.append(inputTables.get(tableNo).toString().toLowerCase());
-				
+
+				output.append(inputTables.get(tableNo).toString().toLowerCase());
+
 				output.append(" ");
 				output.append(getJoinType());
 				output.append(" ");
 			}
-			
-				output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
-			
+
+			output.append(inputTables.get(this.inputTables.size() - 1).toString().toLowerCase());
 
 			for (int joinOp = joinOperands.size() - 1; joinOp > -1; joinOp--) {
 				output.append(" on ");
@@ -2395,7 +1906,6 @@ public class SQLQuery {
 				output.append(")");
 
 			}
-			
 
 		} else if (!this.unionqueries.isEmpty()) {
 			// UNIONS
@@ -2420,52 +1930,45 @@ public class SQLQuery {
 					separator = ", \n";
 				} // }
 			} // else {
-			if (this.getMadisFunctionString().startsWith("postgres")) {
-				for (Table t : getInputTables()) {
-					output.append(separator);
-					String localName = t.getlocalName();
-					if (localName.contains(".")) {
-						localName = localName.split("\\.")[1];
-					}
-					output.append(localName + " " + t.getAlias());
-					separator = ", \n";
-				}
-			} else {
-				boolean newb = true;
-				if (newb) {
-					// output.append("(");
-					output.append(separator);
-					Table first=this.inputTables.get(0);
-					output.append(first.getName()+"_"+i);
+
+			// output.append("(");
+			/*
+			 * output.append(separator); Table first = this.inputTables.get(0);
+			 * output.append(first.getName() + "_" + i); output.append(" ");
+			 * output.append(first.getAlias()); separator = " CROSS JOIN ";
+			 */
+			for (int t = 0; t < inputTables.size(); t++) {
+
+				output.append(separator);
+				if (t < this.tableToSplit) {
+					output.append(this.inputTables.get(t).toString());
+				} else if (t == this.tableToSplit) {
+					Table tbl = this.inputTables.get(t);
+					output.append(tbl.getName());
+					output.append("_");
+					output.append(i);
 					output.append(" ");
-					output.append(first.getAlias());
-					separator = " , ";
-					
-					for (int t=1;t<inputTables.size();t++) {
-						
-						output.append(separator);
-						output.append(this.inputTables.get(t).toString());
-						separator = " , ";
-						
-
+					output.append(tbl.getAlias());
+				} else {
+					Table tbl = this.inputTables.get(t);
+					if(tbl.getName().equals("dictionary")){
+						output.append(tbl.getName());
 					}
-					// output.append(")");
-
+					else{
+						output.append("wrapper" + tbl.getName());
+					}
+					
+					output.append(" ");
+					output.append(tbl.getAlias());
 				}
-
-				
+				separator = " CROSS JOIN ";
 
 			}
+			// output.append(")");
+
 		}
 		separator = "";
-		if (!this.binaryWhereConditions.isEmpty() || !this.unaryWhereConditions.isEmpty()
-				|| (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle "))) {
-			if (this.getJoinType() != null) {
-				output.append(" on (");
-			} else {
-				output.append(" \nwhere \n");
-			}
-		}
+		output.append(" WHERE ");
 		for (NonUnaryWhereCondition wc : getBinaryWhereConditions()) {
 			output.append(separator);
 			output.append(wc.toString());
@@ -2476,11 +1979,7 @@ public class SQLQuery {
 			output.append(wc.toString());
 			separator = " and \n";
 		}
-		if (getLimit() > -1 && this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(separator);
-			output.append("rownum <=");
-			output.append(this.limit);
-		}
+
 		if (this.getJoinType() != null) {
 			output.append(") ");
 		}
@@ -2503,13 +2002,54 @@ public class SQLQuery {
 				separator = ", ";
 			}
 		}
-		if (getLimit() > -1 && !this.getMadisFunctionString().startsWith("oracle ")) {
-			output.append(" \nlimit ");
-			output.append(getLimit());
-		}
-		
+
 		// output.append(";");
 		return output.toString();
 	}
-	
+
+	public void computeTableToSplit(int partitions) {
+		for (int i = 0; i < inputTables.size(); i++) {
+			Table t = inputTables.get(i);
+			boolean existsFilter = false;
+			boolean inv = t.getName().startsWith("inv");
+			if (t.getName().equals("dictionary")) {
+				this.tableToSplit = inputTables.size() + 1;
+				return;
+			}
+			for (NonUnaryWhereCondition nuwc : this.binaryWhereConditions) {
+				if (nuwc.getLeftOp() instanceof Constant && nuwc.getRightOp() instanceof Column) {
+					Column c = (Column) nuwc.getRightOp();
+					if (t.getAlias().equals(c.getAlias())) {
+						if (inv && c.getName().equals("o")) {
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							existsFilter = true;
+							break;
+						} else if (!inv && c.getName().equals("s")) {
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							existsFilter = true;
+							break;
+						}
+					}
+				} else if (nuwc.getRightOp() instanceof Constant && nuwc.getLeftOp() instanceof Column) {
+					Column c = (Column) nuwc.getLeftOp();
+					if (t.getAlias().equals(c.getAlias())) {
+						if (inv && c.getName().equals("o")) {
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getRightOp().toString()) % 4);
+							existsFilter = true;
+							break;
+						} else if (!inv && c.getName().equals("s")) {
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							existsFilter = true;
+							break;
+						}
+					}
+				}
+			}
+			if (!existsFilter) {
+				this.tableToSplit = i;
+				return;
+			}
+		}
+	}
+
 }

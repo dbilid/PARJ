@@ -146,9 +146,12 @@ public class Column implements Operand {
 	@Override
 	public HashCode getHashID() {
 		return Hashing.sha1().hashBytes(this.toString().getBytes());
-		/*List<HashCode> codes = new ArrayList<HashCode>();
-		codes.add(Hashing.sha1().hashBytes(this.tableAlias.toUpperCase().getBytes()));
-		codes.add(Hashing.sha1().hashBytes(this.columnName.toUpperCase().getBytes()));
-		return Hashing.combineOrdered(codes);*/
+		/*
+		 * List<HashCode> codes = new ArrayList<HashCode>();
+		 * codes.add(Hashing.sha1().hashBytes(this.tableAlias.toUpperCase().
+		 * getBytes()));
+		 * codes.add(Hashing.sha1().hashBytes(this.columnName.toUpperCase().
+		 * getBytes())); return Hashing.combineOrdered(codes);
+		 */
 	}
 }

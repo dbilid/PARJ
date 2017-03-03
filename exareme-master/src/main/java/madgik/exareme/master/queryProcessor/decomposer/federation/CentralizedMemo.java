@@ -8,30 +8,24 @@ import java.util.Map;
 
 public class CentralizedMemo {
 
-    private final Map<MemoKey, CentralizedMemoValue> memo =
-        new HashMap<MemoKey, CentralizedMemoValue>();
+	private final Map<MemoKey, CentralizedMemoValue> memo = new HashMap<MemoKey, CentralizedMemoValue>();
 
-    public CentralizedMemo() {
-    }
+	public CentralizedMemo() {
+	}
 
-    public CentralizedMemoValue getMemoValue(MemoKey k) {
-        return memo.get(k);
-    }
+	public CentralizedMemoValue getMemoValue(MemoKey k) {
+		return memo.get(k);
+	}
 
-    public boolean containsMemoKey(MemoKey ec) {
-        return memo.containsKey(ec);
-    }
+	public boolean containsMemoKey(MemoKey ec) {
+		return memo.containsKey(ec);
+	}
 
+	public void put(Node e, SinglePlan resultPlan, Column c, int i) {
+		MemoKey k = new MemoKey(e, c);
+		CentralizedMemoValue v = new CentralizedMemoValue(resultPlan);
+		memo.put(k, v);
 
-  
-
-    public void put(Node e, SinglePlan resultPlan, Column c, int i) {
-        MemoKey k = new MemoKey(e, c);
-        CentralizedMemoValue v = new CentralizedMemoValue(resultPlan);
-        memo.put(k, v);
-
-    }
-
-
+	}
 
 }

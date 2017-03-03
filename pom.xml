@@ -110,6 +110,7 @@
             <dependency>
                 <groupId>org.xerial</groupId>
                 <artifactId>sqlite-jdbc</artifactId>
+                <version>3.16.1</version>
                 <type>jar</type>
             </dependency>
             <!-- Http deps -->
@@ -141,11 +142,13 @@
         </dependencies>
     </dependencyManagement>
     <modules>
-        <module>exareme-utils</module>
         <module>exareme-jdbc</module>
+        <module>exareme-utils</module>
         <module>exareme-master</module>
         <module>exareme-distribution</module>
     </modules>
+
+    
     <properties>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -14,78 +14,79 @@ import java.util.Set;
  * @author dimitris
  */
 public class PartitionCols {
-    private HashSet<Column> cols;
+	private HashSet<Column> cols;
 
-    public PartitionCols() {
-        this.cols = new HashSet();
-    }
+	public PartitionCols() {
+		this.cols = new HashSet();
+	}
 
-    @Override public String toString() {
-        return "PartitionCols{" + "cols=" + cols + '}';
-    }
+	@Override
+	public String toString() {
+		return "PartitionCols{" + "cols=" + cols + '}';
+	}
 
+	@Override
+	public int hashCode() {
+		int hash = 7;
+		hash = 89 * hash + (this.cols != null ? this.cols.hashCode() : 0);
+		return hash;
+	}
 
-    @Override public int hashCode() {
-        int hash = 7;
-        hash = 89 * hash + (this.cols != null ? this.cols.hashCode() : 0);
-        return hash;
-    }
+	@Override
+	public boolean equals(Object obj) {
+		if (obj == null) {
+			return false;
+		}
+		if (this == obj) {
+			return true;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
 
-    @Override public boolean equals(Object obj) {
-        if (obj == null) {
-            return false;
-        }
-        if (this == obj) {
-            return true;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
+		final PartitionCols other = (PartitionCols) obj;
 
-        final PartitionCols other = (PartitionCols) obj;
+		if (this.cols != other.cols && (this.cols == null || !this.cols.equals(other.cols))) {
+			return false;
+		}
+		return true;
+	}
 
-        if (this.cols != other.cols && (this.cols == null || !this.cols.equals(other.cols))) {
-            return false;
-        }
-        return true;
-    }
+	public PartitionCols(List<Column> c) {
+		this.cols = new HashSet();
+		for (Column cl : c) {
+			this.cols.add(cl);
+		}
+	}
 
+	public void addColumn(Column c) {
+		this.cols.add(c);
+	}
 
-    public PartitionCols(List<Column> c) {
-        this.cols = new HashSet();
-        for (Column cl : c) {
-            this.cols.add(cl);
-        }
-    }
+	public boolean isEmpty() {
+		return this.cols.isEmpty();
+	}
 
-    public void addColumn(Column c) {
-        this.cols.add(c);
-    }
+	public boolean contains(Column c) {
+		return this.cols.contains(c);
+	}
 
-    public boolean isEmpty() {
-        return this.cols.isEmpty();
-    }
+	public Column getFirstCol() {
+		return this.cols.iterator().next();
+	}
 
-    public boolean contains(Column c) {
-        return this.cols.contains(c);
-    }
+	public void addColumns(Iterable<Column> allColumnRefs) {
+		for (Column c : allColumnRefs) {
+			this.cols.add(c);
+		}
+	}
 
-    public Column getFirstCol() {
-        return this.cols.iterator().next();
-    }
+	public Set<Column> getColumns() {
+		return this.cols;
+	}
 
-    public void addColumns(Iterable<Column> allColumnRefs) {
-        for (Column c : allColumnRefs) {
-            this.cols.add(c);
-        }
-    }
-
-    public Set<Column> getColumns() {
-        return this.cols;
-    }
-
-    public void retainAll(PartitionCols nextPcs) {
-        this.cols.retainAll(nextPcs.getColumns());
-    }
+	public void retainAll(PartitionCols nextPcs) {
+		this.cols.retainAll(nextPcs.getColumns());
+	}
 
 }

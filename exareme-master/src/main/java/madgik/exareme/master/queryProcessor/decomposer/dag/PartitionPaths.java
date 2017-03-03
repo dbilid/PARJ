@@ -10,12 +10,10 @@ import java.util.ArrayList;
  * @author dimitris
  */
 public class PartitionPaths {
-    private ArrayList<PartitionCols> paths;
+	private ArrayList<PartitionCols> paths;
 
-    public PartitionPaths() {
-        this.paths = new ArrayList<PartitionCols>();
-    }
-
-
+	public PartitionPaths() {
+		this.paths = new ArrayList<PartitionCols>();
+	}
 
 }

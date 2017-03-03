@@ -11,64 +11,62 @@ import madgik.exareme.master.queryProcessor.estimator.db.RelInfo;
  * @author jim
  */
 public final class NodeInfo {
-    //    private final int nodeId;
-    private double numberOfTuples;
-    private double tupleLength; //in bytes
-    private double responseTimeEstimation;
-    private RelInfo resultRel;
+	// private final int nodeId;
+	private double numberOfTuples;
+	private double tupleLength; // in bytes
+	private double responseTimeEstimation;
+	private RelInfo resultRel;
 
-    public NodeInfo(int nodeId, double numberOfTuples, double tupleLength, RelInfo resultRel) {
-        //        this.nodeId = nodeId;
-        this.numberOfTuples = numberOfTuples;
-        this.tupleLength = tupleLength;
-        this.resultRel = resultRel;
-    }
+	public NodeInfo(int nodeId, double numberOfTuples, double tupleLength, RelInfo resultRel) {
+		// this.nodeId = nodeId;
+		this.numberOfTuples = numberOfTuples;
+		this.tupleLength = tupleLength;
+		this.resultRel = resultRel;
+	}
 
-    public NodeInfo() {
+	public NodeInfo() {
 
-    }
+	}
 
-    /*getters and setters*/
-    //    public int getNodeId() {
-    //        return nodeId;
-    //    }
+	/* getters and setters */
+	// public int getNodeId() {
+	// return nodeId;
+	// }
 
-    public double getNumberOfTuples() {
-        return numberOfTuples;
-    }
+	public double getNumberOfTuples() {
+		return numberOfTuples;
+	}
 
-    public double getTupleLength() {
-        return tupleLength;
-    }
+	public double getTupleLength() {
+		return tupleLength;
+	}
 
-    public double getResponseTimeEstimation() {
-        return responseTimeEstimation;
-    }
+	public double getResponseTimeEstimation() {
+		return responseTimeEstimation;
+	}
 
-    public void setResponseTimeEstimation(double responseTimeEstimation) {
-        this.responseTimeEstimation = responseTimeEstimation;
-    }
+	public void setResponseTimeEstimation(double responseTimeEstimation) {
+		this.responseTimeEstimation = responseTimeEstimation;
+	}
 
-    public void setNumberOfTuples(double numberOfTuples) {
-        this.numberOfTuples = numberOfTuples;
-    }
+	public void setNumberOfTuples(double numberOfTuples) {
+		this.numberOfTuples = numberOfTuples;
+	}
 
-    public void setTupleLength(double tupleLength) {
-        this.tupleLength = tupleLength;
-    }
+	public void setTupleLength(double tupleLength) {
+		this.tupleLength = tupleLength;
+	}
 
-    public RelInfo getResultRel() {
-        return resultRel;
-    }
+	public RelInfo getResultRel() {
+		return resultRel;
+	}
 
-    public void setResultRel(RelInfo resultRel) {
-        this.resultRel = resultRel;
-    }
+	public void setResultRel(RelInfo resultRel) {
+		this.resultRel = resultRel;
+	}
 
-
-
-    /*interface methods*/
-    public double outputRelSize() {
-        return this.numberOfTuples * this.tupleLength;
-    }
+	/* interface methods */
+	public double outputRelSize() {
+		return this.numberOfTuples * this.tupleLength;
+	}
 }

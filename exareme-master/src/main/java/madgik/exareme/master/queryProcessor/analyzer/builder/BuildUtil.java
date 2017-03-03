@@ -13,14 +13,14 @@ import java.util.Map;
  */
 public class BuildUtil {
 
-    public static double computeMeanVal(Map<String, Integer> valMap) {
-        int sum = 0;
+	public static double computeMeanVal(Map<String, Integer> valMap) {
+		int sum = 0;
 
-        for (String s : valMap.keySet())
-            sum += valMap.get(s);
+		for (String s : valMap.keySet())
+			sum += valMap.get(s);
 
-        // return mean val
-        return (double) sum / (double) valMap.size();
-    }
+		// return mean val
+		return (double) sum / (double) valMap.size();
+	}
 
 }

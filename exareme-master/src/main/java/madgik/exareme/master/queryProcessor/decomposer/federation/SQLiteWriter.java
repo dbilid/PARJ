@@ -9,13 +9,12 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-
 import org.apache.log4j.Logger;
 
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 
 public class SQLiteWriter extends Writer {
-	
+
 	private static final Logger log = Logger.getLogger(SQLiteWriter.class);
 
 	private final int batchSize = DecomposerUtils.NO_OF_RECORDS;;
@@ -27,8 +26,7 @@ public class SQLiteWriter extends Writer {
 		super();
 	}
 
-	public SQLiteWriter(Connection sqliteConn, int noOfBufferedRecords,
-			String query, Statement statement, String sql,
+	public SQLiteWriter(Connection sqliteConn, int noOfBufferedRecords, String query, Statement statement, String sql,
 			StringBuilder createTableSQL) throws SQLException {
 		super();
 		ResultSet resultSet = statement.executeQuery(query + " LIMIT 0 ");
@@ -67,7 +65,7 @@ public class SQLiteWriter extends Writer {
 		creatSt.execute(createTableSQL.toString());
 		creatSt.close();
 		sqliteStatement = sqliteConnection.prepareStatement(sql);
-		
+
 	}
 
 	public SQLiteWriter(Object lock) {
@@ -86,9 +84,9 @@ public class SQLiteWriter extends Writer {
 
 	@Override
 	public void flush() throws IOException {
-		//log.debug("Flushing! Record size:"+records.size());
+		// log.debug("Flushing! Record size:"+records.size());
 		try {
-			
+
 			sqliteStatement.executeBatch();
 		} catch (SQLException e) {
 			throw new IOException(e);
@@ -106,23 +104,23 @@ public class SQLiteWriter extends Writer {
 	}
 
 	public void write(String record) throws IOException {
-		record=record.substring(0,record.length()-1);//remove \n
+		record = record.substring(0, record.length() - 1);// remove \n
 		try {
-		//CSVParser parser = CSVParser.parse(record, CSVFormat.DEFAULT);
-		//for (CSVRecord csvRecord : parser) {
-		//	for(int i=0;i<csvRecord.size();i++){
-				String[] s=record.split("#");
-				for(int i=0;i<s.length;i++){
-					sqliteStatement.setObject(i+1, s[i]);
-				}
-				sqliteStatement.addBatch();
-		//	}
+			// CSVParser parser = CSVParser.parse(record, CSVFormat.DEFAULT);
+			// for (CSVRecord csvRecord : parser) {
+			// for(int i=0;i<csvRecord.size();i++){
+			String[] s = record.split("#");
+			for (int i = 0; i < s.length; i++) {
+				sqliteStatement.setObject(i + 1, s[i]);
+			}
+			sqliteStatement.addBatch();
+			// }
 			buffer++;
-	//	}
-		if (buffer >= batchSize) {
-			buffer=0;
-			sqliteStatement.executeBatch();
-		}
+			// }
+			if (buffer >= batchSize) {
+				buffer = 0;
+				sqliteStatement.executeBatch();
+			}
 		} catch (SQLException e) {
 			throw new IOException(e);
 		}

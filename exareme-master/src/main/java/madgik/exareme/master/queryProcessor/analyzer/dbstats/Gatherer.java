@@ -19,62 +19,61 @@ import java.util.Map;
  */
 public class Gatherer {
 
-    private Map<String, Table> schema;
-    private String connString;
-    private String dbName;
-    private String sch;
+	private Map<String, Table> schema;
+	private String connString;
+	private String dbName;
+	private String sch;
 
-    public Gatherer(String connString, String dbName) {
-        this.connString = connString;
-        this.dbName = dbName;
-        sch = "public";
-    }
+	public Gatherer(String connString, String dbName) {
+		this.connString = connString;
+		this.dbName = dbName;
+		sch = "public";
+	}
 
-    public Map<String, Table> gather(String dbpath) throws Exception {
-        Class.forName("org.sqlite.JDBC");
-        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + this.connString);
+	public Map<String, Table> gather(String dbpath) throws Exception {
+		Class.forName("org.sqlite.JDBC");
+		Connection connection = DriverManager.getConnection("jdbc:sqlite:" + this.connString);
 
-        Stat stat = new Stat(connection);
-        stat.setSch(sch);
-        schema = stat.extractStats();
+		Stat stat = new Stat(connection);
+		stat.setSch(sch);
+		schema = stat.extractStats();
 
-        //
+		//
 
-	/*	for (Entry<String, Table> e : schema.entrySet()) {
+		/*
+		 * for (Entry<String, Table> e : schema.entrySet()) {
+		 * 
+		 * System.out.println("TABLE: " + e.getKey() + " TUPLES: " +
+		 * e.getValue().getNumberOfTuples()); for (Entry<String, Column> ee :
+		 * schema.get(e.getKey()) .getColumnMap().entrySet()) {
+		 * 
+		 * int s = 0; for (int i : ee.getValue().getDiffValFreqMap().values()) s
+		 * += i;
+		 * 
+		 * System.out.println("COLUMN: " + ee.getKey() + " TUPLES: " + s); }
+		 * 
+		 * }
+		 */
 
-			System.out.println("TABLE: " + e.getKey() + " TUPLES: "
-					+ e.getValue().getNumberOfTuples());
-			for (Entry<String, Column> ee : schema.get(e.getKey())
-					.getColumnMap().entrySet()) {
+		// dataToJson(dbName, dbpath);
 
-				int s = 0;
-				for (int i : ee.getValue().getDiffValFreqMap().values())
-					s += i;
+		connection.close();
+		return schema;
 
-				System.out.println("COLUMN: " + ee.getKey() + " TUPLES: " + s);
-			}
+	}
 
-		}*/
+	public void setSch(String s) {
+		this.sch = s;
+	}
 
-        //dataToJson(dbName, dbpath);
+	private void dataToJson(String filename, String dbpath) throws Exception {
 
-        connection.close();
-        return schema;
+		Gson gson = new Gson();
+		String jsonStr = gson.toJson(schema);
 
-    }
+		PrintWriter writer = new PrintWriter(dbpath + filename + ".json", "UTF-8");
+		writer.println(jsonStr);
+		writer.close();
 
-    public void setSch(String s) {
-        this.sch = s;
-    }
-
-    private void dataToJson(String filename, String dbpath) throws Exception {
-
-        Gson gson = new Gson();
-        String jsonStr = gson.toJson(schema);
-
-        PrintWriter writer = new PrintWriter(dbpath + filename + ".json", "UTF-8");
-        writer.println(jsonStr);
-        writer.close();
-
-    }
+	}
 }

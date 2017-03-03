@@ -27,142 +27,130 @@ import java.net.InetSocketAddress;
  */
 public class HttpAsyncExaremeGateway implements ExaremeGateway {
 
-  private static final Logger log = Logger.getLogger(HttpAsyncExaremeGateway.class);
-  private final AsyncHttpListener listener;
-  private final DBManager manager;
+	private static final Logger log = Logger.getLogger(HttpAsyncExaremeGateway.class);
+	private final AsyncHttpListener listener;
+	private final DBManager manager;
 
-  public HttpAsyncExaremeGateway(DBManager m) throws Exception {
+	public HttpAsyncExaremeGateway(DBManager m) throws Exception {
 
-	this.manager=m;
-	  
-    final IOReactorConfig reactorConfig = IOReactorConfig.custom()
-        .setIoThreadCount(1)
-        .setSoKeepAlive(true)
-        .setSoReuseAddress(true)
-        .setTcpNoDelay(ExaremeGatewayUtils.GW_NODELAY)
-        .build();
+		this.manager = m;
 
-    final ListeningIOReactor ioReactor = new DefaultListeningIOReactor(reactorConfig);
-    final ConnectionConfig connectionConfig = ConnectionConfig.custom()
-        .setBufferSize(ExaremeGatewayUtils.GW_BUFFERSIZE_KB)
-        .setFragmentSizeHint(ExaremeGatewayUtils.GW_BUFFERSIZE_KB)
-        .build();
+		final IOReactorConfig reactorConfig = IOReactorConfig.custom().setIoThreadCount(1).setSoKeepAlive(true)
+				.setSoReuseAddress(true).setTcpNoDelay(ExaremeGatewayUtils.GW_NODELAY).build();
 
-    final HttpProcessor httpproc = new ImmutableHttpProcessor(
-        new ResponseDate(),
-        new ResponseServer("ExaremeGateway/0.1"),
-        new ResponseContent(),
-        new ResponseConnControl()
-    );
+		final ListeningIOReactor ioReactor = new DefaultListeningIOReactor(reactorConfig);
+		final ConnectionConfig connectionConfig = ConnectionConfig.custom()
+				.setBufferSize(ExaremeGatewayUtils.GW_BUFFERSIZE_KB)
+				.setFragmentSizeHint(ExaremeGatewayUtils.GW_BUFFERSIZE_KB).build();
 
-    final UriHttpAsyncRequestHandlerMapper registry = new UriHttpAsyncRequestHandlerMapper();
-    registry.register("*", new HttpAsyncMainHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_FILE, new HttpAsyncFileHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_DECOMPOSER, new HttpAsyncDecomposerHandler());
-    registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY_DELETE, new HttpAsyncDeleteStreamQueryHandler());
+		final HttpProcessor httpproc = new ImmutableHttpProcessor(new ResponseDate(),
+				new ResponseServer("ExaremeGateway/0.1"), new ResponseContent(), new ResponseConnControl());
 
+		final UriHttpAsyncRequestHandlerMapper registry = new UriHttpAsyncRequestHandlerMapper();
+		registry.register("*", new HttpAsyncMainHandler());
+		registry.register(ExaremeGatewayUtils.GW_API_FILE, new HttpAsyncFileHandler());
+		// registry.register(ExaremeGatewayUtils.GW_API_DECOMPOSER, new
+		// HttpAsyncDecomposerHandler());
+		registry.register(ExaremeGatewayUtils.GW_API_STREAMQUERY_DELETE, new HttpAsyncDeleteStreamQueryHandler());
 
-    Class.forName("madgik.exareme.master.gateway.OptiqueStreamQueryMetadata.StreamRegisterQuery");
+		Class.forName("madgik.exareme.master.gateway.OptiqueStreamQueryMetadata.StreamRegisterQuery");
 
-    final HttpAsyncService handler = new HttpAsyncService(httpproc, null, null, registry, null, null);
+		final HttpAsyncService handler = new HttpAsyncService(httpproc, null, null, registry, null, null);
 
-    final IOEventDispatch ioEventDispatch =
-        new DefaultHttpServerIODispatch(handler, connectionConfig);
+		final IOEventDispatch ioEventDispatch = new DefaultHttpServerIODispatch(handler, connectionConfig);
 
-    this.listener = new AsyncHttpListener(ioReactor, ioEventDispatch);
-  }
+		this.listener = new AsyncHttpListener(ioReactor, ioEventDispatch);
+	}
 
-  @Override
-  public String getName() {
-    return HttpAsyncExaremeGateway.class.getSimpleName();
-  }
+	@Override
+	public String getName() {
+		return HttpAsyncExaremeGateway.class.getSimpleName();
+	}
 
-  @Override
-  public int getPort() {
-    return ExaremeGatewayUtils.GW_PORT;
-  }
+	@Override
+	public int getPort() {
+		return ExaremeGatewayUtils.GW_PORT;
+	}
 
-  @Override
-  public void start() throws Exception {
-    log.trace("Starting...");
-    this.listener.start();
-    this.listener.listen(new InetSocketAddress(ExaremeGatewayUtils.GW_PORT));
-    log.trace("listens on " + ExaremeGatewayUtils.GW_PORT);
-  }
+	@Override
+	public void start() throws Exception {
+		log.trace("Starting...");
+		this.listener.start();
+		this.listener.listen(new InetSocketAddress(ExaremeGatewayUtils.GW_PORT));
+		log.trace("listens on " + ExaremeGatewayUtils.GW_PORT);
+	}
 
-  @Override
-  public boolean isUp() {
-    if (listener == null)
-      return false;
-    return listener.isAlive();
-  }
+	@Override
+	public boolean isUp() {
+		if (listener == null)
+			return false;
+		return listener.isAlive();
+	}
 
-  @Override
-  public void stop() {
-    log.trace("Terminating...");
-    // stop gateway
-    this.listener.terminate();
-    try {
-      this.listener.awaitTermination(ExaremeGatewayUtils.GW_WAIT_TERM_SEC * 1000);
-    } catch (final InterruptedException e) {
-      log.error("Unable to stop gateway.", e);
-    }
+	@Override
+	public void stop() {
+		log.trace("Terminating...");
+		// stop gateway
+		this.listener.terminate();
+		try {
+			this.listener.awaitTermination(ExaremeGatewayUtils.GW_WAIT_TERM_SEC * 1000);
+		} catch (final InterruptedException e) {
+			log.error("Unable to stop gateway.", e);
+		}
 
-    if (this.listener.getException() != null) {
-      log.error("Gateway exception.", this.listener.getException());
-    }
-  }
+		if (this.listener.getException() != null) {
+			log.error("Gateway exception.", this.listener.getException());
+		}
+	}
 
+	/**
+	 * Main listener Thread.
+	 *
+	 * @author alex
+	 * @since 0.1
+	 */
+	private class AsyncHttpListener extends Thread {
+		private final Logger log = Logger.getLogger(AsyncHttpListener.class);
 
-  /**
-   * Main listener Thread.
-   *
-   * @author alex
-   * @since 0.1
-   */
-  private class AsyncHttpListener extends Thread {
-    private final Logger log = Logger.getLogger(AsyncHttpListener.class);
+		private final ListeningIOReactor ioreactor;
+		private final IOEventDispatch ioEventDispatch;
+		private volatile Exception exception;
 
-    private final ListeningIOReactor ioreactor;
-    private final IOEventDispatch ioEventDispatch;
-    private volatile Exception exception;
+		public AsyncHttpListener(final ListeningIOReactor ioreactor, final IOEventDispatch ioEventDispatch) {
+			super();
+			this.ioreactor = ioreactor;
+			this.ioEventDispatch = ioEventDispatch;
+		}
 
-    public AsyncHttpListener(final ListeningIOReactor ioreactor,
-                             final IOEventDispatch ioEventDispatch) {
-      super();
-      this.ioreactor = ioreactor;
-      this.ioEventDispatch = ioEventDispatch;
-    }
+		@Override
+		public void run() {
+			try {
+				this.ioreactor.execute(this.ioEventDispatch);
+			} catch (final Exception ex) {
+				this.exception = ex;
+			}
+		}
 
-    @Override
-    public void run() {
-      try {
-        this.ioreactor.execute(this.ioEventDispatch);
-      } catch (final Exception ex) {
-        this.exception = ex;
-      }
-    }
+		public void listen(final InetSocketAddress address) throws InterruptedException {
+			final ListenerEndpoint endpoint = this.ioreactor.listen(address);
+			endpoint.waitFor();
+		}
 
-    public void listen(final InetSocketAddress address) throws InterruptedException {
-      final ListenerEndpoint endpoint = this.ioreactor.listen(address);
-      endpoint.waitFor();
-    }
+		public void terminate() {
+			try {
+				this.ioreactor.shutdown();
+			} catch (final IOException e) {
+				log.error("Unable to terminate listener.", e);
+			}
+		}
 
-    public void terminate() {
-      try {
-        this.ioreactor.shutdown();
-      } catch (final IOException e) {
-        log.error("Unable to terminate listener.", e);
-      }
-    }
+		public Exception getException() {
+			return this.exception;
+		}
 
-    public Exception getException() {
-      return this.exception;
-    }
-
-    public void awaitTermination(final long millis) throws InterruptedException {
-      this.join(millis);
-    }
-  }
+		public void awaitTermination(final long millis) throws InterruptedException {
+			this.join(millis);
+		}
+	}
 
 }

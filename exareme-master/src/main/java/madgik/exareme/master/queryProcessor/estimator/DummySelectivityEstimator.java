@@ -11,9 +11,8 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
  */
 public class DummySelectivityEstimator implements SelectivityEstimator {
 
-    @Override public void makeEstimationForNode(Node n) {
-    }
-
-
+	@Override
+	public void makeEstimationForNode(Node n) {
+	}
 
 }

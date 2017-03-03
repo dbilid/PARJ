@@ -12,6 +12,8 @@ import java.util.Set;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 
+import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
+
 /**
  * @author dimitris
  */
@@ -22,8 +24,9 @@ public class NonUnaryWhereCondition implements Operand {
 	// private Operand leftOp;
 	// private Operand rightOp;
 	private boolean rightinv;
+	private boolean leftinv;
 	protected String operator;
-	protected HashCode hash=null;
+	protected HashCode hash = null;
 
 	public NonUnaryWhereCondition() {
 		super();
@@ -50,8 +53,8 @@ public class NonUnaryWhereCondition implements Operand {
 				res.add(c);
 			}
 		}
-		if(this.filterJoins!=null){
-			for(NonUnaryWhereCondition f:this.filterJoins){
+		if (this.filterJoins != null) {
+			for (NonUnaryWhereCondition f : this.filterJoins) {
 				res.addAll(f.getAllColumnRefs());
 			}
 		}
@@ -60,7 +63,7 @@ public class NonUnaryWhereCondition implements Operand {
 
 	public void setOperator(String op) {
 		this.operator = op;
-		hash=null;
+		hash = null;
 	}
 
 	public String getOperator() {
@@ -70,7 +73,7 @@ public class NonUnaryWhereCondition implements Operand {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (operator.equalsIgnoreCase("or")||this.filterJoins!=null) {
+		if (operator.equalsIgnoreCase("or") || this.filterJoins != null) {
 			sb.append("(");
 		}
 		sb.append(this.ops.get(0).toString());
@@ -87,13 +90,13 @@ public class NonUnaryWhereCondition implements Operand {
 			sb.append(" ");
 			sb.append(ops.get(i).toString());
 		}
-		if(filterJoins!=null){
-			for(NonUnaryWhereCondition extra:filterJoins){
+		if (filterJoins != null) {
+			for (NonUnaryWhereCondition extra : filterJoins) {
 				sb.append(" AND ");
 				sb.append(extra.toString());
 			}
 		}
-		if (operator.equalsIgnoreCase("or")||this.filterJoins!=null) {
+		if (operator.equalsIgnoreCase("or") || this.filterJoins != null) {
 			sb.append(")");
 		}
 		return sb.toString();
@@ -121,7 +124,7 @@ public class NonUnaryWhereCondition implements Operand {
 		} else {
 			this.ops.set(0, op);
 		}
-		hash=null;
+		hash = null;
 	}
 
 	public void setRightOp(Operand op) {
@@ -133,7 +136,7 @@ public class NonUnaryWhereCondition implements Operand {
 		} else {
 			this.ops.set(1, op);
 		}
-		hash=null;
+		hash = null;
 	}
 
 	@Override
@@ -144,37 +147,37 @@ public class NonUnaryWhereCondition implements Operand {
 			opsCloned.add(o.clone());
 		}
 		cloned.ops = opsCloned;
-		if(filterJoins!=null){
-			for(NonUnaryWhereCondition filter:this.filterJoins){
+		if (filterJoins != null) {
+			for (NonUnaryWhereCondition filter : this.filterJoins) {
 				cloned.createFilterJoins();
 				cloned.addFilterJoin(filter.clone());
 			}
 		}
-		cloned.hash=hash;
+		cloned.hash = hash;
 		return cloned;
 	}
 
 	public void createFilterJoins() {
-		this.filterJoins=new HashSet<NonUnaryWhereCondition>();
-		
+		this.filterJoins = new HashSet<NonUnaryWhereCondition>();
+
 	}
 
 	public void addFilterJoin(NonUnaryWhereCondition filter) {
-		if(filterJoins==null){
-			filterJoins=new HashSet<NonUnaryWhereCondition>();
+		if (filterJoins == null) {
+			filterJoins = new HashSet<NonUnaryWhereCondition>();
 		}
 		filterJoins.add(filter);
-		
+
 	}
 
 	public void setOperandAt(int i, Operand op) {
 		this.ops.set(i, op);
-		hash=null;
+		hash = null;
 	}
 
 	public void addOperand(Operand op) {
 		this.ops.add(op);
-		hash=null;
+		hash = null;
 	}
 
 	@Override
@@ -187,10 +190,10 @@ public class NonUnaryWhereCondition implements Operand {
 				hash += (o != null ? o.hashCode() : 0);
 			} else {
 				// int test=this.ops.hashCode();
-				hash =hash * 43 + (o != null ? o.hashCode() : 0);
+				hash = hash * 43 + (o != null ? o.hashCode() : 0);
 			}
 		}
-		hash =hash* 43 + (this.operator != null ? this.operator.hashCode() : 0);
+		hash = hash * 43 + (this.operator != null ? this.operator.hashCode() : 0);
 		return hash;
 	}
 
@@ -209,7 +212,8 @@ public class NonUnaryWhereCondition implements Operand {
 		if ((this.operator == null) ? (other.operator != null) : !this.operator.equals(other.operator)) {
 			return false;
 		}
-		if (this.filterJoins != other.filterJoins && (this.filterJoins == null || !this.filterJoins.equals(other.filterJoins))) {
+		if (this.filterJoins != other.filterJoins
+				&& (this.filterJoins == null || !this.filterJoins.equals(other.filterJoins))) {
 			return false;
 		}
 		return true;
@@ -227,41 +231,38 @@ public class NonUnaryWhereCondition implements Operand {
 				o.changeColumn(oldCol, newCol);
 			}
 		}
-		if(filterJoins!=null){
-			for(NonUnaryWhereCondition f:this.filterJoins){
+		if (filterJoins != null) {
+			for (NonUnaryWhereCondition f : this.filterJoins) {
 				f.changeColumn(oldCol, newCol);
 			}
 		}
 	}
-	
+
 	@Override
 	public HashCode getHashID() {
-		if(hash==null){
-			hash=Hashing.sha1().hashBytes(this.toString().getBytes());
-		/*List<HashCode> codes=new ArrayList<HashCode>();
-		for(Operand o:this.ops){
-			codes.add(o.getHashID());
+		if (hash == null) {
+			hash = Node.f.hashBytes(this.toString().getBytes());
+			/*
+			 * List<HashCode> codes=new ArrayList<HashCode>(); for(Operand
+			 * o:this.ops){ codes.add(o.getHashID()); }
+			 * codes.add(Hashing.goodFastHash(32).hashBytes(operator.toUpperCase().
+			 * getBytes()));
+			 * 
+			 * 
+			 * if(filterJoins!=null){ Set<HashCode> filters=new
+			 * HashSet<HashCode>(); for(NonUnaryWhereCondition
+			 * f:this.filterJoins){ filters.add(f.getHashID()); } HashCode
+			 * filterAll=Hashing.combineUnordered(filters);
+			 * codes.add(filterAll); } hash=Hashing.combineOrdered(codes);
+			 */
 		}
-		codes.add(Hashing.sha1().hashBytes(operator.toUpperCase().getBytes()));
-
-		
-		if(filterJoins!=null){
-			Set<HashCode> filters=new HashSet<HashCode>();
-			for(NonUnaryWhereCondition f:this.filterJoins){
-				filters.add(f.getHashID());
-			}
-			HashCode filterAll=Hashing.combineUnordered(filters);
-			codes.add(filterAll);
-		}
-		hash=Hashing.combineOrdered(codes);*/
-	}
 		return hash;
 	}
 
 	public void addRangeFilters(NonUnaryWhereCondition bwc) {
-		if(bwc.filterJoins!=null){
+		if (bwc.filterJoins != null) {
 			this.createFilterJoins();
-			for(NonUnaryWhereCondition f:bwc.filterJoins){
+			for (NonUnaryWhereCondition f : bwc.filterJoins) {
 				try {
 					this.filterJoins.add(f.clone());
 				} catch (CloneNotSupportedException e) {
@@ -269,7 +270,7 @@ public class NonUnaryWhereCondition implements Operand {
 				}
 			}
 		}
-		
+
 	}
 
 	public Set<NonUnaryWhereCondition> getFilterJoins() {
@@ -277,13 +278,13 @@ public class NonUnaryWhereCondition implements Operand {
 	}
 
 	public boolean referencesAtMostOneTable() {
-		List<Column> cols=this.getAllColumnRefs();
-		if(cols.isEmpty()){
+		List<Column> cols = this.getAllColumnRefs();
+		if (cols.isEmpty()) {
 			return true;
 		}
-		String tableName=cols.get(0).getAlias();
-		for(int i=1;i<cols.size();i++){
-			if(!tableName.equals(cols.get(i).getAlias())){
+		String tableName = cols.get(0).getAlias();
+		for (int i = 1; i < cols.size(); i++) {
+			if (!tableName.equals(cols.get(i).getAlias())) {
 				return false;
 			}
 		}
@@ -297,7 +298,13 @@ public class NonUnaryWhereCondition implements Operand {
 	public void setRightinv(boolean rightinv) {
 		this.rightinv = rightinv;
 	}
-	
-	
-	
+
+	public boolean isLeftinv() {
+		return leftinv;
+	}
+
+	public void setLeftinv(boolean leftinv) {
+		this.leftinv = leftinv;
+	}
+
 }

@@ -4,28 +4,34 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 
 public class CartesianSip {
-	
+
 	private Column c;
 	private Node common;
 	private Node other;
+
 	public CartesianSip(Column c, Node common, Node other) {
 		super();
 		this.c = c;
 		this.common = common;
-		this.other=other;
+		this.other = other;
 	}
+
 	public Column getC() {
 		return c;
 	}
+
 	public void setC(Column c) {
 		this.c = c;
 	}
+
 	public Node getCommon() {
 		return common;
 	}
+
 	public Node getOther() {
 		return other;
 	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -35,6 +41,7 @@ public class CartesianSip {
 		result = prime * result + ((other == null) ? 0 : other.hashCode());
 		return result;
 	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -61,7 +68,5 @@ public class CartesianSip {
 			return false;
 		return true;
 	}
-	
-	
-	
+
 }

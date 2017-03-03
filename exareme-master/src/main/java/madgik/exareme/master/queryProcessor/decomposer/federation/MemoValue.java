@@ -9,20 +9,18 @@ package madgik.exareme.master.queryProcessor.decomposer.federation;
  */
 public interface MemoValue {
 
+	public SinglePlan getPlan();
 
-    public SinglePlan getPlan();
+	public void setMaterialized(boolean b);
 
-    public void setMaterialized(boolean b);
-
-    public boolean isMaterialised();
+	public boolean isMaterialised();
 
 	public void addUsed(int b);
 
 	public int getUsed();
-	
+
 	public boolean isFederated();
-	
+
 	public boolean isMultiUsed();
 
 }
-
