@@ -75,12 +75,20 @@ public class Importer {
 			ImportHandler h = new ImportHandler(c, partitions);
 			rdfParser.setRDFHandler(h);
 			try {
-				rdfParser.parse(s, "http://me.org/");
+				rdfParser.parse(s, "http://example.org/base/");
 			} catch (IOException e) {
+				System.out.println("Error"+e.getMessage());
+				return;
 				// handle IO problems (e.g. the file could not be read)
 			} catch (RDFParseException e) {
+				System.out.println(e.getMessage());
+				System.out.println("Error"+e.getMessage());
+				return;
 				// handle unrecoverable parse error
 			} catch (RDFHandlerException e) {
+				System.out.println(e.getMessage());
+				System.out.println("Error"+e.getMessage());
+				return;
 				// handle a problem encountered by the RDFHandler
 			}
 			c.commit();
@@ -125,6 +133,10 @@ public class Importer {
 				fetcher.loadProperties();
 				QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 				warmUpJVM(prefixes+q, partitions, hashes, fetcher);
+			
+				while(true){
+					try{
+				hashes.clear();
 				Scanner reader = new Scanner(System.in);  // Reading from System.in
 				System.out.println("Enter query: ");
 				String query= reader.nextLine();
@@ -215,12 +227,20 @@ public class Importer {
 				// System.out.println(root.count(0));
 				System.out.println(System.currentTimeMillis() - start);
 				System.out.println("OK");
-
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						
+						e.printStackTrace();
+						continue;
+					}
+				}
+			
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
+			
 
 
 

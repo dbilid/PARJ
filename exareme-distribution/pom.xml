@@ -22,11 +22,6 @@
     <dependencies>
         <dependency>
             <groupId>madgik</groupId>
-            <artifactId>exareme-common</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>madgik</groupId>
             <artifactId>exareme-utils</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
@@ -35,11 +30,7 @@
             <artifactId>exareme-jdbc</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
-        <dependency>
-            <groupId>madgik</groupId>
-            <artifactId>exareme-worker</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>madgik</groupId>
             <artifactId>exareme-master</artifactId>

@@ -126,7 +126,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				ps.execute();
 			}
 
-			// connection.close();
+			con.close();
 			System.out.println("thread finished");
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
