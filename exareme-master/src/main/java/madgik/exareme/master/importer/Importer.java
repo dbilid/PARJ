@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -56,9 +57,58 @@ public class Importer {
 
 	public static void main(String[] args) throws IOException, SQLException {
 		
+		
+		
+
+		    Connection connection = null;
+		    try
+		    {
+		    	 Class.forName("org.sqlite.JDBC");
+		      // create a database connection
+		      connection = DriverManager.getConnection("jdbc:sqlite:sample.db");
+		      Statement statement = connection.createStatement();
+		      statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+		      statement.executeUpdate("drop table if exists person");
+		      statement.executeUpdate("create table person (id integer, name string)");
+		      statement.executeUpdate("insert into person values(1, 'leo')");
+		      statement.executeUpdate("insert into person values(2, 'yui')");
+		      ResultSet rs = statement.executeQuery("select * from person");
+		      while(rs.next())
+		      {
+		        // read the result set
+		        System.out.println("name = " + rs.getString("name"));
+		        System.out.println("id = " + rs.getInt("id"));
+		      }
+		    }
+		    catch(SQLException e)
+		    {
+		      // if the error message is "out of memory", 
+		      // it probably means no database file is found
+		      System.err.println(e.getMessage());
+		    } catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		    finally
+		    {
+		      try
+		      {
+		        if(connection != null)
+		          connection.close();
+		      }
+		      catch(SQLException e)
+		      {
+		        // connection close failed.
+		        System.err.println(e);
+		      }
+		    }
+		  
+		
 		boolean importData = args[0].equals("load");
 		//boolean analyze = false;
 		boolean run = true;
+		boolean loadinmemory=true;
 		//boolean createVirtualTables = false;
 		boolean execute = args[0].equals("query");
 		int partitions = Integer.parseInt(args[2]);
@@ -66,6 +116,45 @@ public class Importer {
 
 		DBManager m = new DBManager();
 		warmUpDBManager(partitions, database, m);
+		
+		Connection single=m.getConnection(database);
+		//single.setTransactionIsolation(single.TRANSACTION_READ_UNCOMMITTED);
+		
+		if(loadinmemory){
+			Statement st = single.createStatement();
+			ResultSet rs = st.executeQuery("select id from properties");
+			//c.setAutoCommit(false);
+			while (rs.next()) {
+				int propNo = rs.getInt(1);
+				// for(int i=0;i<partitions;i++){
+				Statement st2 = single.createStatement();
+				//st2.executeUpdate("drop table if exists asasasad");
+				//st2.executeUpdate("create table asasasad(a)");
+				st2.executeUpdate("drop table if exists memorywrapperinvprop"+propNo);
+				st2.executeUpdate("drop table if exists memorywrapperprop"+propNo);
+				// System.out.println("create virtual table
+				// wrapperprop"+propNo+" using wrapper("+partitions+",
+				// prop"+propNo+")");
+				// System.out.println("create virtual table
+				// wrapperinvprop"+propNo+" using wrapper("+partitions+",
+				// invprop"+propNo+")");
+				st2.executeUpdate("create virtual table memorywrapperprop" + propNo + " using memorywrapper(" + partitions
+						+ ", prop" + propNo + ")");
+				st2.executeUpdate("create virtual table memorywrapperinvprop" + propNo + " using invmemorywrapper(" + partitions
+						+ ", invprop" + propNo + ")");
+				st2.close();
+				// st.execute("create virtual table
+				// wrapperinvprop"+propNo+"_"+i+" using
+				// wrapper(invprop"+propNo+"_"+i+", "+partitions+")");
+				// }
+			}
+			rs.close();
+			st.close();
+			//c.commit();
+			//c.setAutoCommit(true);
+			System.out.println("VTs created");
+		}
+		
 		
 		if (importData) {
 			long start=System.currentTimeMillis();
@@ -126,12 +215,13 @@ public class Importer {
 				String lubm5 = "SELECT ?x WHERE {?x ub:subOrganizationOf <http://www.Department0.University0.edu> . ?x rdf:type ub:ResearchGroup }";
 				String lubm4="SELECT ?x WHERE { ?x ub:worksFor <http://www.Department0.University0.edu> .  ?x rdf:type ub:FullProfessor .?x ub:name ?y1 . ?x ub:emailAddress ?y2 . ?x ub:telephone ?y3.}";
 				String lubm6="SELECT ?x ?y WHERE { ?y ub:subOrganizationOf <http://www.University0.edu>.  ?y rdf:type ub:Department .  ?x ub:worksFor ?y . ?x rdf:type ub:FullProfessor . }";
-				
+				single.setAutoCommit(false);
+				//single.setReadOnly(true);
 				NodeSelectivityEstimator nse = new NodeSelectivityEstimator(
 						database + "histograms.json");
 				NodeHashValues hashes = new NodeHashValues();
 				hashes.setSelectivityEstimator(nse);
-				IdFetcher fetcher = new IdFetcher(m.getConnection(database));
+				IdFetcher fetcher = new IdFetcher(single);
 				fetcher.loadProperties();
 				QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 				warmUpJVM(prefixes+q, partitions, hashes, fetcher);
@@ -173,7 +263,7 @@ public class Importer {
 				//}
 
 				// add dictionary lookups
-				int out = 1;
+				/*int out = 1;
 				Map<Column, Column> toChange = new HashMap<Column, Column>();
 				for (Column outCol : result.getAllOutputColumns()) {
 					String alias = "d" + out;
@@ -188,14 +278,14 @@ public class Importer {
 					for (Column c : toChange.keySet()) {
 						o.getObject().changeColumn(c, toChange.get(c));
 					}
-				}
+				}*/
 
 				System.out.println(System.currentTimeMillis() - start);
 				result.computeTableToSplit(partitions);
 				// System.out.println( result.toDistSQL() );
 
 				if (execute) {
-					ExecutorService es = Executors.newFixedThreadPool(8);
+					ExecutorService es = Executors.newFixedThreadPool(partitions+1);
 
 					// Connection ccc=getConnection("");
 					List<SQLiteLocalExecutor> executors = new ArrayList<SQLiteLocalExecutor>();
@@ -205,7 +295,7 @@ public class Importer {
 						// String sql=result.getSqlForPartition(i);
 
 						SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result,
-								m.getConnection(database), true, finishedQueries, i);
+								single, true, finishedQueries, i);
 						ex.setGlobalBuffer(globalBuffer);
 						executors.add(ex);
 

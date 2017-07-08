@@ -56,7 +56,7 @@ public class SQLiteLocalExecutor implements Runnable {
 			// st=con.createStatement();
 			if (temp) {
 
-				con.setAutoCommit(false);
+				//con.setAutoCommit(false);
 				st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				st.setFetchSize(1000);
 				long lll = System.currentTimeMillis();
@@ -68,7 +68,7 @@ public class SQLiteLocalExecutor implements Runnable {
 					}
 					return;
 				}
-				//System.out.println(sqlString);
+				System.out.println(sqlString);
 				ResultSet rs = st.executeQuery(sql.getSqlForPartition(partition));
 				int columns = rs.getMetaData().getColumnCount();
 				List<List<Object>> localBuffer = new ArrayList<List<Object>>(9000);
@@ -104,6 +104,9 @@ public class SQLiteLocalExecutor implements Runnable {
 					localBuffer.add(tuple);
 					counter++;
 				}
+				rs.close();
+				st.close();
+				//con.close();
 				System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms");
 				synchronized (globalBuffer) {
 					while (globalBuffer.size() > 9000) {
@@ -116,8 +119,7 @@ public class SQLiteLocalExecutor implements Runnable {
 					globalBuffer.addFinished();
 					globalBuffer.notifyAll();
 				}
-				st.close();
-				// con.close();
+				
 				localBuffer.clear();
 
 			} else {
@@ -126,7 +128,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				ps.execute();
 			}
 
-			con.close();
+			//con.close();
 			System.out.println("thread finished");
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());

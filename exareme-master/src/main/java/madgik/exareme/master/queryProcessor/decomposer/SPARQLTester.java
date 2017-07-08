@@ -42,7 +42,6 @@ public class SPARQLTester {
 	private static int alias;
 
 	public static void main(String[] args) throws TokenMgrError, ParseException, VisitorException, SQLException {
-		// TODO Auto-generated method stub
 		String prefixes = "PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
 		String q = "SELECT ?y ?b ?z  WHERE { ?y ?b ?z . ?a ?v ?z }";
 		String q2 = "SELECT ?x ?y ?z WHERE { ?y ub:teacherOf ?z .  ?y rdf:type ub:FullProfessor . ?z rdf:type ub:Course . ?x ub:advisor ?y . ?x rdf:type ub:UndergraduateStudent . ?x ub:takesCourse ?z }";

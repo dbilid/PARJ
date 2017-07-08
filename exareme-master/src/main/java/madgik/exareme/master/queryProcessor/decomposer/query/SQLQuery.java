@@ -1854,6 +1854,8 @@ public class SQLQuery {
 	}
 
 	public String getSqlForPartition(int i) {
+		
+		String splitCondition="";
 
 		if (this.tableToSplit > this.inputTables.size() && i > 0) {
 			return null;
@@ -1944,18 +1946,23 @@ public class SQLQuery {
 					output.append(this.inputTables.get(t).toString());
 				} else if (t == this.tableToSplit) {
 					Table tbl = this.inputTables.get(t);
-					output.append(tbl.getName());
+					/*output.append(tbl.getName());
 					output.append("_");
 					output.append(i);
 					output.append(" ");
+					output.append(tbl.getAlias());*/
+					output.append("memorywrapper"+tbl.getName());
+					output.append(" ");
 					output.append(tbl.getAlias());
+					splitCondition=" "+tbl.getAlias()+".s>"+i+" ";
+					
 				} else {
 					Table tbl = this.inputTables.get(t);
 					if(tbl.getName().equals("dictionary")){
 						output.append(tbl.getName());
 					}
 					else{
-						output.append("wrapper" + tbl.getName());
+						output.append("memorywrapper" + tbl.getName());
 					}
 					
 					output.append(" ");
@@ -1978,6 +1985,10 @@ public class SQLQuery {
 			output.append(separator);
 			output.append(wc.toString());
 			separator = " and \n";
+		}
+		if(!splitCondition.equals("")){
+			output.append(separator);
+			output.append(splitCondition);
 		}
 
 		if (this.getJoinType() != null) {
@@ -2021,11 +2032,11 @@ public class SQLQuery {
 					Column c = (Column) nuwc.getRightOp();
 					if (t.getAlias().equals(c.getAlias())) {
 						if (inv && c.getName().equals("o")) {
-							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % partitions);
 							existsFilter = true;
 							break;
 						} else if (!inv && c.getName().equals("s")) {
-							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % partitions);
 							existsFilter = true;
 							break;
 						}
@@ -2034,11 +2045,11 @@ public class SQLQuery {
 					Column c = (Column) nuwc.getLeftOp();
 					if (t.getAlias().equals(c.getAlias())) {
 						if (inv && c.getName().equals("o")) {
-							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getRightOp().toString()) % 4);
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getRightOp().toString()) % partitions);
 							existsFilter = true;
 							break;
 						} else if (!inv && c.getName().equals("s")) {
-							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % 4);
+							t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % partitions);
 							existsFilter = true;
 							break;
 						}
