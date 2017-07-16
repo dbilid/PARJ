@@ -108,7 +108,7 @@ public class Importer {
 		boolean importData = args[0].equals("load");
 		//boolean analyze = false;
 		boolean run = true;
-		boolean loadinmemory=true;
+		boolean loadinmemory=false;
 		//boolean createVirtualTables = false;
 		boolean execute = args[0].equals("query");
 		int partitions = Integer.parseInt(args[2]);

@@ -54,6 +54,7 @@ public class DBManager {
 		ds.addConnectionProperty("page_size", "4096");
 		ds.addConnectionProperty("cache_size", "1048576");
 		ds.addConnectionProperty("locking_mode", "EXCLUSIVE");
+		ds.addConnectionProperty("count_changes" ,"OFF");
 		ds.addConnectionProperty("journal_mode", "OFF");
 		ds.addConnectionProperty("enable_load_extension", "true");
 		ds.addConnectionProperty("shared_cache", "false");
@@ -61,10 +62,10 @@ public class DBManager {
 
 		Set<String> init = new HashSet<String>(2);
 		init.add("attach database '"+filepath+"' as m");
-		init.add("select load_extension('" + DecomposerUtils.WRAPPER_VIRTUAL_TABLE + "')");
-		init.add("select load_extension('" + DecomposerUtils.INVWRAPPER_VIRTUAL_TABLE + "')");
-		init.add("select load_extension('/home/dimitris/virtualtables/memorywrapper')");
-		init.add("select load_extension('/home/dimitris/virtualtables/invmemorywrapper')");
+//		init.add("select load_extension('" + DecomposerUtils.WRAPPER_VIRTUAL_TABLE + "')");
+//		init.add("select load_extension('" + DecomposerUtils.INVWRAPPER_VIRTUAL_TABLE + "')");
+//		init.add("select load_extension('/home/dimitris/virtualtables/memorywrapper')");
+//		init.add("select load_extension('/home/dimitris/virtualtables/invmemorywrapper')");
 		ds.setConnectionInitSqls(init);
 
 		return ds;
