@@ -209,7 +209,7 @@ public class DagCreator {
 		NonUnaryWhereCondition nuwc = new NonUnaryWhereCondition();
 		nuwc.setOperator("=");
 		nuwc.setLeftOp(new Column(aliasString, sOrO));
-		nuwc.setRightOp(new Constant(fetcher.getIdForUri(sbjOrObj.getValue().stringValue())));
+		nuwc.setRightOp(new Constant(fetcher.getIdForUri(sbjOrObj.getValue().toString())));
 		s.addOperand(nuwc);
 
 	}

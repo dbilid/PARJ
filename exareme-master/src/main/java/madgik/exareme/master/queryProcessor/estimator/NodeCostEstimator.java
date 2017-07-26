@@ -176,7 +176,7 @@ public class NodeCostEstimator {
 			if (rightRelTuples < leftRelTuples) {
 				// return the cost of filter instead
 				double baseTuples = right.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples();
-				responseTime = rightRelTuples * Math.log(baseTuples) * Metadata.PAGE_IO_TIME
+				responseTime = leftRelTuples * Math.log(baseTuples) * Metadata.PAGE_IO_TIME
 						* Metadata.INDEX_UTILIZATION;
 			}
 

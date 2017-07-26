@@ -55,60 +55,11 @@ import madgik.exareme.master.queryProcessor.sparql.IdFetcher;
 
 public class Importer {
 
-	public static void main(String[] args) throws IOException, SQLException {
-		
-		
-		
-
-		    Connection connection = null;
-		    try
-		    {
-		    	 Class.forName("org.sqlite.JDBC");
-		      // create a database connection
-		      connection = DriverManager.getConnection("jdbc:sqlite:sample.db");
-		      Statement statement = connection.createStatement();
-		      statement.setQueryTimeout(30);  // set timeout to 30 sec.
-
-		      statement.executeUpdate("drop table if exists person");
-		      statement.executeUpdate("create table person (id integer, name string)");
-		      statement.executeUpdate("insert into person values(1, 'leo')");
-		      statement.executeUpdate("insert into person values(2, 'yui')");
-		      ResultSet rs = statement.executeQuery("select * from person");
-		      while(rs.next())
-		      {
-		        // read the result set
-		        System.out.println("name = " + rs.getString("name"));
-		        System.out.println("id = " + rs.getInt("id"));
-		      }
-		    }
-		    catch(SQLException e)
-		    {
-		      // if the error message is "out of memory", 
-		      // it probably means no database file is found
-		      System.err.println(e.getMessage());
-		    } catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		    finally
-		    {
-		      try
-		      {
-		        if(connection != null)
-		          connection.close();
-		      }
-		      catch(SQLException e)
-		      {
-		        // connection close failed.
-		        System.err.println(e);
-		      }
-		    }
-		  
+	public static void main(String[] args) throws IOException, SQLException {	  
 		
 		boolean importData = args[0].equals("load");
 		//boolean analyze = false;
 		boolean run = true;
-		boolean loadinmemory=false;
 		//boolean createVirtualTables = false;
 		boolean execute = args[0].equals("query");
 		int partitions = Integer.parseInt(args[2]);
@@ -116,91 +67,56 @@ public class Importer {
 
 		DBManager m = new DBManager();
 		warmUpDBManager(partitions, database, m);
-		
-		Connection single=m.getConnection(database);
-		//single.setTransactionIsolation(single.TRANSACTION_READ_UNCOMMITTED);
-		
-		if(loadinmemory){
-			Statement st = single.createStatement();
-			ResultSet rs = st.executeQuery("select id from properties");
-			//c.setAutoCommit(false);
-			while (rs.next()) {
-				int propNo = rs.getInt(1);
-				// for(int i=0;i<partitions;i++){
-				Statement st2 = single.createStatement();
-				//st2.executeUpdate("drop table if exists asasasad");
-				//st2.executeUpdate("create table asasasad(a)");
-				st2.executeUpdate("drop table if exists memorywrapperinvprop"+propNo);
-				st2.executeUpdate("drop table if exists memorywrapperprop"+propNo);
-				// System.out.println("create virtual table
-				// wrapperprop"+propNo+" using wrapper("+partitions+",
-				// prop"+propNo+")");
-				// System.out.println("create virtual table
-				// wrapperinvprop"+propNo+" using wrapper("+partitions+",
-				// invprop"+propNo+")");
-				st2.executeUpdate("create virtual table memorywrapperprop" + propNo + " using memorywrapper(" + partitions
-						+ ", prop" + propNo + ")");
-				st2.executeUpdate("create virtual table memorywrapperinvprop" + propNo + " using invmemorywrapper(" + partitions
-						+ ", invprop" + propNo + ")");
-				st2.close();
-				// st.execute("create virtual table
-				// wrapperinvprop"+propNo+"_"+i+" using
-				// wrapper(invprop"+propNo+"_"+i+", "+partitions+")");
-				// }
-			}
-			rs.close();
-			st.close();
-			//c.commit();
-			//c.setAutoCommit(true);
-			System.out.println("VTs created");
-		}
-		
-		
+		long start=System.currentTimeMillis();
 		if (importData) {
-			long start=System.currentTimeMillis();
-			InputStream s = readFile(args[3]);
-			RDFParser rdfParser = Rio.createParser(RDFFormat.NTRIPLES);
-			rdfParser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
-			Connection c=m.getConnection(database);
-			c.setAutoCommit(false);
-			ImportHandler h = new ImportHandler(c, partitions);
-			rdfParser.setRDFHandler(h);
-			try {
-				rdfParser.parse(s, "http://example.org/base/");
-			} catch (IOException e) {
-				System.out.println("Error"+e.getMessage());
-				return;
-				// handle IO problems (e.g. the file could not be read)
-			} catch (RDFParseException e) {
-				System.out.println(e.getMessage());
-				System.out.println("Error"+e.getMessage());
-				return;
-				// handle unrecoverable parse error
-			} catch (RDFHandlerException e) {
-				System.out.println(e.getMessage());
-				System.out.println("Error"+e.getMessage());
-				return;
-				// handle a problem encountered by the RDFHandler
-			}
-			c.commit();
-			c.setAutoCommit(true);
-			System.out.println("imported in:"+(System.currentTimeMillis()-start)+" ms");
 			
-			c.createStatement().execute("VACUUM");
+			Connection c=m.getConnection("memory");
+			
+			
+			//InputStream s = readFile(args[3]);
+			String importToSqlite="create virtual table tmptable using importer(";
+			importToSqlite+=database+"/rdf.db";
+			importToSqlite+=", ";
+			importToSqlite+=args[3];
+			importToSqlite+=");";
+			
+			
+			Statement st=c.createStatement();
+			st.execute(importToSqlite);
+			System.out.println("imported in:"+(System.currentTimeMillis()-start)+" ms");
+			st.close();
+			c.close();
+			Connection mainCon=m.getConnection(database);
+			
+			mainCon.createStatement().execute("VACUUM");
 			System.out.println("vacuum in:"+(System.currentTimeMillis()-start)+" ms");
-			analyzeDB(c, partitions, database);
+			analyzeDB(mainCon, database);
 			System.out.println("analyze in:"+(System.currentTimeMillis()-start)+" ms");
 			
 			//c.close();
 			System.out.println("commited"+(System.currentTimeMillis()-start)+" ms");
-			createVirtualTables(c, partitions, database);
-			System.out.println("vtables in:"+(System.currentTimeMillis()-start)+" ms");
-			c.close();
+			//createVirtualTables(c, partitions, database);
+			//System.out.println("vtables in:"+(System.currentTimeMillis()-start)+" ms");
+			mainCon.close();
 			return;
 		}
 		
+		Connection single=m.getConnection(database);
+		//single.setTransactionIsolation(single.TRANSACTION_READ_UNCOMMITTED);
+		if(run){
+		System.out.println("loading data in memory...");
+			Statement st = single.createStatement();
+			String load="create virtual table tmptable using memorywrapper(";
+			load+=String.valueOf(partitions);
+			load+=" -1, -1)";
+			st.execute(load);
+			st.close();
+			
+		
+			System.out.println("data loaded"+(System.currentTimeMillis()-start)+" ms");
+		}
+	
 
-		if (run) {
 			try {
 				String prefixes = "PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
 				String q = "SELECT ?y ?a  WHERE { ?y rdf:type ?z . ?a rdf:type ?z }";
@@ -223,6 +139,11 @@ public class Importer {
 				hashes.setSelectivityEstimator(nse);
 				IdFetcher fetcher = new IdFetcher(single);
 				fetcher.loadProperties();
+				if(run){
+				System.out.println("creating VTs"+(System.currentTimeMillis()-start)+" ms");
+				createVirtualTables(single, partitions);
+				System.out.println("VTs created"+(System.currentTimeMillis()-start)+" ms");
+				}
 				QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 				warmUpJVM(prefixes+q, partitions, hashes, fetcher);
 			
@@ -232,8 +153,7 @@ public class Importer {
 				Scanner reader = new Scanner(System.in);  // Reading from System.in
 				System.out.println("Enter query: ");
 				String query= reader.nextLine();
-				long start = System.currentTimeMillis();
-
+				start=System.currentTimeMillis();
 				ParsedQuery pq2 = qp.parseQuery(query, null);
 				System.out.println("query parsed"+(System.currentTimeMillis() - start));
 				DagCreator creator = new DagCreator(pq2, partitions, hashes, fetcher);
@@ -263,7 +183,7 @@ public class Importer {
 				//}
 
 				// add dictionary lookups
-				/*int out = 1;
+				int out = 1;
 				Map<Column, Column> toChange = new HashMap<Column, Column>();
 				for (Column outCol : result.getAllOutputColumns()) {
 					String alias = "d" + out;
@@ -278,32 +198,38 @@ public class Importer {
 					for (Column c : toChange.keySet()) {
 						o.getObject().changeColumn(c, toChange.get(c));
 					}
-				}*/
+				}
 
 				System.out.println(System.currentTimeMillis() - start);
+				result.invertColumns();
 				result.computeTableToSplit(partitions);
 				// System.out.println( result.toDistSQL() );
 
-				if (execute) {
+				if (run) {
+					start=System.currentTimeMillis();
 					ExecutorService es = Executors.newFixedThreadPool(partitions+1);
+					//ExecutorService es = Executors.newFixedThreadPool(2);
 
 					// Connection ccc=getConnection("");
 					List<SQLiteLocalExecutor> executors = new ArrayList<SQLiteLocalExecutor>();
 					ResultBuffer globalBuffer = new ResultBuffer();
 					Set<Integer> finishedQueries = new HashSet<Integer>();
+					Connection[] cons=new Connection[partitions];
 					for (int i = 0; i < partitions; i++) {
 						// String sql=result.getSqlForPartition(i);
-
+						cons[i]=m.getConnection(database);
+						createVirtualTables(cons[i], partitions);
 						SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result,
-								single, true, finishedQueries, i);
+								cons[i], true, finishedQueries, i);
+						
 						ex.setGlobalBuffer(globalBuffer);
 						executors.add(ex);
 
 					}
-
+					
 					FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, partitions);
 					es.execute(ex);
-					System.out.println(System.currentTimeMillis() - start);
+					//System.out.println(System.currentTimeMillis() - start);
 					for (SQLiteLocalExecutor exec : executors) {
 						es.execute(exec);
 					}
@@ -314,10 +240,14 @@ public class Importer {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
+					System.out.println(System.currentTimeMillis() - start);
+					for(int i=0; i<partitions; i++){
+						cons[i].close();
+					}
 				}
 
 				// System.out.println(root.count(0));
-				System.out.println(System.currentTimeMillis() - start);
+				
 				System.out.println("OK");
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
@@ -331,43 +261,44 @@ public class Importer {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
+		
 			
 
 
 
 	}
 
-	private static void createVirtualTables(Connection c, int partitions, String database) throws SQLException {
+	private static void createVirtualTables(Connection c, int partitions) throws SQLException {
 		Statement st = c.createStatement();
 		ResultSet rs = st.executeQuery("select id from properties");
+		Statement st2 = c.createStatement();
 		while (rs.next()) {
 			int propNo = rs.getInt(1);
 			// for(int i=0;i<partitions;i++){
-			Statement st2 = c.createStatement();
 			// System.out.println("create virtual table
 			// wrapperprop"+propNo+" using wrapper("+partitions+",
 			// prop"+propNo+")");
 			// System.out.println("create virtual table
 			// wrapperinvprop"+propNo+" using wrapper("+partitions+",
 			// invprop"+propNo+")");
-			st2.executeUpdate("create virtual table wrapperprop" + propNo + " using wrapper(" + partitions
-					+ ", prop" + propNo + ")");
-			st2.executeUpdate("create virtual table wrapperinvprop" + propNo + " using invwrapper(" + partitions
-					+ ", invprop" + propNo + ")");
-			st2.close();
+			st2.executeUpdate("create virtual table if not exists memorywrapperprop" + propNo + " using memorywrapper(" + partitions
+					+ ", " + propNo + ", 0)");
+			st2.executeUpdate("create virtual table if not exists memorywrapperinvprop" + propNo + " using memorywrapper(" + partitions
+					+ ", " + propNo + ", 1)");
+			
 			// st.execute("create virtual table
 			// wrapperinvprop"+propNo+"_"+i+" using
 			// wrapper(invprop"+propNo+"_"+i+", "+partitions+")");
 			// }
 		}
+		st2.close();
 		rs.close();
 		st.close();
 		System.out.println("VTs created");
 	}
 
-	private static void analyzeDB(Connection c, int partitions, String db) {
-		SPARQLAnalyzer a = new SPARQLAnalyzer(partitions, c);
+	private static void analyzeDB(Connection c, String db) {
+		SPARQLAnalyzer a = new SPARQLAnalyzer(c);
 		try {
 
 			Schema stats = a.analyze();

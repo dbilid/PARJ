@@ -41,7 +41,7 @@ public class DBManager {
 		ds.setDriverClassName("org.sqlite.JDBC");
 		ds.setUsername("");
 		ds.setPassword("");
-		ds.setUrl("jdbc:sqlite:file::memory:");
+		ds.setUrl("jdbc:sqlite::memory:");
 		//ds.setUrl("jdbc:sqlite:" + filepath);
 		ds.setMinIdle(5);
 		ds.setMaxIdle(30);
@@ -59,13 +59,13 @@ public class DBManager {
 		ds.addConnectionProperty("enable_load_extension", "true");
 		ds.addConnectionProperty("shared_cache", "false");
 		ds.addConnectionProperty("read_uncommited", "false");
-
+		ds.addConnectionProperty("temp_store", "MEMORY");
+		ds.addConnectionProperty("ignore_check_constraints", "true");
 		Set<String> init = new HashSet<String>(2);
-		init.add("attach database '"+filepath+"' as m");
-//		init.add("select load_extension('" + DecomposerUtils.WRAPPER_VIRTUAL_TABLE + "')");
-//		init.add("select load_extension('" + DecomposerUtils.INVWRAPPER_VIRTUAL_TABLE + "')");
-//		init.add("select load_extension('/home/dimitris/virtualtables/memorywrapper')");
-//		init.add("select load_extension('/home/dimitris/virtualtables/invmemorywrapper')");
+		if(!filepath.equals("memory/rdf.db")){
+			init.add("attach database '"+filepath+"' as m");
+		}
+		init.add("select load_extension('" + DecomposerUtils.WRAPPER_VIRTUAL_TABLE + "')");
 		ds.setConnectionInitSqls(init);
 
 		return ds;

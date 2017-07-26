@@ -130,14 +130,14 @@ public class Stat implements StatExtractor {
 
 	}
 
-	public Map<String, Table> extractSPARQLStats(int partitions) throws Exception {
+	public Map<String, Table> extractSPARQLStats() throws Exception {
 
 		Statement st = con.createStatement();
 		ResultSet resultTables = st.executeQuery("select id from properties");
 		log.debug("Starting extracting stats");
 		while (resultTables.next()) {
 			Map<String, Column> columnMap = new HashMap<String, Column>();
-			String tableName = "prop" + resultTables.getInt(1) + "_0";
+			String tableName = "prop" + resultTables.getInt(1) ;
 			log.debug("Analyzing table " + tableName);
 
 			int columnCount = 2;
@@ -156,14 +156,13 @@ public class Stat implements StatExtractor {
 				try {
 
 					// computing column's min and max values
-					MinMax mm = computeMinMaxPartitioned(inv + "prop" + resultTables.getInt(1) + "_", columnName,
-							partitions);
+					MinMax mm = computeMinMax(inv + "prop" + resultTables.getInt(1), columnName);
 					String minVal = mm.getMin();
 					String maxVal = mm.getMax();
 
 					// /
 					Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequencySPARQL(
-							inv + "prop" + resultTables.getInt(1) + "_0", columnName, partitions);
+							inv + "prop" + resultTables.getInt(1), columnName);
 
 					if (diffValFreqMap.isEmpty()) {
 						// empty partition 0
@@ -186,7 +185,7 @@ public class Stat implements StatExtractor {
 					if (!diffValFreqMap.containsKey(maxVal))
 						diffValFreqMap.put(maxVal, freq);
 
-					int diffVals = (count * partitions / freq);
+					int diffVals = (count / freq);
 
 					Column c = new Column(columnName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
 					columnMap.put(columnName, c);
@@ -198,7 +197,7 @@ public class Stat implements StatExtractor {
 			}
 			String pkey = "DEFAULT_KEY";
 
-			Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count * partitions,
+			Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count,
 					pkey);
 			schema.put("prop" + resultTables.getInt(1), t);
 
@@ -331,8 +330,7 @@ public class Stat implements StatExtractor {
 		return freqs;
 	}
 
-	private Map<String, Integer> computeDistinctValuesFrequencySPARQL(String table_sample, String columnName,
-			int partitions) throws Exception {
+	private Map<String, Integer> computeDistinctValuesFrequencySPARQL(String table_sample, String columnName) throws Exception {
 		Map<String, Integer> freqs = new HashMap<String, Integer>();
 
 		String query = "select min(" + columnName + ") as val from " + table_sample;

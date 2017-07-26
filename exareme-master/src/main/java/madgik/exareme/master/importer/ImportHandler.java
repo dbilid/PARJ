@@ -23,16 +23,16 @@ import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 
 public class ImportHandler extends AbstractRDFHandler {
 
-	private long id = 0l;
+	//private long id = 1l;
 	// private int partitions;
 	private int propertyId = 0;
 	private Connection con;
 	private java.sql.Statement stmt;
 	private PreparedStatement getId;
-	private PreparedStatement insertId;
+	//private PreparedStatement insertId;
 	private PreparedStatement insertProperty;
 	private Map<String, Integer> propertyTables;
-	private Map<String, Long> idCache;
+	//private Map<String, Long> idCache;
 	private List<PreparedStatement> inserts;
 	private final int cacheSize = 30000;
 	private int currentCache = 0;
@@ -43,17 +43,18 @@ public class ImportHandler extends AbstractRDFHandler {
 		this.stmt = con.createStatement();
 		propertyTables = new HashMap<String, Integer>();
 		createDictionary();
-		this.getId = con.prepareStatement("select id from dictionary where uri=?");
-		this.insertId = con.prepareStatement("insert into dictionary values(?, ?)");
+		this.getId = con.prepareStatement("select id from ddd where uri=?");
+		//this.insertId = con.prepareStatement("insert into dictionary values(?, ?)");
 		this.insertProperty = con.prepareStatement("insert into properties values(?, ?)");
-		idCache = new HashMap<String, Long>(200000);
+		//idCache = new HashMap<String, Long>(200000);
 		inserts = new ArrayList<PreparedStatement>();
 	}
 
 	private void createDictionary() throws SQLException {
 		//stmt.excute("BEGIN");
-		stmt.execute("create table dictionary(id INTEGER PRIMARY KEY, uri TEXT)");
-		stmt.execute("create unique index uriindex on dictionary(uri)");
+		stmt.execute("create virtual table ddd using trie()");
+		//stmt.execute("create table dictionary(id INTEGER PRIMARY KEY, uri TEXT)");
+		//stmt.execute("create unique index uriindex on dictionary(uri)");
 		stmt.execute("create table properties(id INTEGER PRIMARY KEY, uri TEXT)");
 		stmt.execute("create unique index propertyindex on properties(uri)");
 	}
@@ -103,7 +104,7 @@ public class ImportHandler extends AbstractRDFHandler {
 					objectLong = getIdForUri(v.stringValue());
 				}
 				int index = propTable * 2;
-				PreparedStatement s = inserts.get(index);
+				/*PreparedStatement s = inserts.get(index);
 				s.setLong(1, subjectLong);
 				s.setLong(2, objectLong);
 				s.addBatch();
@@ -114,7 +115,7 @@ public class ImportHandler extends AbstractRDFHandler {
 				currentCache++;
 				if (currentCache == cacheSize) {
 					executeBatch();
-				}
+				}*/
 
 			} else if (subj instanceof BNode) {
 				throw new SQLException("blank nodes currently not supported");
@@ -136,43 +137,20 @@ public class ImportHandler extends AbstractRDFHandler {
 
 	private void createPropertyTables() throws SQLException {
 		stmt.execute(
-				"create table prop" + this.propertyId + " (s INTEGER, o INTEGER, primary key(s, o)) without rowid");
+				"create table prop" + this.propertyId + " (s INTEGER, o INTEGER) ");
 		stmt.execute(
-				"create table invprop" + this.propertyId + " (o INTEGER, s INTEGER, primary key(o, s)) without rowid");
+				"create table invprop" + this.propertyId + " (o INTEGER, s INTEGER)");
 
 	}
 
 	private long getIdForUri(String uriString) throws SQLException {
-		long result = this.id;
-		if (idCache.containsKey(uriString)) {
-			return idCache.get(uriString);
-		}
-		getId.setString(1, uriString);
+		long result=-1;
+		/*getId.setString(1, uriString);
 		ResultSet rs = getId.executeQuery();
 		if (rs.next()) {
 			result = rs.getLong(1);
-		} else {
-			idCache.put(uriString, id);
-			// insertId.setLong(1, id);
-			// insertId.setString(2, uriString);
-			// insertId.addBatch();
-			id++;
-			if (idCache.size() == 200000) {
-				System.out.println("200k");
-				Iterator<Map.Entry<String, Long>> iter = idCache.entrySet().iterator();
-				while (iter.hasNext()) {
-					Map.Entry<String, Long> entry = iter.next();
-					iter.remove();
-					insertId.setLong(1, entry.getValue());
-					insertId.setString(2, entry.getKey());
-					insertId.addBatch();
-				}
-				insertId.executeBatch();
-				con.commit();
-				idCache.clear();
-			}
-		}
-		rs.close();
+		} 
+		rs.close();*/
 		return result;
 	}
 
@@ -180,17 +158,7 @@ public class ImportHandler extends AbstractRDFHandler {
 	public void endRDF() throws RDFHandlerException {
 		System.out.println("ending...");
 		try {
-			Iterator<Map.Entry<String, Long>> iter = idCache.entrySet().iterator();
-			while (iter.hasNext()) {
-				Map.Entry<String, Long> entry = iter.next();
-				iter.remove();
-				insertId.setLong(1, entry.getValue());
-				insertId.setString(2, entry.getKey());
-				insertId.addBatch();
-			}
-			insertId.executeBatch();
-			executeBatch();
-			insertId.close();
+			
 			stmt.close();
 			getId.close();
 			insertProperty.close();

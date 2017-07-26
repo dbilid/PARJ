@@ -25,7 +25,7 @@ public class FinalUnionExecutor implements Runnable {
 		// System.out.println("abla");
 		synchronized (resultBuffer) {
 			while (true) {
-				System.out.println("yep");
+				//System.out.println("yep");
 				while (!resultBuffer.isEmpty()) {
 					List<Object> tuple = resultBuffer.getNext();
 					// System.out.println(tuple);
