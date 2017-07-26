@@ -20,13 +20,13 @@ public class DBManager {
 		this.sources = new HashMap<String, BasicDataSource>();
 	}
 
-	public Connection getConnection(String path) throws SQLException {
+	public Connection getConnection(String path, int partitions) throws SQLException {
 		if (!path.endsWith("/")) {
 			path += "/";
 		}
 		path += "rdf.db";
 		if (!sources.containsKey(path)) {
-			sources.put(path, createDataSource(path));
+			sources.put(path, createDataSource(path, partitions+2));
 		}
 		Connection c = sources.get(path).getConnection();
 
@@ -36,17 +36,17 @@ public class DBManager {
 
 	}
 
-	private BasicDataSource createDataSource(String filepath) {
+	private BasicDataSource createDataSource(String filepath, int maxOpen) {
 		BasicDataSource ds = new BasicDataSource();
 		ds.setDriverClassName("org.sqlite.JDBC");
 		ds.setUsername("");
 		ds.setPassword("");
 		ds.setUrl("jdbc:sqlite::memory:");
 		//ds.setUrl("jdbc:sqlite:" + filepath);
-		ds.setMinIdle(5);
-		ds.setMaxIdle(30);
-		ds.setMaxOpenPreparedStatements(100);
-		ds.setMaxTotal(40);
+		ds.setMinIdle(maxOpen);
+		ds.setMaxIdle(maxOpen+1);
+		ds.setMaxOpenPreparedStatements(7+2);
+		ds.setMaxTotal(maxOpen+1);
 		
 
 		ds.addConnectionProperty("synchronous", "OFF");
