@@ -151,6 +151,10 @@ public class SQLiteLocalExecutor implements Runnable {
 				//con.close();
 				System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
 				counter+" results");
+				synchronized (globalBuffer) {
+					globalBuffer.addFinished(counter);
+					globalBuffer.notifyAll();
+				}
 				
 			}
 

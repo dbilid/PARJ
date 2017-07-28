@@ -177,7 +177,7 @@ public class Importer {
 				// System.out.println(System.currentTimeMillis()-start);
 				// System.out.println(root.count(0));
 
-				 System.out.println(root.dotPrint(new HashSet<Node>()));
+				// System.out.println(root.dotPrint(new HashSet<Node>()));
 				DagExpander expander = new DagExpander(root, hashes);
 				expander.expand();
 				System.out.println("dag expanded"+(System.currentTimeMillis() - start));
@@ -217,7 +217,7 @@ public class Importer {
 				System.out.println(System.currentTimeMillis() - start);
 				result.invertColumns();
 				result.computeTableToSplit(partitions);
-				System.out.println( result.getSqlForPartition(0));
+				
 
 				if (run) {
 					//start=System.currentTimeMillis();
@@ -261,6 +261,12 @@ public class Importer {
 					for(int i=0; i<partitions; i++){
 						cons[i].close();
 					}
+					if(!DecomposerUtils.USE_RESULT_AGGREGATOR){
+						System.out.println("total results:"+globalBuffer.getFinished());
+					}
+				}
+				else{
+					System.out.println( result.getSqlForPartition(0));
 				}
 
 				// System.out.println(root.count(0));

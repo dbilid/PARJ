@@ -27,6 +27,10 @@ public class ResultBuffer {
 		counter++;
 		System.out.println("finished:" + counter);
 	}
+	
+	public void addFinished(int count) {
+		counter+=count;
+	}
 
 	public boolean isEmpty() {
 		return buffer.isEmpty();
