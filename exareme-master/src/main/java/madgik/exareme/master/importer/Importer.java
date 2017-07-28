@@ -30,6 +30,7 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
+import org.jfree.util.Log;
 
 import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.db.FinalUnionExecutor;
@@ -37,6 +38,7 @@ import madgik.exareme.master.db.ResultBuffer;
 import madgik.exareme.master.db.SQLiteLocalExecutor;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.SPARQLAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
+import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.federation.Memo;
@@ -149,7 +151,13 @@ public class Importer {
 				hashes.setSelectivityEstimator(nse);
 				IdFetcher fetcher = new IdFetcher(single);
 				fetcher.loadProperties();
-				
+				try{
+					long typeProperty=fetcher.getIdForProperty("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+					nse.setRdfTypeTable("prop"+typeProperty);
+				}
+				catch(java.sql.SQLException ex){
+					Log.warn("no rdf:type property in data");
+				}
 				QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 				warmUpJVM(prefixes+q, partitions, hashes, fetcher);
 			
@@ -169,7 +177,7 @@ public class Importer {
 				// System.out.println(System.currentTimeMillis()-start);
 				// System.out.println(root.count(0));
 
-				// System.out.println(root.dotPrint(new HashSet<Node>()));
+				 System.out.println(root.dotPrint(new HashSet<Node>()));
 				DagExpander expander = new DagExpander(root, hashes);
 				expander.expand();
 				System.out.println("dag expanded"+(System.currentTimeMillis() - start));
@@ -209,13 +217,13 @@ public class Importer {
 				System.out.println(System.currentTimeMillis() - start);
 				result.invertColumns();
 				result.computeTableToSplit(partitions);
-				// System.out.println( result.toDistSQL() );
+				System.out.println( result.getSqlForPartition(0));
 
 				if (run) {
-					start=System.currentTimeMillis();
+					//start=System.currentTimeMillis();
 					ExecutorService es = Executors.newFixedThreadPool(partitions+1);
 					//ExecutorService es = Executors.newFixedThreadPool(2);
-
+					
 					// Connection ccc=getConnection("");
 					List<SQLiteLocalExecutor> executors = new ArrayList<SQLiteLocalExecutor>();
 					ResultBuffer globalBuffer = new ResultBuffer();
@@ -224,17 +232,20 @@ public class Importer {
 					for (int i = 0; i < partitions; i++) {
 						// String sql=result.getSqlForPartition(i);
 						cons[i]=m.getConnection(database, partitions);
+						
 						//createVirtualTables(cons[i], partitions);
 						SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result,
-								cons[i], true, finishedQueries, i);
+								cons[i], DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, DecomposerUtils.PRINT_RESULTS);
 						
 						ex.setGlobalBuffer(globalBuffer);
 						executors.add(ex);
 
 					}
 					
-					FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, partitions);
-					es.execute(ex);
+					if(DecomposerUtils.USE_RESULT_AGGREGATOR){
+						FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, partitions, DecomposerUtils.PRINT_RESULTS);
+						es.execute(ex);
+					}
 					//System.out.println(System.currentTimeMillis() - start);
 					for (SQLiteLocalExecutor exec : executors) {
 						es.execute(exec);

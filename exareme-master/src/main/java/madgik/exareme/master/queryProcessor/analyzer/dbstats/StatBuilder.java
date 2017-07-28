@@ -33,7 +33,8 @@ public class StatBuilder {
 	public StatBuilder(String[] db, HistogramBuildMethod method, Map<String, Table> schema) throws Exception {
 		this.db = db;
 		this.method = method;
-		this.dbStats = loadData(schema);
+		//this.dbStats = loadData(schema);
+		this.dbStats = schema;
 	}
 
 	public StatBuilder(String path, String[] db, HistogramBuildMethod method) throws Exception {

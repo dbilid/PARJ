@@ -26,6 +26,9 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	private static final int HASH_STRING_BASE = 256;
 
 	private Schema schema;
+	private String rdfTypeTable;
+	
+
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger
 			.getLogger(NodeSelectivityEstimator.class);
 
@@ -159,6 +162,50 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	public void estimateFilter(Node n, Selection s, Node child) {
 		// Selection s = (Selection) n.getObject();
+		if(isRDFType(child) && s.getOperands().size()==1 && s.getAllColumnRefs().get(0).getName().equals("o")){
+			Constant c = null;
+			Operand op=s.getOperands().iterator().next();
+			if(op instanceof NonUnaryWhereCondition){
+				NonUnaryWhereCondition nuwc=(NonUnaryWhereCondition) op;
+				if(nuwc.getRightOp() instanceof Constant){
+					c=(Constant)nuwc.getRightOp();
+				}
+				else if(nuwc.getLeftOp() instanceof Constant){
+					c=(Constant)nuwc.getLeftOp();
+				}
+				else{
+					log.error("no contant operand found:"+nuwc);
+					return;
+				}
+				NodeInfo pi = new NodeInfo();
+				Table tbl=(Table)child.getObject();
+				RelInfo rel = this.schema.getTableIndex().get("type"+c.getValue());
+				// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
+
+				// System.out.println(rel);
+				RelInfo resultRel = new RelInfo(rel, tbl.getAlias(), false);
+				/*
+				 * Map<String, AttrInfo> aliasAtts=new HashMap<String, AttrInfo>();
+				 * for(String colname:resultRel.getAttrIndex().keySet()){
+				 * aliasAtts.put(tableAlias+"."+colname,
+				 * resultRel.getAttrIndex().get(colname)); }
+				 * resultRel.setAttrIndex(aliasAtts);
+				 */
+
+				// TODO: fix nodeInfo
+				pi.setNumberOfTuples(rel.getNumberOfTuples());
+				pi.setTupleLength(rel.getTupleLength());
+				pi.setResultRel(resultRel);
+				n.setNodeInfo(pi);
+				return;
+			}
+			else{
+				log.error("filter on rdf type table not NUWC:"+op);
+				return;
+			}
+			
+			
+		}
 		NodeInfo ni = new NodeInfo();
 		n.setNodeInfo(ni);
 		NodeInfo childInfo = child.getNodeInfo();
@@ -175,6 +222,16 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			applyFilterToNode(nextFilter, ni, child);
 		}
 
+	}
+
+	private boolean isRDFType(Node child) {
+		if(child.getObject() instanceof Table){
+			Table tbl=(Table)child.getObject();
+			if(tbl.getName().equals(rdfTypeTable)){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void applyFilterToNode(Operand nextFilter, NodeInfo ni, Node child) {
@@ -577,5 +634,9 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 			return hashStringVal;
 		}
 
+	}
+	
+	public void setRdfTypeTable(String rdfTypeTable) {
+		this.rdfTypeTable = rdfTypeTable;
 	}
 }

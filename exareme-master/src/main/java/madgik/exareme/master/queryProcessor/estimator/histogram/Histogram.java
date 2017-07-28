@@ -425,6 +425,10 @@ public final class Histogram {
 				resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()
 						? combiningBucket.getFrequency() : combinerBucket.getFrequency();
 			}
+			
+			if(resultFreq<1.0){
+				resultFreq=1.0;
+			}
 
 			double minCombinerBucketVal = combinerBucketId;
 			double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);

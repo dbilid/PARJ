@@ -133,9 +133,14 @@ public class Stat implements StatExtractor {
 	public Map<String, Table> extractSPARQLStats() throws Exception {
 
 		Statement st = con.createStatement();
-		ResultSet resultTables = st.executeQuery("select id from properties");
+		ResultSet resultTables = st.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
+		int typeProperty=-1;
 		while (resultTables.next()) {
+			if(resultTables.getString(2).equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")){
+				typeProperty=resultTables.getInt(1);
+				//continue;
+			}
 			Map<String, Column> columnMap = new HashMap<String, Column>();
 			String tableName = "prop" + resultTables.getInt(1) ;
 			log.debug("Analyzing table " + tableName);
@@ -203,8 +208,81 @@ public class Stat implements StatExtractor {
 
 		}
 		resultTables.close();
+		if(typeProperty>-1){
+			gatherTypeStats(typeProperty, st);
+		}
+		
+		st.close();
 		return schema;
 
+	}
+
+	private void gatherTypeStats(int typePropNo, Statement st) {
+		
+		log.debug("Analyzing type information");
+		
+		int columnCount = 2;
+		int tupleSize = 8; // in bytes
+		try {
+			
+		ResultSet types=st.executeQuery("select distinct o from invprop"+typePropNo);
+		
+		while(types.next()){
+			Map<String, Column> columnMap = new HashMap<String, Column>();
+			int no=types.getInt(1);
+		String tableName="invprop"+typePropNo+" where o="+no;
+		int count = getCount(tableName);
+
+		if (count == 0) {
+			log.debug("Empty table");
+			continue;
+		}
+		String columnName = "s";
+
+				// computing column's min and max values
+				MinMax mm = computeMinMax(tableName, columnName);
+				String minVal = mm.getMin();
+				String maxVal = mm.getMax();
+
+				Map<String, Integer> diffValFreqMap = new HashMap<String, Integer>();
+
+				diffValFreqMap.put(minVal, 1);
+				
+				diffValFreqMap.put(maxVal, 1);
+
+				
+
+				Column c = new Column(columnName, Types.INTEGER, 4, count, minVal, maxVal, diffValFreqMap);
+				columnMap.put(columnName, c);
+				
+				columnName = "o";
+				
+				minVal = String.valueOf(no);
+				maxVal = String.valueOf(no);
+
+				diffValFreqMap = new HashMap<String, Integer>();
+
+				diffValFreqMap.put(minVal, count);
+				
+				diffValFreqMap.put(maxVal, count);
+
+				
+
+				Column c2= new Column(columnName, Types.INTEGER, 4, 1, minVal, maxVal, diffValFreqMap);
+				columnMap.put(columnName, c2);
+			
+			
+		
+		String pkey = "DEFAULT_KEY";
+
+		Table t = new Table("type" + types.getInt(1), columnCount, tupleSize, columnMap, count,
+				pkey);
+		schema.put("type" + types.getInt(1), t);
+		}
+		} catch (Exception ex) {
+			log.error("could not analyze type table:" + ex.getMessage());
+		}
+		
 	}
 
 	/* private-helper methods */
@@ -234,8 +312,8 @@ public class Stat implements StatExtractor {
 	}
 
 	private MinMax computeMinMax(String tableName, String columnName) throws Exception {
-		String query1 = "select min(`" + columnName + "`) as minVal, max(`" + columnName + "`) " + "as maxVal  from `"
-				+ tableName + "` where `" + columnName + "` is not null";
+		String query1 = "select min(`" + columnName + "`) as minVal, max(`" + columnName + "`) " + "as maxVal  from "
+				+ tableName ;
 
 		String minVal = "", maxVal = "";
 

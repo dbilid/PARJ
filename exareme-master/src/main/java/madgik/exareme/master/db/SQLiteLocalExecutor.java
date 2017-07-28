@@ -18,21 +18,23 @@ public class SQLiteLocalExecutor implements Runnable {
 	private Connection con;
 	private SQLQuery sql;
 	private int partition;
-	private boolean temp;
+	private boolean useResultAggregator;
 	private Set<Integer> finishedQueries;
 	private ResultBuffer globalBuffer;
+	private boolean print;
 	private static final Logger log = Logger.getLogger(SQLiteLocalExecutor.class);
 
 	public void setGlobalBuffer(ResultBuffer globalBuffer) {
 		this.globalBuffer = globalBuffer;
 	}
 
-	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt) {
+	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print) {
 		this.sql = result;
 		this.con = c;
-		this.temp = t;
+		this.useResultAggregator = t;
 		this.finishedQueries = f;
 		this.partition = pt;
+		this.print=print;
 		// System.out.println(sql);
 	}
 
@@ -54,13 +56,14 @@ public class SQLiteLocalExecutor implements Runnable {
 		try {
 			System.out.println("starting thread");
 			// st=con.createStatement();
-			if (temp) {
+			st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			st.setFetchSize(1000);
+			long lll = System.currentTimeMillis();
+			String sqlString=sql.getSqlForPartition(partition);
+			if (useResultAggregator) {
 
 				//con.setAutoCommit(false);
-				st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-				st.setFetchSize(1000);
-				long lll = System.currentTimeMillis();
-				String sqlString=sql.getSqlForPartition(partition);
+				
 				if(sqlString==null){
 					synchronized (globalBuffer) {
 						globalBuffer.addFinished();
@@ -123,9 +126,32 @@ public class SQLiteLocalExecutor implements Runnable {
 				localBuffer.clear();
 
 			} else {
-				// System.out.println(s.toSQL());
-				PreparedStatement ps = con.prepareStatement(sql.getSqlForPartition(partition));
-				ps.execute();
+				if(sqlString==null){
+					return;
+				}
+				System.out.println(sqlString);
+				ResultSet rs = st.executeQuery(sql.getSqlForPartition(partition));
+				int columns = rs.getMetaData().getColumnCount();
+				int counter=0;
+				while (rs.next()) {
+					counter++;
+					
+					if(!print){
+						continue;
+					}
+					List<Object> tuple = new ArrayList<Object>(columns);
+					for (int i = 1; i < columns + 1; i++) {
+						tuple.add(rs.getObject(i));
+					}
+					System.out.println(tuple+"\n");
+					
+				}
+				rs.close();
+				st.close();
+				//con.close();
+				System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
+				counter+" results");
+				
 			}
 
 			//con.close();

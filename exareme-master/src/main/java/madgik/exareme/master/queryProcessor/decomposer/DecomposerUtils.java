@@ -53,7 +53,8 @@ public class DecomposerUtils {
 	public static final boolean KILL_PYTHON;
 	public static final boolean USE_SIP;
 	public static final String WRAPPER_VIRTUAL_TABLE;
-	public static final String INVWRAPPER_VIRTUAL_TABLE;
+	public static final boolean PRINT_RESULTS;
+	public static final boolean USE_RESULT_AGGREGATOR;
 
 	static {
 		GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -102,7 +103,8 @@ public class DecomposerUtils {
 		KILL_PYTHON = properties.getBoolean("kill.python");
 		USE_SIP = false;
 		WRAPPER_VIRTUAL_TABLE = properties.getString("wrapper.virtual.table");
-		INVWRAPPER_VIRTUAL_TABLE = properties.getString("invwrapper.virtual.table");
+		PRINT_RESULTS = properties.getBoolean("print.results");
+		USE_RESULT_AGGREGATOR = properties.getBoolean("use.result.aggregator");
 
 		log.trace("Decomposer Properties Loaded.");
 	}
