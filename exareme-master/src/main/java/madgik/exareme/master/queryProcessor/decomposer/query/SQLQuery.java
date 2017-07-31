@@ -1945,7 +1945,7 @@ public class SQLQuery {
 //				if (t < this.tableToSplit) {
 //					output.append(this.inputTables.get(t).toString());
 //				} else 
-					if (t == this.tableToSplit) {
+					if (t == this.tableToSplit-1) {
 					Table tbl = this.inputTables.get(t);
 					/*output.append(tbl.getName());
 					output.append("_");
@@ -1955,7 +1955,7 @@ public class SQLQuery {
 					output.append("memorywrapper"+tbl.getName());
 					output.append(" ");
 					output.append(tbl.getAlias());
-					splitCondition=" "+tbl.getAlias()+".s>"+i+" ";
+					splitCondition=" "+tbl.getAlias()+".secondShard="+i+" ";
 					
 				} else {
 					Table tbl = this.inputTables.get(t);
@@ -2023,7 +2023,6 @@ public class SQLQuery {
 		for (int i = 0; i < inputTables.size(); i++) {
 			Table t = inputTables.get(i);
 			boolean existsFilter = false;
-			boolean inv = t.getName().startsWith("inv");
 			if (t.getName().equals("dictionary")) {
 				this.tableToSplit = inputTables.size() + 1;
 				return;
@@ -2033,8 +2032,8 @@ public class SQLQuery {
 				if (nuwc.getLeftOp() instanceof Constant && nuwc.getRightOp() instanceof Column) {
 					Column c = (Column) nuwc.getRightOp();
 					if (t.getAlias().equals(c.getAlias())) {
-						if (c.getName().equals("s")) {
-							toAdd=new NonUnaryWhereCondition(new Column(t.getAlias(), "s"), new Constant(Long.parseLong(nuwc.getLeftOp().toString()) % partitions), ">");
+						if (c.getName().equals("first")) {
+							toAdd=new NonUnaryWhereCondition(new Column(t.getAlias(), "partition"), new Constant(Long.parseLong(nuwc.getLeftOp().toString()) % partitions), "=");
 							//t.setName(t.getName() + "_" + Long.parseLong(nuwc.getLeftOp().toString()) % partitions);
 							existsFilter = true;
 							break;
@@ -2043,8 +2042,8 @@ public class SQLQuery {
 				} else if (nuwc.getRightOp() instanceof Constant && nuwc.getLeftOp() instanceof Column) {
 					Column c = (Column) nuwc.getLeftOp();
 					if (t.getAlias().equals(c.getAlias())) {
-						if (c.getName().equals("s")) {
-							toAdd=new NonUnaryWhereCondition(new Column(t.getAlias(), "s"), new Constant(Long.parseLong(nuwc.getRightOp().toString()) % partitions), ">");
+						if (c.getName().equals("first")) {
+							toAdd=new NonUnaryWhereCondition(new Column(t.getAlias(), "partition"), new Constant(Long.parseLong(nuwc.getRightOp().toString()) % partitions), "=");
 							//t.setName(t.getName() + "_" + Long.parseLong(nuwc.getRightOp().toString()) % partitions);
 							existsFilter = true;
 							break;
@@ -2075,11 +2074,11 @@ public class SQLQuery {
 		}
 		for(Column c:this.getAllColumns()){
 			if(inverses.contains(c.getAlias())){
-				if(c.getName().equals("s")){
-					c.setName("o");
+				if(c.getName().equals("first")){
+					c.setName("second");
 				}
 				else{
-					c.setName("s");
+					c.setName("first");
 				}
 			}
 		}

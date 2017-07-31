@@ -163,10 +163,10 @@ public class NodeCostEstimator {
 		if (!right.getChildren().isEmpty()) {
 			Selection sel = (Selection) right.getChildAt(0).getObject();
 			boolean inv = false;
-			boolean subject = sel.getAllColumnRefs().get(0).getName().equals("s");
-			if (subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("o")) {
+			boolean subject = sel.getAllColumnRefs().get(0).getName().equals("first");
+			if (subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("second")) {
 				inv = rightRelTuples > leftRelTuples;
-			} else if (!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("s")) {
+			} else if (!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("first")) {
 				inv = rightRelTuples < leftRelTuples;
 			} else if (!subject) {
 				inv = true;
@@ -180,19 +180,19 @@ public class NodeCostEstimator {
 						* Metadata.INDEX_UTILIZATION;
 			}
 
-		} else if (nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("o")) {
+		} else if (nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("second")) {
 			nuwc.setRightinv(true);
 		}
 
 		if (left.getDescendantBaseTables().size() == 1) {
 			boolean inv = false;
-			if (nuwc.getLeftOp().getAllColumnRefs().get(0).getName().equals("o")) {
+			if (nuwc.getLeftOp().getAllColumnRefs().get(0).getName().equals("second")) {
 				inv = true;
 			}
 			if (!left.getChildren().isEmpty()) {
 				Selection sel = (Selection) left.getChildAt(0).getObject();
 
-				boolean subject = sel.getAllColumnRefs().get(0).getName().equals("s");
+				boolean subject = sel.getAllColumnRefs().get(0).getName().equals("first");
 
 				if (!subject) {
 					inv = true;

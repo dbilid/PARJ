@@ -155,6 +155,7 @@ public class Stat implements StatExtractor {
 				continue;
 			}
 			String columnName = "s";
+			String firstName="first";
 			String inv = "";
 			for (int h = 0; h < 2; h++) {
 
@@ -192,12 +193,13 @@ public class Stat implements StatExtractor {
 
 					int diffVals = (count / freq);
 
-					Column c = new Column(columnName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
+					Column c = new Column(firstName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
 					columnMap.put(columnName, c);
 				} catch (Exception ex) {
 					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
 				}
 				columnName = "o";
+				firstName="second";
 				inv = "inv";
 			}
 			String pkey = "DEFAULT_KEY";
@@ -252,10 +254,10 @@ public class Stat implements StatExtractor {
 
 				
 
-				Column c = new Column(columnName, Types.INTEGER, 4, count, minVal, maxVal, diffValFreqMap);
+				Column c = new Column("first", Types.INTEGER, 4, count, minVal, maxVal, diffValFreqMap);
 				columnMap.put(columnName, c);
 				
-				columnName = "o";
+				columnName = "second";
 				
 				minVal = String.valueOf(no);
 				maxVal = String.valueOf(no);

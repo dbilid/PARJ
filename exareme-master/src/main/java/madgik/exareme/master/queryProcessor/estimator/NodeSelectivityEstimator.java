@@ -162,7 +162,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	public void estimateFilter(Node n, Selection s, Node child) {
 		// Selection s = (Selection) n.getObject();
-		if(isRDFType(child) && s.getOperands().size()==1 && s.getAllColumnRefs().get(0).getName().equals("o")){
+		if(isRDFType(child) && s.getOperands().size()==1 && s.getAllColumnRefs().get(0).getName().equals("second")){
 			Constant c = null;
 			Operand op=s.getOperands().iterator().next();
 			if(op instanceof NonUnaryWhereCondition){

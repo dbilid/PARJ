@@ -149,7 +149,7 @@ public class DagCreator {
 			// if(eqClasses.containsKey(varString)){
 			// Set<Column> tablesForVar=eqClasses.get(varString);
 			// joinCondition.setLeftOp(tablesForVar.iterator().next());
-			Column newCol = new Column(aliasString, "s");
+			Column newCol = new Column(aliasString, "first");
 			result.add(varString, newCol);
 			// joinCondition.setRightOp(newCol);
 			// tablesForVar.add(newCol);
@@ -160,7 +160,7 @@ public class DagCreator {
 			// eqClasses.put(varString, tablesForVar);
 			// }
 		} else {
-			createSelection(selNode, selection, subject, aliasString, "s");
+			createSelection(selNode, selection, subject, aliasString, "first");
 			selection = true;
 		}
 		if (!object.isConstant()) {
@@ -171,12 +171,12 @@ public class DagCreator {
 				throw new SQLException("same var in subject and object not supported yet");
 			}
 
-			Column newCol = new Column(aliasString, "o");
+			Column newCol = new Column(aliasString, "second");
 			// joinCondition.setRightOp(newCol);
 			result.add(varString, newCol);
 
 		} else {
-			createSelection(selNode, selection, object, aliasString, "o");
+			createSelection(selNode, selection, object, aliasString, "second");
 			selection = true;
 		}
 		if (selection) {
