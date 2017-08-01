@@ -45,9 +45,7 @@ public final class Bucket {
 	}
 
 	public void setFrequency(double frequency) {
-		// if(frequency<1){
-		// System.out.println("ss");
-		// }
+		
 		this.frequency = frequency;
 	}
 

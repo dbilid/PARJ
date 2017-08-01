@@ -162,6 +162,9 @@ public class RelInfo {
 				if (Double.isInfinite(percentage)) {
 					percentage = Double.MAX_VALUE;
 				}
+				if (Double.isNaN(percentage)) {
+					percentage = 0.0;
+				}
 				if (h.getBucketIndex().isEmpty()) {
 					for (AttrInfo attr2 : this.attrIndex.values()) {
 						attr2.getHistogram().getBucketIndex().clear();// ////////////////change

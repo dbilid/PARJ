@@ -413,40 +413,35 @@ public final class Histogram {
 		// preconditions
 		checkNotNull(h2, "Histogram::joinBuckets: parameter <h2> is null");
 
-		Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
-		Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
+        Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
+        Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
 
-		if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex.lastKey()) {
+        if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
+            .lastKey()) {
 
-			double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency();
+            double resultFreq = combiningBucket.getFrequency() * combinerBucket.getFrequency();
+            if(Double.isInfinite(resultFreq)){
+            	resultFreq=combiningBucket.getFrequency()>combinerBucket.getFrequency()?combiningBucket.getFrequency():combinerBucket.getFrequency();
+            }
 
-			if (Double.isInfinite(resultFreq)) {
-				log.error("Result Frequency is Infinite");
-				resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()
-						? combiningBucket.getFrequency() : combinerBucket.getFrequency();
-			}
-			
-			if(resultFreq<1.0){
-				resultFreq=1.0;
-			}
+            double minCombinerBucketVal = combinerBucketId;
+            double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
+            double minCombiningBucketVal = combiningBucketId;
+            double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
 
-			double minCombinerBucketVal = combinerBucketId;
-			double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
-			double minCombiningBucketVal = combiningBucketId;
-			double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
+            double combinerSubBucketDiffVals =
+                (maxCombiningBucketVal - minCombiningBucketVal) / (maxCombinerBucketVal
+                    - minCombinerBucketVal) * combinerBucket.getDiffValues();
 
-			double combinerSubBucketDiffVals = (maxCombiningBucketVal - minCombiningBucketVal)
-					/ (maxCombinerBucketVal - minCombinerBucketVal) * combinerBucket.getDiffValues();
 
-			double nodv = combiningBucket.getDiffValues();
+            double nodv = combiningBucket.getDiffValues();
 
-			if (nodv > combinerSubBucketDiffVals)
-				nodv = combinerSubBucketDiffVals;
+            if (nodv > combinerSubBucketDiffVals)
+                nodv = combinerSubBucketDiffVals;
 
-			combiningBucket.setDiffValues(nodv);
-
-			combiningBucket.setFrequency(resultFreq);
-		}
+            combiningBucket.setDiffValues(nodv);
+            combiningBucket.setFrequency(resultFreq);
+        }
 	}
 
 	private void unionBuckets(Histogram h2, double combiningBucketId, double combinerBucketId) {
@@ -627,51 +622,34 @@ public final class Histogram {
 
 	private void filterJoinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId) {
 		// preconditions
-		checkNotNull(h2, "Histogram::joinBuckets: parameter <h2> is null");
+		 Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
+	     Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
 
-		Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
-		Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
-
-		if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex.lastKey()) {
-
-			// double resultFreq = combiningBucket.getFrequency() >
-			// combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getDiffValues()
-			// :combinerBucket.getFrequency()/combiningBucket.getDiffValues();
-			// double resultFreq=combiningBucket.getFrequency() >
-			// combinerBucket.getFrequency()?combiningBucket.getFrequency()/combinerBucket.getFrequency():combinerBucket.getFrequency()/combiningBucket.getFrequency();
-
-			// double nodv =
-			// combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues():combinerBucket.getDiffValues();
-
-			double minCombinerBucketVal = combinerBucketId;
-			double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
-			double minCombiningBucketVal = combiningBucketId;
-			double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
-
-			// 0.7 ftw! to change later!
-			// double resultFreq=combiningBucket.getFrequency();
-			// double nodv = combiningBucket.getDiffValues()*0.1;
-			// if(combiningBucket.getDiffValues()>combinerBucket.getDiffValues()){
-			// resultFreq=combinerBucket.getFrequency();
-			// nodv = combinerBucket.getDiffValues()*0.1;
-			// }
-			double combinerSubBucketDiffVals = (maxCombiningBucketVal - minCombiningBucketVal)
-					/ (maxCombinerBucketVal - minCombinerBucketVal) * combinerBucket.getDiffValues();
-
-			double nodv = combiningBucket.getDiffValues();
-
-			if (nodv > combinerSubBucketDiffVals)
-				nodv = combinerSubBucketDiffVals;
-			double resultFreq = combiningBucket.getFrequency() > combinerBucket.getFrequency()
-					? combinerBucket.getFrequency() : combiningBucket.getFrequency();
-
-			// double nodv =
-			// combiningBucket.getDiffValues()>combinerBucket.getDiffValues()?combiningBucket.getDiffValues()/(combinerBucket.getFrequency()*combinerBucket.getDiffValues()/(maxCombinerBucketVal-minCombinerBucketVal)):combinerBucket.getDiffValues()/(combiningBucket.getFrequency()*combiningBucket.getDiffValues()/(maxCombiningBucketVal-minCombiningBucketVal));
-
-			combiningBucket.setDiffValues(nodv);
-
-			combiningBucket.setFrequency(resultFreq);
-		}
+	     if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
+	         .lastKey()) {
+	    	 
+	    	 double minDiff=combiningBucket.getDiffValues()<combinerBucket.getDiffValues()?
+	    			 combiningBucket.getDiffValues():combinerBucket.getDiffValues();
+	        double minFreq=combiningBucket.getFrequency()<combinerBucket.getFrequency()?
+	    			 combiningBucket.getFrequency():combinerBucket.getFrequency();
+	    			 
+	    			 combinerBucket.setFrequency(minFreq);
+	    	    	 combinerBucket.setDiffValues(minDiff);
+	    	    	 
+	    	    	 combiningBucket.setFrequency(minFreq);
+	    	    	 combiningBucket.setDiffValues(minDiff);
+	     }
+	    	 
+	    /*	 if(combiningBucket.getDiffValues()<combinerBucket.getDiffValues()){
+	    		 combiningBucket.setFrequency(combiningBucket.getFrequency()/combinerBucket.getDiffValues());
+	    	 }
+	    	 else{
+	    		 combiningBucket.setFrequency(combinerBucket.getFrequency()/combiningBucket.getDiffValues());
+	    		 combiningBucket.setDiffValues(combinerBucket.getDiffValues());
+	    	 }
+	    	 combinerBucket.setFrequency(combiningBucket.getFrequency());
+	    	 combinerBucket.setDiffValues(combiningBucket.getDiffValues());
+	     }*/
 	}
 
 	public void rangejoin(Histogram h2) {
