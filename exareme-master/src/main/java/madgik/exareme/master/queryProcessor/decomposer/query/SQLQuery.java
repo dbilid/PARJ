@@ -1939,6 +1939,10 @@ public class SQLQuery {
 			 * output.append(first.getName() + "_" + i); output.append(" ");
 			 * output.append(first.getAlias()); separator = " CROSS JOIN ";
 			 */
+			if(tableToSplit==0){
+				Table tbl = this.inputTables.get(0);
+				splitCondition=" "+tbl.getAlias()+".partition="+i+" ";
+			}
 			for (int t = 0; t < inputTables.size(); t++) {
 
 				output.append(separator);
