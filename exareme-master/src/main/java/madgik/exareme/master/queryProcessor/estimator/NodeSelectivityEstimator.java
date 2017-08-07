@@ -21,12 +21,12 @@ import java.util.Set;
 /**
  * @author jim
  */
-public class NodeSelectivityEstimator implements SelectivityEstimator {
+public class NodeSelectivityEstimator {
 	private static final int HASH_STRING_CHARS = 11;
 	private static final int HASH_STRING_BASE = 256;
 
 	private Schema schema;
-	private String rdfTypeTable;
+	private int rdfTypeTable;
 	
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger
@@ -64,7 +64,6 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	}
 
-	@Override
 	public void makeEstimationForNode(Node n) {
 		if (n.getObject() instanceof Table) {
 			estimateBase(n);
@@ -90,7 +89,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				RelInfo rel = o.getChildAt(0).getNodeInfo().getResultRel();
 				// RelInfo rel =
 				// this.planInfo.get(n.getHashId()).getResultRel();
-				RelInfo resultRel = new RelInfo(rel, nestedAlias, true);
+				RelInfo resultRel = new RelInfo(rel, -1, true);
 				nested.setNumberOfTuples(rel.getNumberOfTuples());
 				nested.setTupleLength(rel.getTupleLength());
 				nested.setResultRel(resultRel);
@@ -162,7 +161,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	public void estimateFilter(Node n, Selection s, Node child) {
 		// Selection s = (Selection) n.getObject();
-		if(isRDFType(child) && s.getOperands().size()==1 && s.getAllColumnRefs().get(0).getName().equals("second")){
+		if(isRDFType(child) && s.getOperands().size()==1 && !s.getAllColumnRefs().get(0).getName()){
 			Constant c = null;
 			Operand op=s.getOperands().iterator().next();
 			if(op instanceof NonUnaryWhereCondition){
@@ -174,12 +173,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 					c=(Constant)nuwc.getLeftOp();
 				}
 				else{
-					log.error("no contant operand found:"+nuwc);
+					log.error("no constant operand found:"+nuwc);
 					return;
 				}
 				NodeInfo pi = new NodeInfo();
 				Table tbl=(Table)child.getObject();
-				RelInfo rel = this.schema.getTableIndex().get("type"+c.getValue());
+				long value=(long)c.getValue();
+				int intValue=(int)value;
+				RelInfo rel = this.schema.getTableIndex().get(-intValue);
 				// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
 
 				// System.out.println(rel);
@@ -227,7 +228,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 	private boolean isRDFType(Node child) {
 		if(child.getObject() instanceof Table){
 			Table tbl=(Table)child.getObject();
-			if(tbl.getName().equals(rdfTypeTable)){
+			if(tbl.getName()==rdfTypeTable){
 				return true;
 			}
 		}
@@ -243,17 +244,17 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				try {
 					Column col = uwc.getAllColumnRefs().get(0);
 					String con = uwc.getValue();
-					if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
-						AttrInfo att = getAttributeFromBase(col.toString(), child, ni);
+					if (!ni.getResultRel().getAttrIndex().containsKey(col)) {
+						AttrInfo att = getAttributeFromBase(col, child, ni);
 						if (att == null) {
 							log.error("Column not found in Attribute index: " + col.toString());
 							ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
 							return;
 						} else {
-							ni.getResultRel().getAttrIndex().put(col.toString(), att);
+							ni.getResultRel().getAttrIndex().put(col, att);
 						}
 					}
-					Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
+					Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col).getHistogram();
 
 					double filterValue = 0;
 
@@ -273,7 +274,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 					log.debug("LIKE operator, removing % :" + newSt);
 					resultHistogram.equal(filterValue);
 
-					ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
+					ni.getResultRel().adjustRelation(col, resultHistogram);
 
 					// TODO: fix NOdeInfo!!
 					ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
@@ -342,18 +343,18 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// RelInfo resultRel = initRel;
 
 				// check to see if it is "cut" by base projection
-				if (!ni.getResultRel().getAttrIndex().containsKey(col.toString())) {
-					AttrInfo att = getAttributeFromBase(col.toString(), child, ni);
+				if (!ni.getResultRel().getAttrIndex().containsKey(col)) {
+					AttrInfo att = getAttributeFromBase(col, child, ni);
 					if (att == null) {
 						log.error("Column not found in Attribute index: " + col.toString());
 						ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
 						return;
 					} else {
-						ni.getResultRel().getAttrIndex().put(col.toString(), att);
+						ni.getResultRel().getAttrIndex().put(col, att);
 					}
 
 				}
-				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col.toString()).getHistogram();
+				Histogram resultHistogram = ni.getResultRel().getAttrIndex().get(col).getHistogram();
 
 				double filterValue = 0;
 				/*
@@ -384,7 +385,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 				// FilterOperand.NotEqual, Double.parseDouble(con.toString()));
 
 				// adjust RelInfo's histograms based on the resulting histogram
-				ni.getResultRel().adjustRelation(col.getName(), resultHistogram);
+				ni.getResultRel().adjustRelation(col, resultHistogram);
 
 				// TODO: fix NOdeInfo!!
 				ni.setNumberOfTuples(ni.getResultRel().getNumberOfTuples());
@@ -395,7 +396,7 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	}
 
-	private AttrInfo getAttributeFromBase(String col, Node child, NodeInfo ni) {
+	private AttrInfo getAttributeFromBase(Column col, Node child, NodeInfo ni) {
 		if (child.getChildren().size() == 0 || child.getChildAt(0).getOpCode() != Node.BASEPROJECT) {
 			return null;
 		}
@@ -423,14 +424,14 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		RelInfo resultRel = new RelInfo(lRel);
 		RelInfo newR = new RelInfo(rRel);
 
-		Histogram resultHistogram = resultRel.getAttrIndex().get(l.toString()).getHistogram();
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l).getHistogram();
 		if (newR.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
 			if (nuwc.getOperator().contains(">") || nuwc.getOperator().contains("<")) {
-				resultHistogram.rangejoin(newR.getAttrIndex().get(r.toString()).getHistogram());
+				resultHistogram.rangejoin(newR.getAttrIndex().get(r).getHistogram());
 			} else {
-				resultHistogram.join(newR.getAttrIndex().get(r.toString()).getHistogram());
+				resultHistogram.join(newR.getAttrIndex().get(r).getHistogram());
 			}
 
 		}
@@ -441,12 +442,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		resultRel.getAttrIndex().putAll(newR.getAttrIndex());
 
 		// adjust RelInfo's histograms based on the resulting histogram
-		resultRel.adjustRelation(l.toString(), resultHistogram);
+		resultRel.adjustRelation(l, resultHistogram);
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		schema.getTableIndex().put(l.toString(), resultRel);
-		schema.getTableIndex().put(r.toString(), resultRel);
+		//schema.getTableIndex().put(l.toString(), resultRel);
+		//schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -500,12 +501,12 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 		resultRel.getAttrIndex().putAll(rRel.getAttrIndex());
 
 		// adjust RelInfo's histograms based on the resulting histogram
-		resultRel.adjustRelation(l.toString(), resultHistogram);
+		resultRel.adjustRelation(l, resultHistogram);
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		schema.getTableIndex().put(l.toString(), resultRel);
-		schema.getTableIndex().put(r.toString(), resultRel);
+		//schema.getTableIndex().put(l.toString(), resultRel);
+		//schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -518,46 +519,46 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	public void estimateProject(Node n) {
 		// String tableAlias;
-		NodeInfo ni = new NodeInfo();
-		n.setNodeInfo(ni);
-		Set<String> columns = new HashSet<String>();
-		Node prjNode = n.getChildAt(0);
-		Node child = prjNode.getChildAt(0);
-		Projection p = (Projection) prjNode.getObject();
-		List<Output> outputs = p.getOperands();
-		// tableAlias = ((Column)outputs.get(0).getObject()).tableAlias;
-
-		// RelInfo rel = this.schema.getTableIndex().get(tableAlias);
-		if (child.getNodeInfo() == null) {
-			this.makeEstimationForNode(child);
-		}
-		RelInfo rel = child.getNodeInfo().getResultRel();
-
-		RelInfo resultRel = new RelInfo(rel);
-
-		for (Output o : outputs) {
-			List<Column> cols = o.getObject().getAllColumnRefs();
-			if (!cols.isEmpty()) {
-				Column c = (Column) o.getObject().getAllColumnRefs().get(0);
-				if (!o.getOutputName().equals(c.getAlias() + "_" + c.getName())) {
-					resultRel.renameColumn(c.toString(), o.getOutputName());
-					columns.add(o.getOutputName());
-				} else {
-					columns.add(c.toString());
-				}
-			}
-		}
-
-		// remove unecessary columns
-		resultRel.eliminteRedundantAttributes(columns);
-
-		// TODO: fix nodeInfo
-		ni.setNumberOfTuples(child.getNodeInfo().getNumberOfTuples());
-		// ni.setTupleLength(child.getNodeInfo().getTupleLength());
-		ni.setTupleLength(resultRel.getTupleLength());
-		// System.out.println("is this correct?");
-		ni.setResultRel(resultRel);
-		n.setNodeInfo(ni);
+//		NodeInfo ni = new NodeInfo();
+//		n.setNodeInfo(ni);
+//		Set<Column> columns = new HashSet<Column>();
+//		Node prjNode = n.getChildAt(0);
+//		Node child = prjNode.getChildAt(0);
+//		Projection p = (Projection) prjNode.getObject();
+//		List<Output> outputs = p.getOperands();
+//		// tableAlias = ((Column)outputs.get(0).getObject()).tableAlias;
+//
+//		// RelInfo rel = this.schema.getTableIndex().get(tableAlias);
+//		if (child.getNodeInfo() == null) {
+//			this.makeEstimationForNode(child);
+//		}
+//		RelInfo rel = child.getNodeInfo().getResultRel();
+//
+//		RelInfo resultRel = new RelInfo(rel);
+//
+//		for (Output o : outputs) {
+//			List<Column> cols = o.getObject().getAllColumnRefs();
+//			if (!cols.isEmpty()) {
+//				Column c = (Column) o.getObject().getAllColumnRefs().get(0);
+//				if (!o.getOutputName().equals(c.getAlias() + "_" + c.getName())) {
+//					resultRel.renameColumn(c.toString(), o.getOutputName());
+//					columns.add(o.getOutputName());
+//				} else {
+//					columns.add(c.toString());
+//				}
+//			}
+//		}
+//
+//		// remove unecessary columns
+//		resultRel.eliminteRedundantAttributes(columns);
+//
+//		// TODO: fix nodeInfo
+//		ni.setNumberOfTuples(child.getNodeInfo().getNumberOfTuples());
+//		// ni.setTupleLength(child.getNodeInfo().getTupleLength());
+//		ni.setTupleLength(resultRel.getTupleLength());
+//		// System.out.println("is this correct?");
+//		ni.setResultRel(resultRel);
+//		n.setNodeInfo(ni);
 	}
 
 	public void estimateUnion(Node n) {
@@ -579,13 +580,13 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	public void estimateBase(Node n) {
 		NodeInfo pi = new NodeInfo();
-		String tableName = ((Table) n.getObject()).getName();
-		String tableAlias = ((Table) n.getObject()).getAlias();
-		RelInfo rel = this.schema.getTableIndex().get(tableName);
+		Table t=(Table) n.getObject();
+		
+		RelInfo rel = this.schema.getTableIndex().get(t.getName());
 		// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
 
 		// System.out.println(rel);
-		RelInfo resultRel = new RelInfo(rel, tableAlias, false);
+		RelInfo resultRel = new RelInfo(rel, t.getAlias(), false);
 		/*
 		 * Map<String, AttrInfo> aliasAtts=new HashMap<String, AttrInfo>();
 		 * for(String colname:resultRel.getAttrIndex().keySet()){
@@ -636,7 +637,120 @@ public class NodeSelectivityEstimator implements SelectivityEstimator {
 
 	}
 	
-	public void setRdfTypeTable(String rdfTypeTable) {
+	public void setRdfTypeTable(int rdfTypeTable) {
 		this.rdfTypeTable = rdfTypeTable;
+	}
+
+	public NodeInfo estimateJoin(NodeInfo left, NodeInfo right,
+			NonUnaryWhereCondition nuwc) {
+		NodeInfo ni = new NodeInfo();
+		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
+		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
+		if (!(nuwc.getLeftOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getLeftOp());
+		}
+		if (!(nuwc.getRightOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getRightOp());
+		}
+
+		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);
+		// RelInfo rRel = this.schema.getTableIndex().get(r.tableAlias);
+		RelInfo lRel = left.getResultRel();
+		RelInfo rRel = right.getResultRel();
+
+		RelInfo resultRel = new RelInfo(lRel);
+		RelInfo newR = new RelInfo(rRel);
+
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l).getHistogram();
+		if (newR.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
+			resultHistogram.convertToTransparentHistogram();
+		} else {
+			if (nuwc.getOperator().contains(">") || nuwc.getOperator().contains("<")) {
+				resultHistogram.rangejoin(newR.getAttrIndex().get(r).getHistogram());
+			} else {
+				resultHistogram.join(newR.getAttrIndex().get(r).getHistogram());
+			}
+
+		}
+
+		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
+
+		// put all the right's RelInfo AttrInfos to the left one
+		resultRel.getAttrIndex().putAll(newR.getAttrIndex());
+
+		// adjust RelInfo's histograms based on the resulting histogram
+		resultRel.adjustRelation(l, resultHistogram);
+
+		// fix alias mappings to RelInfo. The joining aliases must point to the
+		// same RelInfo after the join operation
+		//schema.getTableIndex().put(l.toString(), resultRel);
+		//schema.getTableIndex().put(r.toString(), resultRel);
+
+		// adding necessary equivalent hashing attribures
+
+		// TODO: fix nodeInfo
+		ni.setNumberOfTuples(resultRel.getNumberOfTuples());
+		ni.setTupleLength(resultRel.getTupleLength());
+		ni.setResultRel(resultRel);
+		return ni;
+		//n.setNodeInfo(ni);
+
+		/*if (nuwc.getFilterJoins() != null) {
+			for (NonUnaryWhereCondition f : nuwc.getFilterJoins()) {
+				estimateFilterJoin(n, f, n, n);
+			}
+		}*/
+	}
+
+	public NodeInfo estimateFilterJoin(NodeInfo resultInfo,
+			NonUnaryWhereCondition nuwc) {
+		NodeInfo ni = new NodeInfo();
+		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
+		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
+		if (!(nuwc.getLeftOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getLeftOp());
+		}
+		if (!(nuwc.getRightOp() instanceof Column)) {
+			log.debug("Operand not Column. Selectivity estimation may not be accurate:" + nuwc.getRightOp());
+		}
+		// String equals = nuwc.getOperator();
+
+		// RelInfo lRel = this.schema.getTableIndex().get(l.tableAlias);
+		// RelInfo rRel = this.schema.getTableIndex().get(r.tableAlias);
+		RelInfo lRel = resultInfo.getResultRel();
+		RelInfo rRel = resultInfo.getResultRel();
+
+		RelInfo resultRel = new RelInfo(lRel);
+
+		Histogram resultHistogram = resultRel.getAttrIndex().get(l).getHistogram();
+
+		if (rRel.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
+			resultHistogram.convertToTransparentHistogram();
+		} else {
+			resultHistogram.filterjoin(rRel.getAttrIndex().get(r).getHistogram());
+		}
+
+		// resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
+
+		// lRel.getAttrIndex().get(l.columnName).getHistogram().join(rRel.getAttrIndex().get(r.columnName).getHistogram());
+
+		// put all the right's RelInfo AttrInfos to the left one
+		resultRel.getAttrIndex().putAll(rRel.getAttrIndex());
+
+		// adjust RelInfo's histograms based on the resulting histogram
+		resultRel.adjustRelation(l, resultHistogram);
+
+		// fix alias mappings to RelInfo. The joining aliases must point to the
+		// same RelInfo after the join operation
+		//schema.getTableIndex().put(l.toString(), resultRel);
+		//schema.getTableIndex().put(r.toString(), resultRel);
+
+		// adding necessary equivalent hashing attribures
+
+		// TODO: fix nodeInfo
+		ni.setNumberOfTuples(resultRel.getNumberOfTuples());
+		ni.setTupleLength(resultRel.getTupleLength());
+		ni.setResultRel(resultRel);
+		return ni;
 	}
 }

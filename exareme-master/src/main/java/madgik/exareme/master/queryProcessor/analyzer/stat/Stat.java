@@ -6,132 +6,44 @@
 
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
+import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.query.Column;
+import madgik.exareme.master.queryProcessor.estimator.db.AttrInfo;
+import madgik.exareme.master.queryProcessor.estimator.db.RelInfo;
+import madgik.exareme.master.queryProcessor.estimator.db.Schema;
+import madgik.exareme.master.queryProcessor.estimator.histogram.Bucket;
+import madgik.exareme.master.queryProcessor.estimator.histogram.Histogram;
+
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.log4j.Logger;
 
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 /**
  * @author jim
  */
-public class Stat implements StatExtractor {
-	// public static final int LIMIT = 10000;
-	// public static final double LIMIT_FACTOR = 0.3;
-	private static final int BLOB_SIZE = 1000000;
-	private static final int NUM_SIZE = 8;
-	private static final int MAX_STRING_SAMPLE = 20;
-	// public static final String SAMPLE = "_sample";
+public class Stat {
+	
 	private static final Logger log = Logger.getLogger(Stat.class);
 
 	private final Connection con;
-	private String sch;
 
 	public Stat(Connection con) {
-		sch = "";
 		this.con = con;
 	}
 
 	// schema map
-	private Map<String, Table> schema = new HashMap<String, Table>();
+	//private Map<Integer, Table> schema = new HashMap<Integer, Table>();
+	
+	
 
-	@Override
-	public Map<String, Table> extractStats() throws Exception {
-
-		DatabaseMetaData dbmd = con.getMetaData(); // dtabase metadata object
-
-		// listing tables and columns
-		String catalog = null;
-		String schemaPattern = null;
-		String tableNamePattern = null;
-		String[] types = null;
-		String columnNamePattern = null;
-
-		ResultSet resultTables = dbmd.getTables(catalog, schemaPattern, tableNamePattern, types);
-		log.debug("Starting extracting stats");
-		while (resultTables.next()) {
-			Map<String, Column> columnMap = new HashMap<String, Column>();
-			String tableName = StringEscapeUtils.escapeJava(resultTables.getString(3));
-			log.debug("Analyzing table " + tableName);
-
-			int columnCount = resultTables.getMetaData().getColumnCount();
-			int tupleSize = 0; // in bytes
-
-			tableNamePattern = tableName;
-			ResultSet resultColumns = dbmd.getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern);
-
-			int count = getCount(tableName);
-
-			if (count == 0) {
-				log.debug("Empty table");
-				continue;
-			}
-
-			while (resultColumns.next()) {
-
-				String columnName = StringEscapeUtils.escapeJava(resultColumns.getString(4));
-				try {
-					int columnType = resultColumns.getInt(5);
-
-					// computing column's size in bytes
-					int columnSize = computeColumnSize(columnName, columnType, tableName);
-					tupleSize += columnSize;
-
-					// execute queries for numberOfDiffValues, minVal, maxVal
-					// Map<String, Integer> diffValFreqMap = new HashMap<String,
-					// Integer>();
-
-					// computing column's min and max values
-					MinMax mm = computeMinMax(tableName, columnName);
-					String minVal = mm.getMin();
-					String maxVal = mm.getMax();
-
-					// /
-					Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequency(tableName, columnName);
-
-					// for (ValFreq k : freqs) {
-					// diffValFreqMap.put(k.getVal(), k.getFreq());
-
-					// }
-
-					// /add min max diff vals in the sampling values
-					int minOcc = computeValOccurences(tableName, columnName, minVal);
-					if (!diffValFreqMap.containsKey(minVal))
-						diffValFreqMap.put(minVal, minOcc);
-					int maxOcc = computeValOccurences(tableName, columnName, maxVal);
-					if (!diffValFreqMap.containsKey(maxVal))
-						diffValFreqMap.put(maxVal, maxOcc);
-
-					int diffVals = diffValFreqMap.size();
-
-					Column c = new Column(columnName, columnType, columnSize, diffVals, minVal, maxVal, diffValFreqMap);
-					columnMap.put(columnName, c);
-				} catch (Exception ex) {
-					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
-				}
-
-			}
-			resultColumns.close();
-			ResultSet pkrs = dbmd.getExportedKeys("", "", tableName);
-			String pkey = "DEFAULT_KEY";
-
-			while (pkrs.next()) {
-				pkey = pkrs.getString("PKCOLUMN_NAME");
-				break;
-			}
-			pkrs.close();
-			Table t = new Table(tableName, columnCount, tupleSize, columnMap, count, pkey);
-			schema.put(tableName, t);
-
-		}
-		resultTables.close();
-		return schema;
-
-	}
-
-	public Map<String, Table> extractSPARQLStats() throws Exception {
-
+	public Schema extractSPARQLStats() throws Exception {
+		Map<Integer, RelInfo> relMap = new HashMap<Integer, RelInfo>();
+		Schema schema = new Schema("FULL_SCHEMA", relMap);
 		Statement st = con.createStatement();
 		ResultSet resultTables = st.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
@@ -141,12 +53,12 @@ public class Stat implements StatExtractor {
 				typeProperty=resultTables.getInt(1);
 				//continue;
 			}
-			Map<String, Column> columnMap = new HashMap<String, Column>();
+			//if(resultTables.getInt(1)>-1) continue;
+			Map<Column, AttrInfo> attrIndex = new HashMap<Column, AttrInfo>();
 			String tableName = "prop" + resultTables.getInt(1) ;
 			log.debug("Analyzing table " + tableName);
 
-			int columnCount = 2;
-			int tupleSize = 8; // in bytes
+			
 
 			int count = getCount(tableName);
 
@@ -155,7 +67,7 @@ public class Stat implements StatExtractor {
 				continue;
 			}
 			String columnName = "s";
-			String firstName="first";
+			Column col=new Column(resultTables.getInt(1), true);
 			String inv = "";
 			for (int h = 0; h < 2; h++) {
 
@@ -163,55 +75,60 @@ public class Stat implements StatExtractor {
 
 					// computing column's min and max values
 					MinMax mm = computeMinMax(inv + "prop" + resultTables.getInt(1), columnName);
-					String minVal = mm.getMin();
-					String maxVal = mm.getMax();
+					double minVal = mm.getMin();
+					double maxVal = mm.getMax();
 
-					// /
-					Map<String, Integer> diffValFreqMap = computeDistinctValuesFrequencySPARQL(
-							inv + "prop" + resultTables.getInt(1), columnName);
-
-					if (diffValFreqMap.isEmpty()) {
-						// empty partition 0
-						diffValFreqMap.put(minVal, count);
-					}
-
+					
+					int diffVals = getCount("(select distinct " + columnName + " from " + inv + "prop" + resultTables.getInt(1) + ")");
+					
 					// for (ValFreq k : freqs) {
 					// diffValFreqMap.put(k.getVal(), k.getFreq());
 
 					// }
-					int freq = diffValFreqMap.values().iterator().next();
+					int freq = count/diffVals;
 
-					// /add min max diff vals in the sampling values
-					// int minOcc = computeValOccurences(tableName, columnName,
-					// minVal);
-					if (!diffValFreqMap.containsKey(minVal))
-						diffValFreqMap.put(minVal, freq);
-					// int maxOcc = computeValOccurences(tableName, columnName,
-					// maxVal);
-					if (!diffValFreqMap.containsKey(maxVal))
-						diffValFreqMap.put(maxVal, freq);
+					
+					//StatColumn c = new StatColumn(col, Types.INTEGER, 4, diffVals, minVal, maxVal);
+					
+					NavigableMap<Double, Bucket> bucketIndex = new TreeMap<Double, Bucket>();
+					log.debug("building primitive histogram for column:" + col);
 
-					int diffVals = (count / freq);
+					
+				
+					Bucket b = new Bucket((double) freq, (double) diffVals);
 
-					Column c = new Column(firstName, Types.INTEGER, 4, diffVals, minVal, maxVal, diffValFreqMap);
-					columnMap.put(columnName, c);
+					bucketIndex.put(minVal, b);
+					bucketIndex.put(Math.nextAfter(maxVal,
+							Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
+					Histogram hist = new Histogram(bucketIndex);
+					if(typeProperty!=resultTables.getInt(1)){
+					PreparedStatement ps=con.prepareStatement("select "+columnName+" from "+inv +tableName+" order by "+
+					columnName+"  limit 1 offset?1");
+					splitBuckets(hist, minVal, 0, 0, ps);
+					ps.close();
+					}
+					
+					AttrInfo a = new AttrInfo(col, hist, 4);
+					attrIndex.put(col, a);
+					
+					//columnMap.put(col, c);
 				} catch (Exception ex) {
 					log.error("could not analyze column " + columnName + ":" + ex.getMessage());
 				}
 				columnName = "o";
-				firstName="second";
+				col=new Column(resultTables.getInt(1), false);
 				inv = "inv";
 			}
-			String pkey = "DEFAULT_KEY";
+			RelInfo r = new RelInfo(resultTables.getInt(1), attrIndex, count, 8);
 
-			Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count,
-					pkey);
-			schema.put("prop" + resultTables.getInt(1), t);
+			relMap.put(r.getRelName(), r);
+			//Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count);
+			//schema.put(resultTables.getInt(1), t);
 
 		}
 		resultTables.close();
 		if(typeProperty>-1){
-			gatherTypeStats(typeProperty, st);
+			gatherTypeStats(typeProperty, st, relMap);
 		}
 		
 		st.close();
@@ -219,18 +136,17 @@ public class Stat implements StatExtractor {
 
 	}
 
-	private void gatherTypeStats(int typePropNo, Statement st) {
+	private void gatherTypeStats(int typePropNo, Statement st, Map<Integer, RelInfo> relMap) {
 		
 		log.debug("Analyzing type information");
 		
-		int columnCount = 2;
-		int tupleSize = 8; // in bytes
+		
 		try {
 			
 		ResultSet types=st.executeQuery("select distinct o from invprop"+typePropNo);
 		
 		while(types.next()){
-			Map<String, Column> columnMap = new HashMap<String, Column>();
+			Map<Column, AttrInfo> attrIndex = new HashMap<Column, AttrInfo>();
 			int no=types.getInt(1);
 		String tableName="invprop"+typePropNo+" where o="+no;
 		int count = getCount(tableName);
@@ -240,46 +156,55 @@ public class Stat implements StatExtractor {
 			continue;
 		}
 		String columnName = "s";
-
+		Column col=new Column(-no, true);
 				// computing column's min and max values
 				MinMax mm = computeMinMax(tableName, columnName);
-				String minVal = mm.getMin();
-				String maxVal = mm.getMax();
-
-				Map<String, Integer> diffValFreqMap = new HashMap<String, Integer>();
-
-				diffValFreqMap.put(minVal, 1);
-				
-				diffValFreqMap.put(maxVal, 1);
+				double minVal = mm.getMin();
+				double maxVal = mm.getMax();
 
 				
+				NavigableMap<Double, Bucket> bucketIndex = new TreeMap<Double, Bucket>();
+				log.debug("building primitive histogram for column:" + col);
 
-				Column c = new Column("first", Types.INTEGER, 4, count, minVal, maxVal, diffValFreqMap);
-				columnMap.put(columnName, c);
 				
+			
+				Bucket b = new Bucket(1.0, (double)count);
+
+				bucketIndex.put(minVal, b);
+				bucketIndex.put(Math.nextAfter(maxVal,
+						Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
+				Histogram hist = new Histogram(bucketIndex);
+				PreparedStatement ps=con.prepareStatement("select "+columnName+" from "+tableName+" order by "+
+						columnName+"  limit 1 offset ?1");
+						splitBuckets(hist, minVal, 0, 0, ps);
+						ps.close();
+				AttrInfo a = new AttrInfo(col, hist, 4);
+				attrIndex.put(col, a);
+				
+
+				NavigableMap<Double, Bucket> bucketIndex2 = new TreeMap<Double, Bucket>();
+					
 				columnName = "second";
+				col=new Column(-no, false);
+				minVal = (double)no;
+				maxVal = minVal;
+				Bucket b2 = new Bucket((double) count, 1.0);
+
+				bucketIndex2.put(minVal, b2);
+				bucketIndex2.put(Math.nextAfter(maxVal,
+						Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
+				Histogram hist2 = new Histogram(bucketIndex2);
+
+				AttrInfo a2 = new AttrInfo(col, hist2, 4);
+				attrIndex.put(col, a2);
+
 				
-				minVal = String.valueOf(no);
-				maxVal = String.valueOf(no);
-
-				diffValFreqMap = new HashMap<String, Integer>();
-
-				diffValFreqMap.put(minVal, count);
-				
-				diffValFreqMap.put(maxVal, count);
-
-				
-
-				Column c2= new Column(columnName, Types.INTEGER, 4, 1, minVal, maxVal, diffValFreqMap);
-				columnMap.put(columnName, c2);
 			
 			
-		
-		String pkey = "DEFAULT_KEY";
+				RelInfo r = new RelInfo(-no, attrIndex, count, 8);
 
-		Table t = new Table("type" + types.getInt(1), columnCount, tupleSize, columnMap, count,
-				pkey);
-		schema.put("type" + types.getInt(1), t);
+				relMap.put(r.getRelName(), r);
+
 		}
 		} catch (Exception ex) {
 			log.error("could not analyze type table:" + ex.getMessage());
@@ -287,43 +212,48 @@ public class Stat implements StatExtractor {
 		
 	}
 
-	/* private-helper methods */
-	private int computeColumnSize(String columnName, int columnType, String table_sample) throws Exception {
-		int columnSize = 0;
-		if (columnType == Types.INTEGER || columnType == Types.REAL || columnType == Types.DOUBLE
-				|| columnType == Types.DECIMAL || columnType == Types.FLOAT || columnType == Types.NUMERIC) {
-			columnSize = NUM_SIZE;
-		} else if (columnType == Types.VARCHAR) {
-			String query0 = "select max(length(`" + columnName + "`)) as length from (select `" + columnName
-					+ "` from `" + table_sample + "`)" + " where `" + columnName + "` is not null limit "
-					+ MAX_STRING_SAMPLE;
+	
 
-			Statement stmt0 = con.createStatement();
-			ResultSet rs0 = stmt0.executeQuery(query0);
-
-			while (rs0.next()) {
-				columnSize = rs0.getInt("length");
-			}
-			rs0.close();
-			stmt0.close();
-
-		} else if (columnType == Types.BLOB)
-			columnSize = BLOB_SIZE;
-
-		return columnSize;
+	private void splitBuckets(Histogram hist, double minVal, int recursion, int start, PreparedStatement ps) throws SQLException {
+		System.out.println("splitting, rec:"+recursion+" minVal:" +minVal+"start: "+start);
+		if(recursion>DecomposerUtils.SPLIT_BUCKET_THRESHOLD){
+			return;
+		}
+		double maxVal=hist.getBucketIndex().higherKey(minVal);
+		double count=hist.getBucketIndex().get(minVal).getDiffValues()*hist.getBucketIndex().get(minVal).getFrequency();
+		double range=maxVal-minVal;
+		ps.setInt(1, start+(int)(count/2));
+		ResultSet rs=ps.executeQuery();
+		int median=0;
+		if(rs.next()){
+			median=rs.getInt(1);
+		}
+		else{
+			System.err.println("median not returned");
+			return;
+		}
+		rs.close();
+		//double idealMedian=minVal+range/2;
+		//if(Math.abs(median-idealMedian)>(range/10)){
+			hist.splitBucket(minVal, median);
+			splitBuckets(hist, minVal, recursion+1, start, ps);
+			splitBuckets(hist, median, recursion+1, start+(int)(count/2), ps);
+		//}
+		
+		
 	}
 
 	private MinMax computeMinMax(String tableName, String columnName) throws Exception {
 		String query1 = "select min(`" + columnName + "`) as minVal, max(`" + columnName + "`) " + "as maxVal  from "
 				+ tableName ;
 
-		String minVal = "", maxVal = "";
+		double minVal = 0, maxVal=0;
 
 		Statement stmt1 = con.createStatement();
 		ResultSet rs1 = stmt1.executeQuery(query1);
 		while (rs1.next()) {
-			minVal = rs1.getString("minVal");
-			maxVal = rs1.getString("maxVal");
+			minVal = (double)rs1.getInt("minVal");
+			maxVal = (double)rs1.getInt("maxVal");
 		}
 		rs1.close();
 		stmt1.close();
@@ -331,50 +261,7 @@ public class Stat implements StatExtractor {
 		return new MinMax(minVal, maxVal);
 	}
 
-	private MinMax computeMinMaxPartitioned(String tableName, String columnName, int partitions) throws Exception {
-		StringBuffer query1 = new StringBuffer();
-		query1.append("select min(");
-		query1.append(columnName);
-		query1.append(") as minVal, max(");
-		query1.append(columnName);
-		query1.append(") as maxVal  from (");
-		String union = "";
-		for (int i = 0; i < partitions; i++) {
-			query1.append(union);
-			query1.append(" select * from ");
-			query1.append(tableName);
-			query1.append(i);
-			union = " union all ";
-		}
-		query1.append(")");
-		String minVal = "", maxVal = "";
-
-		Statement stmt1 = con.createStatement();
-		ResultSet rs1 = stmt1.executeQuery(query1.toString());
-		while (rs1.next()) {
-			minVal = rs1.getString("minVal");
-			maxVal = rs1.getString("maxVal");
-		}
-		rs1.close();
-		stmt1.close();
-
-		return new MinMax(minVal, maxVal);
-	}
-
-	private int computeValOccurences(String tableName, String columnName, String value) throws Exception {
-		String queryDf = "select count(*) as valCount " + "from `" + tableName + "` where `" + columnName
-				+ "` is not null and  `" + columnName + "` = \"" + value + "\"";
-		Statement stmt = con.createStatement();
-		ResultSet rs = stmt.executeQuery(queryDf);
-		int diffValCount = 0;
-		while (rs.next()) {
-			diffValCount = rs.getInt("valCount");
-		}
-		rs.close();
-		stmt.close();
-
-		return diffValCount;
-	}
+	
 
 	private int getCount(String tableName) throws SQLException {
 		String query1 = "select count(*) from " + tableName;
@@ -390,66 +277,24 @@ public class Stat implements StatExtractor {
 		return result;
 	}
 
-	private Map<String, Integer> computeDistinctValuesFrequency(String table_sample, String columnName)
-			throws Exception {
-		Map<String, Integer> freqs = new HashMap<String, Integer>();
 
-		String query = "select `" + columnName + "` as val, count(*) as freq from `" + table_sample + "` where `"
-				+ columnName + "` is not null group by `" + columnName + "`";
-
-		Statement stmt = con.createStatement();
-		ResultSet rs = stmt.executeQuery(query);
-
-		while (rs.next()) {
-			freqs.put(rs.getString("val"), rs.getInt("freq"));
-		}
-
-		rs.close();
-		stmt.close();
-
-		return freqs;
-	}
-
-	private Map<String, Integer> computeDistinctValuesFrequencySPARQL(String table_sample, String columnName) throws Exception {
-		Map<String, Integer> freqs = new HashMap<String, Integer>();
-
-		String query = "select min(" + columnName + ") as val from " + table_sample;
-
-		Statement stmt = con.createStatement();
-		ResultSet rs = stmt.executeQuery(query);
-		String min = "";
-		while (rs.next()) {
-			// freqs.put(rs.getString("val"), rs.getInt("freq"));
-			min = rs.getString(1);
-		}
-		int all = getCount(table_sample);
-		int distinct = getCount("(select distinct " + columnName + " from " + table_sample + ")");
-		if (distinct == 0) {
-			return freqs;
-		}
-		int freq = all / distinct;
-		freqs.put(min, freq);
-		rs.close();
-		stmt.close();
-
-		return freqs;
-	}
+	
 
 	/* inner - helper classes */
 	private final class MinMax {
-		private final String min;
-		private final String max;
+		private final double min;
+		private final double max;
 
-		public MinMax(String min, String max) {
+		public MinMax(double min, double max) {
 			this.min = min;
 			this.max = max;
 		}
 
-		public String getMin() {
+		public double getMin() {
 			return min;
 		}
 
-		public String getMax() {
+		public double getMax() {
 			return max;
 		}
 
@@ -460,61 +305,5 @@ public class Stat implements StatExtractor {
 
 	}
 
-	private final class ValFreq {
-		private final String val;
-		private final int freq;
 
-		public ValFreq(String val, int freq) {
-			this.val = val;
-			this.freq = freq;
-		}
-
-		public String getVal() {
-			return val;
-		}
-
-		public int getFreq() {
-			return freq;
-		}
-
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + getOuterType().hashCode();
-			result = prime * result + freq;
-			result = prime * result + ((val == null) ? 0 : val.hashCode());
-			return result;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			ValFreq other = (ValFreq) obj;
-			if (!getOuterType().equals(other.getOuterType()))
-				return false;
-			if (freq != other.freq)
-				return false;
-			if (val == null) {
-				if (other.val != null)
-					return false;
-			} else if (!val.equals(other.val))
-				return false;
-			return true;
-		}
-
-		private Stat getOuterType() {
-			return Stat.this;
-		}
-
-	}
-
-	public void setSch(String s) {
-		this.sch = s;
-	}
 }

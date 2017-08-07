@@ -5,20 +5,13 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.util;
 
-import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
-import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
-import madgik.exareme.master.queryProcessor.decomposer.federation.Memo;
-import madgik.exareme.master.queryProcessor.decomposer.federation.MemoKey;
-import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
-import madgik.exareme.master.queryProcessor.decomposer.query.Output;
-import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
+
 import org.apache.log4j.Logger;
 
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author jim
@@ -76,71 +69,6 @@ public class Util {
 	}
 
 
-	public static boolean planContainsLargerResult(Node n, Memo finalMemo, double distributedLimit) {
-		try {
-			double size = n.getNodeInfo().getTupleLength() * n.getNodeInfo().getNumberOfTuples();
-			if (size > (distributedLimit * 1000000)) {
-				System.out.println("tuple length::::" + n.getNodeInfo().getTupleLength());
-				System.out.println("tuple cardinality::::" + n.getNodeInfo().getNumberOfTuples());
-				System.out.println("size::::" + size);
-				System.out.println(distributedLimit * 1000000);
-				return true;
-			}
-		} catch (java.lang.Exception ex) {
-			log.error("could not obtain size estimation for node " + n.getObject().toString());
-		}
-		if (n.getChildren().isEmpty()) {
-			return false;
-		}
-		if (finalMemo.getMemoValue(new MemoKey(n, null)) == null) {
-			return false;
-		}
-		if (finalMemo.getMemoValue(new MemoKey(n, null)).getPlan() == null) {
-			return false;
-		}
 
-		Node op = n.getChildAt(finalMemo.getMemoValue(new MemoKey(n, null)).getPlan().getChoice());
-		for (Node child : op.getChildren()) {
-			if (planContainsLargerResult(child, finalMemo, distributedLimit)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public static void setDescNotMaterialised(Node e, Memo memo) {
-		MemoKey key = new MemoKey(e, null);
-		memo.getMemoValue(key).setMaterialized(false);
-		if (e.getChildren().isEmpty()) {
-			return;
-		}
-		Node op = e.getChildAt(memo.getMemoValue(key).getPlan().getChoice());
-		for (Node e2 : op.getChildren()) {
-			setDescNotMaterialised(e2, memo);
-		}
-	}
-
-	public static List<Output> getOutputForTable(String sql, String name) {
-		Connection memory;
-		List<Output> result = new ArrayList<Output>();
-		try {
-			memory = DriverManager.getConnection("jdbc:sqlite::memory:");
-
-			Statement st = memory.createStatement();
-			st.execute(sql);
-			ResultSet re = memory.getMetaData().getColumns(null, null, name, "%");
-			while (re.next()) {
-				result.add(new Output(re.getString(4), new Column(name, re.getString(4))));
-			}
-			re.close();
-			st.close();
-			memory.close();
-		} catch (SQLException e) {
-			log.debug(e.getMessage());
-			return result;
-		}
-		return result;
-
-	}
 
 }

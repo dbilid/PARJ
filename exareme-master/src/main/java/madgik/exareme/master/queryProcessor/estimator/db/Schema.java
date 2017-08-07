@@ -14,10 +14,10 @@ import java.util.Map;
 public class Schema {
 
 	private String schemaName;
-	private Map<String, RelInfo> tableIndex;
+	private Map<Integer, RelInfo> tableIndex;
 
 	/* constructor */
-	public Schema(String schemaName, Map<String, RelInfo> relIndex) {
+	public Schema(String schemaName, Map<Integer, RelInfo> relIndex) {
 		this.schemaName = schemaName;
 		this.tableIndex = relIndex;
 	}
@@ -25,9 +25,9 @@ public class Schema {
 	/* copy constructor */
 	public Schema(Schema schema) {
 		this.schemaName = schema.getSchemaName();
-		this.tableIndex = new HashMap<String, RelInfo>();
+		this.tableIndex = new HashMap<Integer, RelInfo>();
 
-		for (Map.Entry<String, RelInfo> entry : schema.tableIndex.entrySet()) {
+		for (Map.Entry<Integer, RelInfo> entry : schema.tableIndex.entrySet()) {
 			this.tableIndex.put(entry.getKey(), new RelInfo(entry.getValue()));
 		}
 
@@ -38,7 +38,7 @@ public class Schema {
 		return schemaName;
 	}
 
-	public Map<String, RelInfo> getTableIndex() {
+	public Map<Integer, RelInfo> getTableIndex() {
 		return tableIndex;
 	}
 

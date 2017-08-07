@@ -4,18 +4,19 @@
  */
 package madgik.exareme.master.queryProcessor.estimator.db;
 
+import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.estimator.histogram.Histogram;
 
 /**
  * @author jim
  */
 public class AttrInfo {
-	private String attrName; // attribute name
+	private Column attrName; // attribute name
 	private Histogram histogram; // histogram for this column
 	private int attrLength; // length of attribute in bytes
 
 	/* constructor */
-	public AttrInfo(String attrName, Histogram histogram, int attrLength) {
+	public AttrInfo(Column attrName, Histogram histogram, int attrLength) {
 		this.attrName = attrName;
 		this.histogram = histogram;
 		this.attrLength = attrLength;
@@ -23,17 +24,17 @@ public class AttrInfo {
 
 	/* copy constructor */
 	public AttrInfo(AttrInfo attr) {
-		this.attrName = attr.getAttrName();
+		this.attrName = attr.attrName;
 		this.histogram = new Histogram(attr.getHistogram());
 		this.attrLength = attr.getAttrLength();
 	}
 
 	/* getters and setters */
-	public String getAttrName() {
+	public Column getAttrName() {
 		return attrName;
 	}
 
-	public void setAttrName(String attrName) {
+	public void setAttrName(Column attrName) {
 		this.attrName = attrName;
 	}
 

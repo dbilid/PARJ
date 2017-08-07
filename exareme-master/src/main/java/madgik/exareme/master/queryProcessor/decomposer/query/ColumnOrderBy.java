@@ -11,12 +11,8 @@ public class ColumnOrderBy extends Column {
 
 	public boolean isAsc = true;
 
-	public ColumnOrderBy() {
-		super();
-		this.isAsc = true;
-	}
-
-	public ColumnOrderBy(String s1, String s2, boolean asc) {
+	
+	public ColumnOrderBy(int s1, boolean s2, boolean asc) {
 		super(s1, s2);
 		this.isAsc = asc;
 	}
@@ -27,10 +23,7 @@ public class ColumnOrderBy extends Column {
 		if (!this.isAsc) {
 			order = " DESC";
 		}
-		if (getAlias() != null) {
 			return getAlias() + "." + getName() + order;
-		} else {
-			return getName() + order;
-		}
+		
 	}
 }

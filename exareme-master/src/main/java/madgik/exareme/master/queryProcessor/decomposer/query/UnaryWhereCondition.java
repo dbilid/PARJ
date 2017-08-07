@@ -114,7 +114,7 @@ public class UnaryWhereCondition implements Operand {
 		hash = null;
 		if (onColumn instanceof Column) {
 			Column c = (Column) onColumn;
-			if (c.getName().equals(oldCol.getName()) && c.getAlias()==oldCol.getAlias()) {
+			if (c.getName()==oldCol.getName() && c.getAlias()==oldCol.getAlias()) {
 				this.onColumn = newCol;
 			}
 		} else {

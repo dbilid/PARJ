@@ -14,7 +14,6 @@ public final class NodeInfo {
 	// private final int nodeId;
 	private double numberOfTuples;
 	private double tupleLength; // in bytes
-	private double responseTimeEstimation;
 	private RelInfo resultRel;
 
 	public NodeInfo(int nodeId, double numberOfTuples, double tupleLength, RelInfo resultRel) {
@@ -41,14 +40,7 @@ public final class NodeInfo {
 		return tupleLength;
 	}
 
-	public double getResponseTimeEstimation() {
-		return responseTimeEstimation;
-	}
-
-	public void setResponseTimeEstimation(double responseTimeEstimation) {
-		this.responseTimeEstimation = responseTimeEstimation;
-	}
-
+	
 	public void setNumberOfTuples(double numberOfTuples) {
 		this.numberOfTuples = numberOfTuples;
 	}

@@ -62,16 +62,7 @@
             <artifactId>httpasyncclient</artifactId>
         </dependency>
 
-        <!-- visualization deps -->
-        <dependency>
-            <groupId>org.jfree</groupId>
-            <artifactId>jcommon</artifactId>
-            <type>jar</type>
-        </dependency>
-        <dependency>
-            <groupId>jgraph</groupId>
-            <artifactId>jgraph</artifactId>
-        </dependency>
+       
 
         <!-- internal deps-->
         <dependency>

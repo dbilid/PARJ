@@ -4,14 +4,11 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.dag;
 
-import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Operand;
 import madgik.exareme.master.queryProcessor.decomposer.query.Table;
-import madgik.exareme.master.queryProcessor.decomposer.util.Pair;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
 import madgik.exareme.master.queryProcessor.estimator.NodeInfo;
-import net.jpountz.util.Utils;
 
 import java.util.*;
 
@@ -171,7 +168,7 @@ public class Node {
 		if (o instanceof Table) {
 			Table t = (Table) o;
 
-			hash = f.hashBytes(t.getName().getBytes());
+			hash = f.hashInt(t.getName());
 
 		}
 		else if (type==Node.OR){
@@ -374,29 +371,6 @@ public class Node {
 
 			Table t = (Table) o;
 			
-			if (t.getAlias() == null) {
-				// object = "Intermediate Result";
-
-				object = t.getName();
-				object = "";
-				if (this.parents.isEmpty()) {
-					object = "Result";
-				}
-			} else {
-				if (t.getName().toUpperCase().startsWith("COMPASS_")) {
-					fillcolor = " fillcolor=\"yellow\" style=\"filled\"";
-				} else if (t.getName().toUpperCase().startsWith("SLEGGE")) {
-					fillcolor = " fillcolor=\"yellow\" style=\"filled\"";
-				} else if (t.getName().toUpperCase().startsWith("OPENWORKS")) {
-					fillcolor = " fillcolor=\"red\" style=\"filled\"";
-				} else if (t.getName().toUpperCase().startsWith("RECALL")) {
-					fillcolor = " fillcolor=\"green\" style=\"filled\"";
-				} else if (t.getName().toUpperCase().startsWith("COREDB")) {
-					fillcolor = " fillcolor=\"blue\" style=\"filled\"";
-				} else if (t.getName().toUpperCase().startsWith("WELLBORE")) {
-					fillcolor = " fillcolor=\"purple\" style=\"filled\"";
-				}
-			}
 			 
 		}
 		if (this.opCode == LEFTBROADCASTJOIN) {
@@ -508,38 +482,9 @@ public class Node {
 		}
 	}
 
-	private Set<Pair<Column, Node>> getLastJoiningColumns() {
-		// check in all descedants
-		Set<Pair<Column, Node>> result = new HashSet<Pair<Column, Node>>();
-		if (o instanceof NonUnaryWhereCondition) {
-			NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) o;
-			result.add(new Pair(nuwc.getAllColumnRefs().get(0), this));
+	
 
-		} else {
-			for (Node c : this.children) {
-				Set<Pair<Column, Node>> cm = c.getLastJoiningColumns();
-				for (Pair cc : cm) {
-					result.add(cc);
-				}
-			}
 
-		}
-		return result;
-	}
-
-	private Set<Pair<Column, Node>> getChildreJoiningColumns() {
-		// check only in children
-		Set<Pair<Column, Node>> result = new HashSet<Pair<Column, Node>>();
-
-		for (Node c : this.children) {
-			if (c.o instanceof NonUnaryWhereCondition) {
-				NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) c.o;
-				result.add(new Pair(nuwc.getAllColumnRefs().get(0), c));
-			}
-
-		}
-		return result;
-	}
 
 
 	public int[] getAlgorithmicImplementations() {
@@ -625,7 +570,7 @@ public class Node {
 		if (o instanceof Table) {
 			Table t = (Table) o;
 
-			hash = Hashing.goodFastHash(32).hashBytes(t.getName().getBytes());
+			hash = Hashing.goodFastHash(32).hashInt(t.getName());
 
 		} else if (o instanceof Operand) {
 			List<HashCode> codes = new ArrayList<HashCode>();
@@ -674,43 +619,7 @@ public class Node {
 		this.swap = swap;
 	}
 
-	public void addRefCols(Map<String, Set<String>> refColsAlias, Set<Node> visited) {
-		if (visited.contains(this)) {
-			return;
-		}
-		visited.add(this);
+	
 
-		if (this.getDescendantBaseTables().size() == 1) {
-			// do not add in projection columns from base selections/projections
-			String alias = this.getDescendantBaseTables().iterator().next();
-			if (!refColsAlias.containsKey(alias)) {
-				// add table with no ref cols, for example select *
-				refColsAlias.put(alias, new HashSet<String>());
-			}
-			return;
-		}
-		if (this.o instanceof Operand) {
-			Operand op = (Operand) o;
-			for (Column c : op.getAllColumnRefs()) {
-				if (!refColsAlias.containsKey(c.getAlias())) {
-					refColsAlias.put(c.getAlias(), new HashSet<String>());
-				}
-				refColsAlias.get(c.getAlias()).add(c.getName());
-			}
-
-		}
-		for (Node c : this.children) {
-			c.addRefCols(refColsAlias, visited);
-		}
-
-	}
-
-	public boolean hasOneSubquery() {
-		if (this.getChildAt(0).getOpCode() == UNION || this.getChildAt(0).getOpCode() == UNIONALL) {
-			return this.getChildAt(0).getChildren().size() == 1;
-		} else {
-			return this.getChildAt(0).getChildAt(0).hasOneSubquery();
-		}
-	}
 
 }

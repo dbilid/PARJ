@@ -1,6 +1,7 @@
 package madgik.exareme.master.queryProcessor.sparql;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,8 +46,11 @@ public class JoinClassMap {
 	}
 
 	public void add(String varString, Column newCol) {
-		eqClasses.put(varString, new JoinClass(newCol));
-
+		if(eqClasses.containsKey(varString)){
+			eqClasses.get(varString).addColumn(newCol);
+		}else{
+			eqClasses.put(varString, new JoinClass(newCol));
+		}
 	}
 
 	public boolean containsVar(String varString) {
@@ -55,6 +59,10 @@ public class JoinClassMap {
 
 	public Column getFirstColumn(String var) {
 		return this.eqClasses.get(var).getFirstColumn();
+	}
+
+	public Collection<JoinClass> getClasses() {
+		return eqClasses.values();
 	}
 
 }

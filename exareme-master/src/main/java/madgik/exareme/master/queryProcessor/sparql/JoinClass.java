@@ -28,5 +28,13 @@ public class JoinClass {
 	public Column getFirstColumn() {
 		return cols.iterator().next();
 	}
+	
+	public void addColumn(Column c){
+		cols.add(c);
+	}
+	
+	public Set<Column> getColumns(){
+		return cols;
+	}
 
 }

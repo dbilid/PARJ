@@ -4,13 +4,14 @@
  */
 package madgik.exareme.master.queryProcessor.estimator.histogram;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
 import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
 
-import org.jfree.util.Log;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -210,32 +211,7 @@ public final class Histogram {
 		}
 	}
 
-	// TODO
-	// @Override
-	// public void union(Histogram h2){
-	// //preconditions
-	// checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is
-	// null");
-	//
-	// if(!this.equals(h2) && h2.equals(this)){
-	//
-	//
-	//
-	//
-	//
-	// }
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	// }
+	
 
 	public double numberOfTuples() {
 		double not = 0.0;
@@ -438,6 +414,8 @@ public final class Histogram {
 
             if (nodv > combinerSubBucketDiffVals)
                 nodv = combinerSubBucketDiffVals;
+            
+            nodv=(combiningBucket.getDiffValues()*combinerBucket.getDiffValues())/(maxCombinerBucketVal - minCombinerBucketVal);
 
             combiningBucket.setDiffValues(nodv);
             combiningBucket.setFrequency(resultFreq);
@@ -626,9 +604,20 @@ public final class Histogram {
 	     Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
 
 	     if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
-	         .lastKey()) {
+	             .lastKey()) {
+	        	 
+	        	 if(combiningBucket.getDiffValues()<combinerBucket.getDiffValues()){
+	        		 combiningBucket.setFrequency(combiningBucket.getFrequency()/combinerBucket.getDiffValues());
+	        	 }
+	        	 else{
+	        		 combiningBucket.setFrequency(combinerBucket.getFrequency()/combiningBucket.getDiffValues());
+	        		 combiningBucket.setDiffValues(combinerBucket.getDiffValues());
+	        	 }
+	        	 combinerBucket.setFrequency(combiningBucket.getFrequency());
+	    combinerBucket.setDiffValues(combiningBucket.getDiffValues());
+	     }
 	    	 
-	    	 double minDiff=combiningBucket.getDiffValues()<combinerBucket.getDiffValues()?
+	    	/* double minDiff=combiningBucket.getDiffValues()<combinerBucket.getDiffValues()?
 	    			 combiningBucket.getDiffValues():combinerBucket.getDiffValues();
 	        double minFreq=combiningBucket.getFrequency()<combinerBucket.getFrequency()?
 	    			 combiningBucket.getFrequency():combinerBucket.getFrequency();
@@ -706,6 +695,18 @@ public final class Histogram {
 
 			combiningBucket.setFrequency(resultFreq);
 		}
+	}
+	
+	public void splitBucket(double min, double median){
+		Bucket toSplit=bucketIndex.remove(min);
+		if(toSplit==null){
+			System.err.println("value "+min+" not present in histogram "+this.toString());
+			return;
+		}
+		Bucket first=new Bucket(toSplit.getFrequency(), toSplit.getDiffValues()/2);
+		Bucket second =new Bucket(toSplit.getFrequency(), toSplit.getDiffValues()/2);
+		bucketIndex.put(min, first);
+		bucketIndex.put(median, second);
 	}
 
 }

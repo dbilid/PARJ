@@ -129,7 +129,7 @@ public class NonUnaryWhereCondition implements Operand {
 
 	public void setRightOp(Operand op) {
 		if (this.ops.isEmpty()) {
-			this.setLeftOp(new Column("temp", "temp"));
+			this.setLeftOp(new Column(-1, true));
 			this.ops.add(op);
 		} else if (this.ops.size() == 1) {
 			this.ops.add(op);
@@ -277,19 +277,7 @@ public class NonUnaryWhereCondition implements Operand {
 		return this.filterJoins;
 	}
 
-	public boolean referencesAtMostOneTable() {
-		List<Column> cols = this.getAllColumnRefs();
-		if (cols.isEmpty()) {
-			return true;
-		}
-		String tableName = cols.get(0).getAlias();
-		for (int i = 1; i < cols.size(); i++) {
-			if (!tableName.equals(cols.get(i).getAlias())) {
-				return false;
-			}
-		}
-		return true;
-	}
+	
 
 	public boolean isRightinv() {
 		return rightinv;

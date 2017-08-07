@@ -7,6 +7,8 @@
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import madgik.exareme.master.queryProcessor.estimator.db.Schema;
 
 import java.io.BufferedReader;
@@ -102,14 +104,14 @@ public class StatUtils {
 			Gson gson = new Gson();
 			fileSchema = gson.fromJson(br, Schema.class);
 			br.close();
-			for (String ri : s.getTableIndex().keySet()) {
+			for (Integer ri : s.getTableIndex().keySet()) {
 				fileSchema.getTableIndex().put(ri, s.getTableIndex().get(ri));
 			}
 
 		} else {
 			fileSchema = s;
 		}
-		Gson gson = new Gson();
+		Gson gson = new GsonBuilder().enableComplexMapKeySerialization().create();
 		String jsonStr = gson.toJson(fileSchema);
 
 		PrintWriter writer = new PrintWriter(filename, "UTF-8");
@@ -117,27 +119,5 @@ public class StatUtils {
 		writer.close();
 
 	}
-
-	public static boolean schemaContainsTable(String filename, String table) throws Exception {
-		BufferedReader br = null;
-		Schema fileSchema = null;
-		File f = new File(filename);
-		if (f.exists() && !f.isDirectory()) {
-			br = new BufferedReader(new FileReader(filename));
-			Gson gson = new Gson();
-			fileSchema = gson.fromJson(br, Schema.class);
-			br.close();
-			for (String ri : fileSchema.getTableIndex().keySet()) {
-				if (ri.equalsIgnoreCase(table)) {
-					return true;
-				}
-			}
-
-		}
-		return false;
-
-	}
-
-	// int(8) float(8) text(200) varchar(45)
 
 }

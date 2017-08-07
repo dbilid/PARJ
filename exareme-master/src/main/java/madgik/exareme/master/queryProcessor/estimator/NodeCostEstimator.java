@@ -43,7 +43,7 @@ public class NodeCostEstimator {
 			try {
 				return estimateUnion(o);
 			} catch (Exception ex) {
-				log.error("Cannot get cost for union op " + o.toString() + ". Assuming dummy cost");
+				log.error("Cannot get cost ncefor union op " + o.toString() + ". Assuming dummy cost");
 				return 1.0;
 			}
 		} else if (o.getOpCode() == Node.PROJECT) {
@@ -163,10 +163,10 @@ public class NodeCostEstimator {
 		if (!right.getChildren().isEmpty()) {
 			Selection sel = (Selection) right.getChildAt(0).getObject();
 			boolean inv = false;
-			boolean subject = sel.getAllColumnRefs().get(0).getName().equals("first");
-			if (subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("second")) {
+			boolean subject = sel.getAllColumnRefs().get(0).getName();
+			if (subject && !nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
 				inv = rightRelTuples > leftRelTuples;
-			} else if (!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("first")) {
+			} else if (!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
 				inv = rightRelTuples < leftRelTuples;
 			} else if (!subject) {
 				inv = true;
@@ -180,19 +180,19 @@ public class NodeCostEstimator {
 						* Metadata.INDEX_UTILIZATION;
 			}
 
-		} else if (nuwc.getRightOp().getAllColumnRefs().get(0).getName().equals("second")) {
+		} else if (!nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
 			nuwc.setRightinv(true);
 		}
 
 		if (left.getDescendantBaseTables().size() == 1) {
 			boolean inv = false;
-			if (nuwc.getLeftOp().getAllColumnRefs().get(0).getName().equals("second")) {
+			if (!nuwc.getLeftOp().getAllColumnRefs().get(0).getName()) {
 				inv = true;
 			}
 			if (!left.getChildren().isEmpty()) {
 				Selection sel = (Selection) left.getChildAt(0).getObject();
 
-				boolean subject = sel.getAllColumnRefs().get(0).getName().equals("first");
+				boolean subject = sel.getAllColumnRefs().get(0).getName();
 
 				if (!subject) {
 					inv = true;
@@ -262,10 +262,7 @@ public class NodeCostEstimator {
 
 		double totalResponseTimeCost = 0;
 		double childResponseTimeCost = 0;
-		for (Node cn : children) {
-			childResponseTimeCost = cn.getNodeInfo().getResponseTimeEstimation();
-			totalResponseTimeCost += childResponseTimeCost;
-		}
+		
 
 		// this.planInfo.get(n.getHashId()).setResponseTimeEstimation(maxResponseTimeCost);
 
@@ -374,6 +371,80 @@ public class NodeCostEstimator {
 
 	public void setPartitionNo(int partitionNo) {
 		this.partitionNo = partitionNo;
+	}
+
+	public static double getCostForJoin(NodeInfo left, NodeInfo right,
+			NonUnaryWhereCondition nuwc) {
+		double leftRelTuples = left.getNumberOfTuples();
+		// double leftRelSize = left.getNodeInfo().outputRelSize();
+		double rightRelTuples = right.getNumberOfTuples();
+		// double rightRelSize = right.getNodeInfo().outputRelSize();
+		// double responseTime=leftRelTuples*Math.log(rightRelTuples)*
+		// Metadata.PAGE_IO_TIME * Metadata.INDEX_UTILIZATION;
+		double responseTime = -1.0;
+
+		/*if (!right.getChildren().isEmpty()) {
+			Selection sel = (Selection) right.getChildAt(0).getObject();
+			boolean inv = false;
+			boolean subject = sel.getAllColumnRefs().get(0).getName();
+			if (subject && !nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
+				inv = rightRelTuples > leftRelTuples;
+			} else if (!subject && nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
+				inv = rightRelTuples < leftRelTuples;
+			} else if (!subject) {
+				inv = true;
+			}
+			nuwc.setRightinv(inv);
+
+			if (rightRelTuples < leftRelTuples) {
+				// return the cost of filter instead
+				double baseTuples = right.getChildAt(0).getChildAt(0).getNodeInfo().getNumberOfTuples();
+				responseTime = leftRelTuples * Math.log(baseTuples) * Metadata.PAGE_IO_TIME
+						* Metadata.INDEX_UTILIZATION;
+			}
+
+		} else if (!nuwc.getRightOp().getAllColumnRefs().get(0).getName()) {
+			nuwc.setRightinv(true);
+		}
+
+		if (left.getDescendantBaseTables().size() == 1) {
+			boolean inv = false;
+			if (!nuwc.getLeftOp().getAllColumnRefs().get(0).getName()) {
+				inv = true;
+			}
+			if (!left.getChildren().isEmpty()) {
+				Selection sel = (Selection) left.getChildAt(0).getObject();
+
+				boolean subject = sel.getAllColumnRefs().get(0).getName();
+
+				if (!subject) {
+					inv = true;
+				} else {
+					inv = false;
+				}
+
+			}
+			nuwc.setLeftinv(inv);
+
+		}
+		// &&nuwc.getLeftOp().getAllColumnRefs().get(0).getName().equals("o")){
+		// nuwc.setLeftinv(true);
+		// }*/
+
+		if (responseTime < 0) {
+			responseTime = leftRelTuples * Math.log(rightRelTuples) * Metadata.PAGE_IO_TIME
+					* Metadata.INDEX_UTILIZATION;
+		}
+
+		if (leftRelTuples < 1 || rightRelTuples < 1) {
+			return 0.0;
+		}
+
+		if (Double.isNaN(responseTime)) {
+			System.err.println("cost in Nan");
+			//throw new Exception("NaN");
+		}
+		return responseTime;
 	}
 
 }

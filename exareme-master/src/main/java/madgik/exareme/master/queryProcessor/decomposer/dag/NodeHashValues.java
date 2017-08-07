@@ -86,4 +86,8 @@ public class NodeHashValues extends HashMap<HashCode, Node> {
 		nse.makeEstimationForNode(n);
 	}
 
+	public NodeSelectivityEstimator getNse() {
+		return nse;
+	}
+
 }

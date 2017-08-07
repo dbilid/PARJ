@@ -23,7 +23,7 @@ public class ResultList extends ArrayList<SQLQuery> {
 		for (int i = 0; i < this.size(); i++) {
 			if (this.get(i).equals(e)) {
 				String t = this.get(i).getTemporaryTableName();
-				lastTable = new Table(t, t);// this.get(i).getTemporaryTableName();
+				lastTable = new Table(-1, -1);// this.get(i).getTemporaryTableName();
 				return;
 			}
 		}
@@ -52,7 +52,7 @@ public class ResultList extends ArrayList<SQLQuery> {
 			return true;
 		} else {
 			String t = e.getTemporaryTableName();
-			this.lastTable = new Table(t, t);
+			this.lastTable = new Table(-1, -1);
 			// this.lastTableName = e.getTemporaryTableName();
 			return super.add(e);
 		}
@@ -61,7 +61,7 @@ public class ResultList extends ArrayList<SQLQuery> {
 	@Override
 	public void add(int index, SQLQuery element) {
 		String t = element.getTemporaryTableName();
-		this.lastTable = new Table(t, t);// element.getTemporaryTableName();
+		this.lastTable = new Table(-1, -1);// element.getTemporaryTableName();
 		super.add(index, element);
 	}
 

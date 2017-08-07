@@ -30,7 +30,6 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
-import org.jfree.util.Log;
 
 import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.db.FinalUnionExecutor;
@@ -41,18 +40,12 @@ import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
-import madgik.exareme.master.queryProcessor.decomposer.federation.Memo;
-import madgik.exareme.master.queryProcessor.decomposer.federation.SinglePlan;
-import madgik.exareme.master.queryProcessor.decomposer.federation.SinlgePlanDFLGenerator;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
-import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
 import madgik.exareme.master.queryProcessor.decomposer.query.Output;
 import madgik.exareme.master.queryProcessor.decomposer.query.SQLQuery;
-import madgik.exareme.master.queryProcessor.decomposer.query.Table;
 import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
 import madgik.exareme.master.queryProcessor.estimator.db.Schema;
 import madgik.exareme.master.queryProcessor.sparql.DagCreator;
-import madgik.exareme.master.queryProcessor.sparql.DagExpander;
 import madgik.exareme.master.queryProcessor.sparql.IdFetcher;
 
 public class Importer {
@@ -62,7 +55,7 @@ public class Importer {
 		boolean importData = args[0].equals("load");
 		boolean analyzeOnly = args[0].equals("analyze");
 		//boolean analyze = false;
-		boolean run = true;
+		boolean run = false;
 		//boolean createVirtualTables = false;
 		boolean execute = args[0].equals("query");
 		int partitions = Integer.parseInt(args[2]);
@@ -153,10 +146,10 @@ public class Importer {
 				fetcher.loadProperties();
 				try{
 					long typeProperty=fetcher.getIdForProperty("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-					nse.setRdfTypeTable("prop"+typeProperty);
+					nse.setRdfTypeTable((int) typeProperty);
 				}
 				catch(java.sql.SQLException ex){
-					Log.warn("no rdf:type property in data");
+					System.out.println("no rdf:type property in data");
 				}
 				QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 				warmUpJVM(prefixes+q, partitions, hashes, fetcher);
@@ -172,34 +165,15 @@ public class Importer {
 				System.out.println("query parsed"+(System.currentTimeMillis() - start));
 				DagCreator creator = new DagCreator(pq2, partitions, hashes, fetcher);
 
-				Node root = creator.getRootNode();
+				SQLQuery result= creator.getRootNode();
 				System.out.println("root created"+(System.currentTimeMillis() - start));
 				// System.out.println(System.currentTimeMillis()-start);
-				// System.out.println(root.count(0));
-
-				// System.out.println(root.dotPrint(new HashSet<Node>()));
-				DagExpander expander = new DagExpander(root, hashes);
-				expander.expand();
-				System.out.println("dag expanded"+(System.currentTimeMillis() - start));
-				// System.out.println(root.dotPrint(new HashSet<Node>()));
-				Memo memo = new Memo();
-
-				expander.getBestPlanCentralized(root, Double.MAX_VALUE, memo);
-				System.out.println("plan found"+(System.currentTimeMillis() - start));
-				SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, memo);
-				// dsql.setN2a(n2a);
-				SQLQuery result = dsql.generate().get(0);
-				System.out.println("dsql generated"+(System.currentTimeMillis() - start));
-				// TODO add virtual table when needed
-				//for (int i = 1; i < result.getInputTables().size(); i++) {
-				//	Table t = result.getInputTables().get(i);
-				//	t.setName("wrapper" + t.getName());
-				//}
+				
 
 				// add dictionary lookups
 				int out = 1;
 				Map<Column, Column> toChange = new HashMap<Column, Column>();
-				for (Column outCol : result.getAllOutputColumns()) {
+				/*for (Column outCol : result.getAllOutputColumns()) {
 					String alias = "d" + out;
 					out++;
 					result.addInputTable(new Table("dictionary", alias));
@@ -207,7 +181,7 @@ public class Importer {
 							new Column(alias, "id"), "=");
 					result.addBinaryWhereCondition(dictJoin);
 					toChange.put(outCol.clone(), new Column(alias, "uri"));
-				}
+				}*/
 				for (Output o : result.getOutputs()) {
 					for (Column c : toChange.keySet()) {
 						o.getObject().changeColumn(c, toChange.get(c));
@@ -358,23 +332,16 @@ public class Importer {
 		
 		DagCreator creator = new DagCreator(pq.parseQuery(q, null), partitions, hashes, fetcher);
 
-		Node root = creator.getRootNode();
+		SQLQuery query = creator.getRootNode();
+		query.computeTableToSplit(partitions);
+		query.getSqlForPartition(0);
 		//System.out.println("root created"+(System.currentTimeMillis() - start));
 		// System.out.println(System.currentTimeMillis()-start);
 		// System.out.println(root.count(0));
 
 		// System.out.println(root.dotPrint(new HashSet<Node>()));
-		DagExpander expander = new DagExpander(root, hashes);
-		expander.expand();
-		//System.out.println("dag expanded"+(System.currentTimeMillis() - start));
-		// System.out.println(root.dotPrint(new HashSet<Node>()));
-		Memo memo = new Memo();
-
-		expander.getBestPlanCentralized(root, Double.MAX_VALUE, memo);
-		//System.out.println("plan found"+(System.currentTimeMillis() - start));
-		SinlgePlanDFLGenerator dsql = new SinlgePlanDFLGenerator(root, memo);
+		
 		// dsql.setN2a(n2a);
-		SQLQuery result = dsql.generate().get(0);
 		System.out.println("finished warming up JVM in "+(System.currentTimeMillis() - start+ " ms"));
 		
 	}
