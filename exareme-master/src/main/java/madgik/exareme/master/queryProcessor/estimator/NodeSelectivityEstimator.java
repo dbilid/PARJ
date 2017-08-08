@@ -2,6 +2,7 @@ package madgik.exareme.master.queryProcessor.estimator;
 
 import com.google.gson.Gson;
 
+import madgik.exareme.master.queryProcessor.analyzer.stat.JoinCardinalities;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
@@ -12,6 +13,7 @@ import madgik.exareme.master.queryProcessor.estimator.db.AttrInfo;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,7 +29,6 @@ public class NodeSelectivityEstimator {
 
 	private Schema schema;
 	private int rdfTypeTable;
-	
 
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger
 			.getLogger(NodeSelectivityEstimator.class);
@@ -39,6 +40,7 @@ public class NodeSelectivityEstimator {
 		// convert the json string back to object
 		Gson gson = new Gson();
 		schema = gson.fromJson(br, Schema.class);
+		
 
 		// System.out.println(schema);
 
@@ -161,33 +163,33 @@ public class NodeSelectivityEstimator {
 
 	public void estimateFilter(Node n, Selection s, Node child) {
 		// Selection s = (Selection) n.getObject();
-		if(isRDFType(child) && s.getOperands().size()==1 && !s.getAllColumnRefs().get(0).getName()){
+		if (isRDFType(child) && s.getOperands().size() == 1 && !s.getAllColumnRefs().get(0).getName()) {
 			Constant c = null;
-			Operand op=s.getOperands().iterator().next();
-			if(op instanceof NonUnaryWhereCondition){
-				NonUnaryWhereCondition nuwc=(NonUnaryWhereCondition) op;
-				if(nuwc.getRightOp() instanceof Constant){
-					c=(Constant)nuwc.getRightOp();
-				}
-				else if(nuwc.getLeftOp() instanceof Constant){
-					c=(Constant)nuwc.getLeftOp();
-				}
-				else{
-					log.error("no constant operand found:"+nuwc);
+			Operand op = s.getOperands().iterator().next();
+			if (op instanceof NonUnaryWhereCondition) {
+				NonUnaryWhereCondition nuwc = (NonUnaryWhereCondition) op;
+				if (nuwc.getRightOp() instanceof Constant) {
+					c = (Constant) nuwc.getRightOp();
+				} else if (nuwc.getLeftOp() instanceof Constant) {
+					c = (Constant) nuwc.getLeftOp();
+				} else {
+					log.error("no constant operand found:" + nuwc);
 					return;
 				}
 				NodeInfo pi = new NodeInfo();
-				Table tbl=(Table)child.getObject();
-				long value=(long)c.getValue();
-				int intValue=(int)value;
+				Table tbl = (Table) child.getObject();
+				long value = (long) c.getValue();
+				int intValue = (int) value;
 				RelInfo rel = this.schema.getTableIndex().get(-intValue);
-				// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
+				// RelInfo rel =
+				// this.planInfo.get(n.getHashId()).getResultRel();
 
 				// System.out.println(rel);
 				RelInfo resultRel = new RelInfo(rel, tbl.getAlias(), false);
 				/*
-				 * Map<String, AttrInfo> aliasAtts=new HashMap<String, AttrInfo>();
-				 * for(String colname:resultRel.getAttrIndex().keySet()){
+				 * Map<String, AttrInfo> aliasAtts=new HashMap<String,
+				 * AttrInfo>(); for(String
+				 * colname:resultRel.getAttrIndex().keySet()){
 				 * aliasAtts.put(tableAlias+"."+colname,
 				 * resultRel.getAttrIndex().get(colname)); }
 				 * resultRel.setAttrIndex(aliasAtts);
@@ -199,13 +201,11 @@ public class NodeSelectivityEstimator {
 				pi.setResultRel(resultRel);
 				n.setNodeInfo(pi);
 				return;
-			}
-			else{
-				log.error("filter on rdf type table not NUWC:"+op);
+			} else {
+				log.error("filter on rdf type table not NUWC:" + op);
 				return;
 			}
-			
-			
+
 		}
 		NodeInfo ni = new NodeInfo();
 		n.setNodeInfo(ni);
@@ -226,9 +226,9 @@ public class NodeSelectivityEstimator {
 	}
 
 	private boolean isRDFType(Node child) {
-		if(child.getObject() instanceof Table){
-			Table tbl=(Table)child.getObject();
-			if(tbl.getName()==rdfTypeTable){
+		if (child.getObject() instanceof Table) {
+			Table tbl = (Table) child.getObject();
+			if (tbl.getName() == rdfTypeTable) {
 				return true;
 			}
 		}
@@ -431,7 +431,7 @@ public class NodeSelectivityEstimator {
 			if (nuwc.getOperator().contains(">") || nuwc.getOperator().contains("<")) {
 				resultHistogram.rangejoin(newR.getAttrIndex().get(r).getHistogram());
 			} else {
-				resultHistogram.join(newR.getAttrIndex().get(r).getHistogram());
+				resultHistogram.join(newR.getAttrIndex().get(r).getHistogram(), -1);
 			}
 
 		}
@@ -446,8 +446,8 @@ public class NodeSelectivityEstimator {
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		//schema.getTableIndex().put(l.toString(), resultRel);
-		//schema.getTableIndex().put(r.toString(), resultRel);
+		// schema.getTableIndex().put(l.toString(), resultRel);
+		// schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -505,8 +505,8 @@ public class NodeSelectivityEstimator {
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		//schema.getTableIndex().put(l.toString(), resultRel);
-		//schema.getTableIndex().put(r.toString(), resultRel);
+		// schema.getTableIndex().put(l.toString(), resultRel);
+		// schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -519,46 +519,46 @@ public class NodeSelectivityEstimator {
 
 	public void estimateProject(Node n) {
 		// String tableAlias;
-//		NodeInfo ni = new NodeInfo();
-//		n.setNodeInfo(ni);
-//		Set<Column> columns = new HashSet<Column>();
-//		Node prjNode = n.getChildAt(0);
-//		Node child = prjNode.getChildAt(0);
-//		Projection p = (Projection) prjNode.getObject();
-//		List<Output> outputs = p.getOperands();
-//		// tableAlias = ((Column)outputs.get(0).getObject()).tableAlias;
-//
-//		// RelInfo rel = this.schema.getTableIndex().get(tableAlias);
-//		if (child.getNodeInfo() == null) {
-//			this.makeEstimationForNode(child);
-//		}
-//		RelInfo rel = child.getNodeInfo().getResultRel();
-//
-//		RelInfo resultRel = new RelInfo(rel);
-//
-//		for (Output o : outputs) {
-//			List<Column> cols = o.getObject().getAllColumnRefs();
-//			if (!cols.isEmpty()) {
-//				Column c = (Column) o.getObject().getAllColumnRefs().get(0);
-//				if (!o.getOutputName().equals(c.getAlias() + "_" + c.getName())) {
-//					resultRel.renameColumn(c.toString(), o.getOutputName());
-//					columns.add(o.getOutputName());
-//				} else {
-//					columns.add(c.toString());
-//				}
-//			}
-//		}
-//
-//		// remove unecessary columns
-//		resultRel.eliminteRedundantAttributes(columns);
-//
-//		// TODO: fix nodeInfo
-//		ni.setNumberOfTuples(child.getNodeInfo().getNumberOfTuples());
-//		// ni.setTupleLength(child.getNodeInfo().getTupleLength());
-//		ni.setTupleLength(resultRel.getTupleLength());
-//		// System.out.println("is this correct?");
-//		ni.setResultRel(resultRel);
-//		n.setNodeInfo(ni);
+		// NodeInfo ni = new NodeInfo();
+		// n.setNodeInfo(ni);
+		// Set<Column> columns = new HashSet<Column>();
+		// Node prjNode = n.getChildAt(0);
+		// Node child = prjNode.getChildAt(0);
+		// Projection p = (Projection) prjNode.getObject();
+		// List<Output> outputs = p.getOperands();
+		// // tableAlias = ((Column)outputs.get(0).getObject()).tableAlias;
+		//
+		// // RelInfo rel = this.schema.getTableIndex().get(tableAlias);
+		// if (child.getNodeInfo() == null) {
+		// this.makeEstimationForNode(child);
+		// }
+		// RelInfo rel = child.getNodeInfo().getResultRel();
+		//
+		// RelInfo resultRel = new RelInfo(rel);
+		//
+		// for (Output o : outputs) {
+		// List<Column> cols = o.getObject().getAllColumnRefs();
+		// if (!cols.isEmpty()) {
+		// Column c = (Column) o.getObject().getAllColumnRefs().get(0);
+		// if (!o.getOutputName().equals(c.getAlias() + "_" + c.getName())) {
+		// resultRel.renameColumn(c.toString(), o.getOutputName());
+		// columns.add(o.getOutputName());
+		// } else {
+		// columns.add(c.toString());
+		// }
+		// }
+		// }
+		//
+		// // remove unecessary columns
+		// resultRel.eliminteRedundantAttributes(columns);
+		//
+		// // TODO: fix nodeInfo
+		// ni.setNumberOfTuples(child.getNodeInfo().getNumberOfTuples());
+		// // ni.setTupleLength(child.getNodeInfo().getTupleLength());
+		// ni.setTupleLength(resultRel.getTupleLength());
+		// // System.out.println("is this correct?");
+		// ni.setResultRel(resultRel);
+		// n.setNodeInfo(ni);
 	}
 
 	public void estimateUnion(Node n) {
@@ -580,8 +580,8 @@ public class NodeSelectivityEstimator {
 
 	public void estimateBase(Node n) {
 		NodeInfo pi = new NodeInfo();
-		Table t=(Table) n.getObject();
-		
+		Table t = (Table) n.getObject();
+
 		RelInfo rel = this.schema.getTableIndex().get(t.getName());
 		// RelInfo rel = this.planInfo.get(n.getHashId()).getResultRel();
 
@@ -636,13 +636,12 @@ public class NodeSelectivityEstimator {
 		}
 
 	}
-	
+
 	public void setRdfTypeTable(int rdfTypeTable) {
 		this.rdfTypeTable = rdfTypeTable;
 	}
 
-	public NodeInfo estimateJoin(NodeInfo left, NodeInfo right,
-			NonUnaryWhereCondition nuwc) {
+	public NodeInfo estimateJoin(NodeInfo left, NodeInfo right, NonUnaryWhereCondition nuwc) {
 		NodeInfo ni = new NodeInfo();
 		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
 		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
@@ -661,14 +660,69 @@ public class NodeSelectivityEstimator {
 		RelInfo resultRel = new RelInfo(lRel);
 		RelInfo newR = new RelInfo(rRel);
 
-		Histogram resultHistogram = resultRel.getAttrIndex().get(l).getHistogram();
+		AttrInfo leftAttr = resultRel.getAttrIndex().get(l);
+		AttrInfo rightAttr = newR.getAttrIndex().get(r);
+		List<Integer> tables = new ArrayList<Integer>(2);
+		int baseJoinSize = -1;
+		boolean smallIsSubject;
+		boolean largeIsSubject;
+		double estimatedSize=-1;
+		boolean leftIsSmall=lRel.getNumberOfTuples()<rRel.getNumberOfTuples();
+		if (leftAttr.getAttrName().getAlias() < rightAttr.getAttrName().getAlias()) {
+			tables.add(leftAttr.getAttrName().getAlias());
+			tables.add(rightAttr.getAttrName().getAlias());
+			smallIsSubject = leftAttr.getAttrName().getColumnName();
+			largeIsSubject = rightAttr.getAttrName().getColumnName();
+		} else {
+			tables.add(rightAttr.getAttrName().getAlias());
+			tables.add(leftAttr.getAttrName().getAlias());
+			
+			largeIsSubject = leftAttr.getAttrName().getColumnName();
+			smallIsSubject = rightAttr.getAttrName().getColumnName();
+		}
+		if (schema.getCards() != null) {
+			int baseTableSizes[] = schema.getCards().getSizesForTables(tables);
+			if (baseTableSizes != null) {
+				if (smallIsSubject) {
+					if (largeIsSubject) {
+						baseJoinSize = baseTableSizes[0];
+					} else {
+						baseJoinSize = baseTableSizes[1];
+					}
+				} else {
+					if (largeIsSubject) {
+						baseJoinSize = baseTableSizes[2];
+					} else {
+						baseJoinSize = baseTableSizes[3];
+					}
+				}
+			}
+		}
+		if(baseJoinSize>-1){
+			double baseSmall=this.schema.getTableIndex().get(tables.get(0)).getNumberOfTuples();
+			double baseLarge=this.schema.getTableIndex().get(tables.get(1)).getNumberOfTuples();
+			double factorSmall=1.0;
+			double factorLarge=1.0;
+			if(leftIsSmall){
+				factorSmall=left.getNumberOfTuples()/baseSmall;
+				factorLarge=right.getNumberOfTuples()/baseLarge;
+				
+			}
+			else{
+				factorSmall=right.getNumberOfTuples()/baseSmall;
+				factorLarge=left.getNumberOfTuples()/baseLarge;
+			}
+			estimatedSize=factorSmall*factorLarge*baseJoinSize;
+		}
+
+		Histogram resultHistogram = leftAttr.getHistogram();
 		if (newR.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
 			if (nuwc.getOperator().contains(">") || nuwc.getOperator().contains("<")) {
 				resultHistogram.rangejoin(newR.getAttrIndex().get(r).getHistogram());
 			} else {
-				resultHistogram.join(newR.getAttrIndex().get(r).getHistogram());
+				resultHistogram.join(rightAttr.getHistogram(), estimatedSize);
 			}
 
 		}
@@ -683,8 +737,8 @@ public class NodeSelectivityEstimator {
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		//schema.getTableIndex().put(l.toString(), resultRel);
-		//schema.getTableIndex().put(r.toString(), resultRel);
+		// schema.getTableIndex().put(l.toString(), resultRel);
+		// schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -693,17 +747,10 @@ public class NodeSelectivityEstimator {
 		ni.setTupleLength(resultRel.getTupleLength());
 		ni.setResultRel(resultRel);
 		return ni;
-		//n.setNodeInfo(ni);
 
-		/*if (nuwc.getFilterJoins() != null) {
-			for (NonUnaryWhereCondition f : nuwc.getFilterJoins()) {
-				estimateFilterJoin(n, f, n, n);
-			}
-		}*/
 	}
 
-	public NodeInfo estimateFilterJoin(NodeInfo resultInfo,
-			NonUnaryWhereCondition nuwc) {
+	public NodeInfo estimateFilterJoin(NodeInfo resultInfo, NonUnaryWhereCondition nuwc) {
 		NodeInfo ni = new NodeInfo();
 		Column l = nuwc.getLeftOp().getAllColumnRefs().get(0);
 		Column r = nuwc.getRightOp().getAllColumnRefs().get(0);
@@ -742,8 +789,8 @@ public class NodeSelectivityEstimator {
 
 		// fix alias mappings to RelInfo. The joining aliases must point to the
 		// same RelInfo after the join operation
-		//schema.getTableIndex().put(l.toString(), resultRel);
-		//schema.getTableIndex().put(r.toString(), resultRel);
+		// schema.getTableIndex().put(l.toString(), resultRel);
+		// schema.getTableIndex().put(r.toString(), resultRel);
 
 		// adding necessary equivalent hashing attribures
 
@@ -753,4 +800,7 @@ public class NodeSelectivityEstimator {
 		ni.setResultRel(resultRel);
 		return ni;
 	}
+
+	
+
 }

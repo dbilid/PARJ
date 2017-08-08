@@ -193,7 +193,7 @@ public final class Histogram {
 		}
 	}
 
-	public void join(Histogram h2) {
+	public void join(Histogram h2, double estimatedSize) {
 		// preconditions
 		checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is null");
 		if (this.isTransparentHistogram() && !h2.isTransparentHistogram())
@@ -207,7 +207,7 @@ public final class Histogram {
 		} else {
 			Map<Double, Double> cbmap = this.combine(h2);
 			for (Map.Entry<Double, Double> e : cbmap.entrySet())
-				this.joinBuckets(h2, e.getKey(), e.getValue());
+				this.joinBuckets(h2, e.getKey(), e.getValue(), estimatedSize);
 		}
 	}
 
@@ -385,7 +385,7 @@ public final class Histogram {
 			return true;
 	}
 
-	private void joinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId) {
+	private void joinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId, double estimatedSize) {
 		// preconditions
 		checkNotNull(h2, "Histogram::joinBuckets: parameter <h2> is null");
 
@@ -402,20 +402,30 @@ public final class Histogram {
 
             double minCombinerBucketVal = combinerBucketId;
             double maxCombinerBucketVal = h2.getBucketIndex().higherKey(combinerBucketId);
-            double minCombiningBucketVal = combiningBucketId;
+            /*double minCombiningBucketVal = combiningBucketId;
             double maxCombiningBucketVal = this.getBucketIndex().higherKey(combiningBucketId);
 
             double combinerSubBucketDiffVals =
                 (maxCombiningBucketVal - minCombiningBucketVal) / (maxCombinerBucketVal
                     - minCombinerBucketVal) * combinerBucket.getDiffValues();
 
-
+           
             double nodv = combiningBucket.getDiffValues();
 
             if (nodv > combinerSubBucketDiffVals)
-                nodv = combinerSubBucketDiffVals;
+                nodv = combinerSubBucketDiffVals;*/
+            double nodv=0.0;
+            if(estimatedSize>-1){
+            	nodv=estimatedSize/resultFreq;
+            }
+            else{
+            	 nodv=(combiningBucket.getDiffValues()*combinerBucket.getDiffValues())/(maxCombinerBucketVal - minCombinerBucketVal);
+            }
+            if(nodv*resultFreq<1){
+            	nodv=1/resultFreq;
+            }
             
-            nodv=(combiningBucket.getDiffValues()*combinerBucket.getDiffValues())/(maxCombinerBucketVal - minCombinerBucketVal);
+            //nodv=(combiningBucket.getDiffValues()*combinerBucket.getDiffValues())/(maxCombinerBucketVal - minCombinerBucketVal);
 
             combiningBucket.setDiffValues(nodv);
             combiningBucket.setFrequency(resultFreq);

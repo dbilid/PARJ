@@ -18,9 +18,13 @@ import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.log4j.Logger;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 /**
@@ -31,9 +35,11 @@ public class Stat {
 	private static final Logger log = Logger.getLogger(Stat.class);
 
 	private final Connection con;
+	private List<TableSize> sizes;
 
 	public Stat(Connection con) {
 		this.con = con;
+		sizes=new ArrayList<TableSize>();
 	}
 
 	// schema map
@@ -122,6 +128,7 @@ public class Stat {
 			RelInfo r = new RelInfo(resultTables.getInt(1), attrIndex, count, 8);
 
 			relMap.put(r.getRelName(), r);
+			sizes.add(new TableSize(r.getNumberOfTuples(), resultTables.getInt(1)));
 			//Table t = new Table("prop" + resultTables.getInt(1), columnCount, tupleSize, columnMap, count);
 			//schema.put(resultTables.getInt(1), t);
 
@@ -130,10 +137,63 @@ public class Stat {
 		if(typeProperty>-1){
 			gatherTypeStats(typeProperty, st, relMap);
 		}
+		schema.setCards(computeJoins(typeProperty));
 		
 		st.close();
 		return schema;
 
+	}
+
+	private JoinCardinalities computeJoins(int typeProperty) throws SQLException {
+		JoinCardinalities cards=new JoinCardinalities();
+		sizes.sort(new SizeComparator());
+		for(int i=0;i<sizes.size();i++){
+			
+			String tblName="";
+			TableSize ts=sizes.get(i);
+			if(ts.getTable()==typeProperty){
+				continue;
+			}
+			String inv1="inv";
+			if(ts.getTable()>-1){
+				tblName="prop"+ts.getTable();
+			}
+			else{
+				inv1="";
+				tblName="(select * from invprop"+typeProperty+" where o="+(-ts.getTable())+")";
+			}
+			for(int j=i+1;j<sizes.size();j++){
+				String tblName2="";
+				TableSize ts2=sizes.get(j);
+				if(ts2.getTable()==typeProperty){
+					continue;
+				}
+				//if(ts.getTable()<0 && ts2.getTable()<0){
+				//	continue;
+				//}
+				String inv2="inv";
+				if(ts2.getTable()>-1){
+					tblName2="prop"+ts2.getTable();
+				}
+				else{
+					inv2="";
+					tblName2="(select * from invprop"+typeProperty+" where o="+(-ts2.getTable())+")";
+				}
+				String querySS=tblName+" a cross join "+tblName2+" b where a.s=b.s";
+				String querySO=tblName+" a cross join "+inv2+tblName2+" b where a.s=b.o";
+				String queryOS=inv1+tblName+" a cross join "+tblName2+" b where a.o=b.s";
+				String queryOO=inv1+tblName+" a cross join "+inv2+tblName2+" b where a.o=b.o";
+				if(ts.getTable()<ts2.getTable()){
+					cards.add(ts.getTable(), ts2.getTable(), getCount(querySS), getCount(querySO), getCount(queryOS), getCount(queryOO));
+				}
+				else{
+					cards.add(ts2.getTable(), ts.getTable(), getCount(querySS), getCount(querySO), getCount(queryOS), getCount(queryOO));
+				}
+				
+				
+			}
+		}
+		return cards;
 	}
 
 	private void gatherTypeStats(int typePropNo, Statement st, Map<Integer, RelInfo> relMap) {
@@ -200,12 +260,14 @@ public class Stat {
 
 				
 			
-			
+				
 				RelInfo r = new RelInfo(-no, attrIndex, count, 8);
 
 				relMap.put(r.getRelName(), r);
+				sizes.add(new TableSize(r.getNumberOfTuples(), -no));
 
 		}
+		types.close();
 		} catch (Exception ex) {
 			log.error("could not analyze type table:" + ex.getMessage());
 		}
@@ -266,6 +328,7 @@ public class Stat {
 	private int getCount(String tableName) throws SQLException {
 		String query1 = "select count(*) from " + tableName;
 		Statement stmt1 = con.createStatement();
+		System.out.println(query1);
 		ResultSet rs1 = stmt1.executeQuery(query1);
 		int result = 0;
 		while (rs1.next()) {
@@ -306,4 +369,12 @@ public class Stat {
 	}
 
 
+}
+
+
+class SizeComparator implements Comparator<TableSize> {
+    @Override
+    public int compare(TableSize a, TableSize b) {
+        return a.getSize().compareTo(b.getSize());
+    }
 }

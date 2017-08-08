@@ -55,7 +55,7 @@ public class Importer {
 		boolean importData = args[0].equals("load");
 		boolean analyzeOnly = args[0].equals("analyze");
 		//boolean analyze = false;
-		boolean run = false;
+		boolean run = true;
 		//boolean createVirtualTables = false;
 		boolean execute = args[0].equals("query");
 		int partitions = Integer.parseInt(args[2]);
@@ -67,6 +67,7 @@ public class Importer {
 		if(analyzeOnly){
 			Connection mainCon=m.getConnection(database, 2);
 			analyzeDB(mainCon, database);
+			mainCon.close();
 			return;
 		}
 		if (importData) {
@@ -142,6 +143,18 @@ public class Importer {
 						database + "histograms.json");
 				NodeHashValues hashes = new NodeHashValues();
 				hashes.setSelectivityEstimator(nse);
+				Connection mainCon=m.getConnection(database, 2);
+				try {
+
+					//Schema stats = a.analyze();
+					///nse.setCardinalities(stats.getCards());
+					//StatUtils.addSchemaToFile(mainCon + "histograms.json", stats);
+
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				mainCon.close();
 				IdFetcher fetcher = new IdFetcher(single);
 				fetcher.loadProperties();
 				try{
