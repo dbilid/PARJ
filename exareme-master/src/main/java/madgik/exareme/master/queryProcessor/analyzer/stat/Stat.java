@@ -179,15 +179,33 @@ public class Stat {
 					inv2="";
 					tblName2="(select * from invprop"+typeProperty+" where o="+(-ts2.getTable())+")";
 				}
-				String querySS=tblName+" a cross join "+tblName2+" b where a.s=b.s";
-				String querySO=tblName+" a cross join "+inv2+tblName2+" b where a.s=b.o";
-				String queryOS=inv1+tblName+" a cross join "+tblName2+" b where a.o=b.s";
-				String queryOO=inv1+tblName+" a cross join "+inv2+tblName2+" b where a.o=b.o";
+				
+				
+				String querySS="(select * from "+tblName+" a cross join "+tblName2+" b where a.s=b.s limit 300000000)";
+				String querySO="(select * from "+tblName+" a cross join "+inv2+tblName2+" b where a.s=b.o limit 300000000)";
+				String queryOS="(select * from "+inv1+tblName+" a cross join "+tblName2+" b where a.o=b.s limit 300000000)";
+				String queryOO="(select * from "+inv1+tblName+" a cross join "+inv2+tblName2+" b where a.o=b.o limit 300000000)";
+				
+				int countSS=getCount(querySS);
+				int countSO=0;
+				int countOS=0;
+				int countOO=0;
+				
+				if(ts2.getTable()>-1){
+					countSO=getCount(querySO);
+				}
+				if(ts.getTable()>-1){
+					countOS=getCount(queryOS);
+					if(ts2.getTable()>-1){
+						countOO=getCount(queryOO);
+					}
+				}
+				
 				if(ts.getTable()<ts2.getTable()){
-					cards.add(ts.getTable(), ts2.getTable(), getCount(querySS), getCount(querySO), getCount(queryOS), getCount(queryOO));
+					cards.add(ts.getTable(), ts2.getTable(), countSS, countSO, countOS, countOO);
 				}
 				else{
-					cards.add(ts2.getTable(), ts.getTable(), getCount(querySS), getCount(querySO), getCount(queryOS), getCount(queryOO));
+					cards.add(ts2.getTable(), ts.getTable(), countSS, countSO, countOS, countOO);
 				}
 				
 				
