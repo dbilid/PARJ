@@ -111,11 +111,7 @@ public class SQLColumn implements Operand {
 	}
 
 
-	@Override
-	public HashCode getHashID() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	
 
 	
 	

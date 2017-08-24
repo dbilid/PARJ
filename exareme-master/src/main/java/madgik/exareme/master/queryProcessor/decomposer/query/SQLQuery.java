@@ -1295,4 +1295,27 @@ public class SQLQuery {
 
 	}
 
+	public List<String> computeExtraCreates(int partitions) {
+		List<String> result=new ArrayList<String>();
+		int counter=1;
+		Set<Integer> existingTables=new HashSet<Integer>(inputTables.size());
+		for(Table t:inputTables){
+			if(!existingTables.add(t.getName())){
+				t.setReplica(counter);
+				if(t.isInverse()){
+					String create="create virtual table if not exists memorywrapperinvprop" + t.getName() + "_"+counter++ + " using memorywrapper(" + partitions
+							+ ", " + t.getName() + ", 1)";
+					result.add(create);
+				}
+				else{
+					String create="create virtual table if not exists memorywrapperprop" + t.getName() + "_"+counter++ + " using memorywrapper(" + partitions
+							+ ", " + t.getName() + ", 0)";
+					result.add(create);
+				}
+				
+			}
+		}
+		return result;
+	}
+
 }

@@ -200,11 +200,11 @@ public class Importer {
 						o.getObject().changeColumn(c, toChange.get(c));
 					}
 				}
-
+				
 				System.out.println(System.currentTimeMillis() - start);
 				result.invertColumns();
 				result.computeTableToSplit(partitions);
-				
+				List<String> exatraCreates=result.computeExtraCreates(partitions);
 
 				if (run) {
 					//start=System.currentTimeMillis();
@@ -222,7 +222,7 @@ public class Importer {
 						
 						//createVirtualTables(cons[i], partitions);
 						SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result,
-								cons[i], DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, DecomposerUtils.PRINT_RESULTS);
+								cons[i], DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, DecomposerUtils.PRINT_RESULTS, exatraCreates);
 						
 						ex.setGlobalBuffer(globalBuffer);
 						executors.add(ex);

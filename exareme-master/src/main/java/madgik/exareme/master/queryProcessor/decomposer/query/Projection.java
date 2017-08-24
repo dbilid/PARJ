@@ -133,18 +133,5 @@ public class Projection implements Operand {
 		return this.distinct;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		if (hash == null) {
-			hash = Node.f.hashBytes(this.toString().getBytes());
-		}
-		return hash;
-		/*
-		 * List<HashCode> codes=new ArrayList<HashCode>(); for(Output
-		 * o:this.ops){ codes.add(o.getHashID()); } if(distinct){
-		 * codes.add(Hashing.goodFastHash(32).hashBytes("true".getBytes())); } else{
-		 * codes.add(Hashing.goodFastHash(32).hashBytes("false".getBytes())); } return
-		 * Hashing.combineUnordered(codes);
-		 */
-	}
+	
 }

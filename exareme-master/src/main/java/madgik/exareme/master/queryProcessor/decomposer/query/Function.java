@@ -136,17 +136,5 @@ public class Function implements Operand {
 		return true;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		return Hashing.sha1().hashBytes(this.toString().getBytes());
-		/*
-		 * List<HashCode> codes=new ArrayList<HashCode>(); for(Operand
-		 * o:this.params){ codes.add(o.getHashID()); }
-		 * codes.add(Hashing.sha1().hashBytes(functionName.toUpperCase().
-		 * getBytes())); if(isDistinct){
-		 * codes.add(Hashing.sha1().hashBytes("true".getBytes())); } else{
-		 * codes.add(Hashing.sha1().hashBytes("false".getBytes())); } return
-		 * Hashing.combineOrdered(codes);
-		 */
-	}
+	
 }

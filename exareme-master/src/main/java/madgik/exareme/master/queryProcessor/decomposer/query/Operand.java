@@ -24,5 +24,4 @@ public interface Operand extends Cloneable {
 
 	public Operand clone() throws CloneNotSupportedException;
 
-	public HashCode getHashID();
 }

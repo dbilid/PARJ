@@ -9,6 +9,7 @@ public class Table {
 
 	private int name;
 	private int alias;
+	private int replica;
 	private boolean inverse;
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(Table.class);
 
@@ -18,18 +19,24 @@ public class Table {
 		this.name = n;
 		this.alias = a;
 		this.inverse=false;
+		this.replica=0;
 	}
 
 
 	@Override
 	public String toString() {
+		String result;
 		if(inverse){
-			return "memorywrapperinvprop"+name+" "+"alias"+alias;
+			result= "memorywrapperinvprop"+name;
 		}
 		else{
-			return "memorywrapperprop"+name+" "+"alias"+alias;
+		 result= "memorywrapperprop"+name;
 		}
-		
+		if(replica>0){
+			result+="_"+replica;
+		}
+		result+=" "+"alias"+alias;
+		return result;
 	}
 
 	public String dotPrint() {
@@ -75,6 +82,11 @@ public class Table {
 
 	public void setInverse(boolean inverse) {
 		this.inverse = inverse;
+	}
+
+
+	public void setReplica(int replica) {
+		this.replica = replica;
 	}
 
 	

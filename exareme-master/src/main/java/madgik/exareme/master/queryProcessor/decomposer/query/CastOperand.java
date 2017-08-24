@@ -94,11 +94,4 @@ public class CastOperand implements Operand {
 		this.castOp = op;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		List<HashCode> codes = new ArrayList<HashCode>();
-		codes.add(this.castOp.getHashID());
-		codes.add(Hashing.sha1().hashBytes(castType.getBytes()));
-		return Hashing.combineOrdered(codes);
-	}
 }

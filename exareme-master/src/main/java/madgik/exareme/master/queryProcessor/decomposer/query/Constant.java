@@ -87,10 +87,6 @@ public class Constant implements Operand {
 		return isArithmetic;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		// TODO Auto-generated method stub
-		return Hashing.sha1().hashBytes(this.value.toString().toUpperCase().getBytes());
-	}
+	
 
 }

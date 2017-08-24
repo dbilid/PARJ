@@ -238,26 +238,7 @@ public class NonUnaryWhereCondition implements Operand {
 		}
 	}
 
-	@Override
-	public HashCode getHashID() {
-		if (hash == null) {
-			hash = Node.f.hashBytes(this.toString().getBytes());
-			/*
-			 * List<HashCode> codes=new ArrayList<HashCode>(); for(Operand
-			 * o:this.ops){ codes.add(o.getHashID()); }
-			 * codes.add(Hashing.goodFastHash(32).hashBytes(operator.toUpperCase().
-			 * getBytes()));
-			 * 
-			 * 
-			 * if(filterJoins!=null){ Set<HashCode> filters=new
-			 * HashSet<HashCode>(); for(NonUnaryWhereCondition
-			 * f:this.filterJoins){ filters.add(f.getHashID()); } HashCode
-			 * filterAll=Hashing.combineUnordered(filters);
-			 * codes.add(filterAll); } hash=Hashing.combineOrdered(codes);
-			 */
-		}
-		return hash;
-	}
+
 
 	public void addRangeFilters(NonUnaryWhereCondition bwc) {
 		if (bwc.filterJoins != null) {

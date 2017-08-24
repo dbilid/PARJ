@@ -89,14 +89,6 @@ public class BinaryOperand implements Operand {
 		return cloned;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		List<HashCode> codes = new ArrayList<HashCode>();
-		codes.add(this.leftOp.getHashID());
-		codes.add(this.rightOp.getHashID());
-		codes.add(Hashing.sha1().hashBytes(operator.getBytes()));
-		return Hashing.combineOrdered(codes);
-	}
 
 	@Override
 	public int hashCode() {

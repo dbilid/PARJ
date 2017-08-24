@@ -129,19 +129,6 @@ public class Selection implements Operand {
 		return cloned;
 	}
 
-	@Override
-	public HashCode getHashID() {
-		
-		if (hash == null) {
-			//hash = Node.f.hashBytes(" ".getBytes());
-			hash = Node.f.hashBytes(this.toString().getBytes());
-		}
-		return hash;
-		/*
-		 * List<HashCode> codes=new ArrayList<HashCode>(); for(Operand
-		 * o:this.ops){ codes.add(o.getHashID()); } return
-		 * Hashing.combineUnordered(codes);
-		 */
-	}
+	
 
 }

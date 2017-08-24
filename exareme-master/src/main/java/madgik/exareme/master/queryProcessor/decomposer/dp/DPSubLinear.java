@@ -91,12 +91,12 @@ public class DPSubLinear {
 				if (newEntry != null) {
 					
 					if (minCost > newEntry.getCost()) {
-						System.out.print("i:"+i+" order:");
-						for(int o=0;o<newEntry.order.length;o++){
-							System.out.print(newEntry.order[o]);
-						}
-						System.out.println(" cost:"+newEntry.cost);
-						System.out.println("tuples:"+newEntry.stats.getNumberOfTuples());
+						//System.out.print("i:"+i+" order:");
+						//for(int o=0;o<newEntry.order.length;o++){
+						//	System.out.print(newEntry.order[o]);
+						//}
+						//System.out.println(" cost:"+newEntry.cost);
+						//System.out.println("tuples:"+newEntry.stats.getNumberOfTuples());
 						entries[i] = newEntry;
 						minCost=newEntry.getCost();
 					}

@@ -22,19 +22,21 @@ public class SQLiteLocalExecutor implements Runnable {
 	private Set<Integer> finishedQueries;
 	private ResultBuffer globalBuffer;
 	private boolean print;
+	private List<String> extraCreates;
 	private static final Logger log = Logger.getLogger(SQLiteLocalExecutor.class);
 
 	public void setGlobalBuffer(ResultBuffer globalBuffer) {
 		this.globalBuffer = globalBuffer;
 	}
 
-	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print) {
+	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print, List<String> exatraCreates) {
 		this.sql = result;
 		this.con = c;
 		this.useResultAggregator = t;
 		this.finishedQueries = f;
 		this.partition = pt;
 		this.print=print;
+		this.extraCreates=exatraCreates;
 		// System.out.println(sql);
 	}
 
@@ -55,9 +57,13 @@ public class SQLiteLocalExecutor implements Runnable {
 		Statement st;
 		try {
 			System.out.println("starting thread");
+			
 			// st=con.createStatement();
 			st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			st.setFetchSize(1000);
+			for(String extra:this.extraCreates){
+				st.execute(extra);
+			}
 			long lll = System.currentTimeMillis();
 			String sqlString=sql.getSqlForPartition(partition);
 			if (useResultAggregator) {
@@ -71,8 +77,10 @@ public class SQLiteLocalExecutor implements Runnable {
 					}
 					return;
 				}
-				System.out.println(sqlString);
-				ResultSet rs = st.executeQuery(sql.getSqlForPartition(partition));
+				if(partition==0){
+					System.out.println(sqlString);
+				}
+				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
 				List<List<Object>> localBuffer = new ArrayList<List<Object>>(9000);
 				int counter = 0;
@@ -129,8 +137,10 @@ public class SQLiteLocalExecutor implements Runnable {
 				if(sqlString==null){
 					return;
 				}
-				System.out.println(sqlString);
-				ResultSet rs = st.executeQuery(sql.getSqlForPartition(partition));
+				if(partition==0){
+					System.out.println(sqlString);
+				}
+				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
 				int counter=0;
 				while (rs.next()) {

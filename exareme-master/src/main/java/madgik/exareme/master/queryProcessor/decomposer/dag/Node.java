@@ -45,7 +45,6 @@ public class Node {
 	public static final int JOINKEY = 19;
 	public static final int CENTRALIZEDJOIN = 13;
 	
-	public static HashFunction f=Hashing.sha1();
 	
 	// private boolean isBaseTable;
 	private int type;
@@ -64,7 +63,6 @@ public class Node {
 	// private PartitionCols lastPartition;
 	// private boolean prune;
 	private boolean isMaterialised;
-	private HashCode hash;
 
 	// private Set<Column> redundantRepartitions;
 
@@ -122,96 +120,10 @@ public class Node {
 
 	private NodeInfo nodeInfo;
 
-	/**
-	 * @return the hashID
-	 */
-	public HashCode computeHashID() {
-		// if(hash!=null){
-		// return hash;
-		// }
-		List<HashCode> codes = new ArrayList<HashCode>();
+	
 
-		// for (Node c : this.children) {
-		// codes.add(c.getHashId());
-		// }
-		if (this.type == Node.OR) {
+	
 
-			// codes.add(Hashing.goodFastHash(32).hashBytes(UUID.randomUUID().toString().getBytes()));
-			this.hash =f.hashBytes(UUID.randomUUID().toString().getBytes());
-		} else if (o instanceof Operand) {
-
-			codes.add(f.hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.getHashId());
-			}
-
-			Operand op = (Operand) o;
-			codes.add(op.getHashID());
-			this.hash = Hashing.combineOrdered(codes);
-		} else if (o instanceof String) {
-			codes.add(f.hashBytes(((String) o).getBytes()));
-			this.hash = Hashing.combineOrdered(codes);
-		} else {
-			this.hash = Hashing.combineOrdered(codes);
-		}
-
-		this.hashNeedsRecomputing = false;
-		return hash;
-		// }
-	}
-
-	public HashCode computeHashIDExpand() {
-		if (hash != null) {
-			return hash;
-		}
-		
-		if (o instanceof Table) {
-			Table t = (Table) o;
-
-			hash = f.hashInt(t.getName());
-
-		}
-		else if (type==Node.OR){
-			hash = f.hashInt(Util.createUniqueId());
-		}
-		else if (o instanceof Operand) {
-			//this.hash=Hashing.goodFastHash(32).hashBytes(this.toString().getBytes());
-			List<HashCode> codes = new ArrayList<HashCode>();
-			//codes.add(Hashing.goodFastHash(32).hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			Operand op = (Operand) o;
-			codes.add(op.getHashID());
-			this.hash = Hashing.combineOrdered(codes);
-		} else if (o instanceof String) {
-			List<HashCode> codes = new ArrayList<HashCode>();
-			codes.add(f.hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			codes.add(f.hashBytes(((String) o).getBytes()));
-			this.hash = Hashing.combineOrdered(codes);
-		} else {
-			List<HashCode> codes = new ArrayList<HashCode>();
-			codes.add(f.hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			this.hash = Hashing.combineOrdered(codes);
-		}
-
-		return hash;
-		// }
-
-	}
-
-	public HashCode getHashId() {
-		// if (hashNeedsRecomputing) {
-		// this.computeHashID();
-		// }
-		return this.hash;
-	}
 
 	/**
 	 * @param hashID
@@ -562,46 +474,7 @@ public class Node {
 		return "Node [opCode=" + opCode + ", o=" + o + "]";
 	}
 
-	public HashCode computeHashIDExpand(boolean recompute) {
-		if (hash != null && !recompute) {
-			return hash;
-		}
-
-		if (o instanceof Table) {
-			Table t = (Table) o;
-
-			hash = Hashing.goodFastHash(32).hashInt(t.getName());
-
-		} else if (o instanceof Operand) {
-			List<HashCode> codes = new ArrayList<HashCode>();
-			codes.add(Hashing.goodFastHash(32).hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			Operand op = (Operand) o;
-			codes.add(op.getHashID());
-			this.hash = Hashing.combineOrdered(codes);
-		} else if (o instanceof String) {
-			List<HashCode> codes = new ArrayList<HashCode>();
-			//codes.add(Hashing.goodFastHash(32).hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			codes.add(Hashing.goodFastHash(32).hashBytes(((String) o).getBytes()));
-			this.hash = Hashing.combineOrdered(codes);
-		} else {
-			List<HashCode> codes = new ArrayList<HashCode>();
-			codes.add(Hashing.goodFastHash(32).hashInt(opCode));
-			for (Node c : this.children) {
-				codes.add(c.computeHashIDExpand());
-			}
-			this.hash = Hashing.combineOrdered(codes);
-		}
-
-		return hash;
-		// }
-
-	}
+	
 
 	public boolean isCommutativity() {
 		return commutativity;
