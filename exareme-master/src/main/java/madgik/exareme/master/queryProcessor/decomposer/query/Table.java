@@ -10,6 +10,7 @@ public class Table {
 	private int name;
 	private int alias;
 	private int replica;
+	private int dictionary;
 	private boolean inverse;
 	private static final org.apache.log4j.Logger log = org.apache.log4j.Logger.getLogger(Table.class);
 
@@ -20,12 +21,16 @@ public class Table {
 		this.alias = a;
 		this.inverse=false;
 		this.replica=0;
+		this.dictionary=0;
 	}
 
 
 	@Override
 	public String toString() {
 		String result;
+		if(dictionary>0){
+			return "dictionary d"+dictionary;
+		}
 		if(inverse){
 			result= "memorywrapperinvprop"+name;
 		}
@@ -89,6 +94,12 @@ public class Table {
 		this.replica = replica;
 	}
 
+
+	public void setDictionary(int dictionary) {
+		this.dictionary = dictionary;
+	}
+
+	
 	
 	
 }

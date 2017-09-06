@@ -56,7 +56,7 @@ public class SQLiteLocalExecutor implements Runnable {
 	private void execute() {
 		Statement st;
 		try {
-			System.out.println("starting thread");
+			//System.out.println("starting thread");
 			
 			// st=con.createStatement();
 			st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -118,7 +118,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				rs.close();
 				st.close();
 				//con.close();
-				System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms");
+				//System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms");
 				synchronized (globalBuffer) {
 					while (globalBuffer.size() > 9000) {
 						try {
@@ -159,8 +159,8 @@ public class SQLiteLocalExecutor implements Runnable {
 				rs.close();
 				st.close();
 				//con.close();
-				System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
-				counter+" results");
+				//System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
+				//counter+" results");
 				synchronized (globalBuffer) {
 					globalBuffer.addFinished(counter);
 					globalBuffer.notifyAll();
@@ -169,7 +169,7 @@ public class SQLiteLocalExecutor implements Runnable {
 			}
 
 			//con.close();
-			System.out.println("thread finished");
+			//System.out.println("thread finished");
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
 		}

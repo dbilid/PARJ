@@ -45,7 +45,7 @@ public class DBManager {
 		//ds.setUrl("jdbc:sqlite:" + filepath);
 		ds.setMinIdle(maxOpen);
 		ds.setMaxIdle(maxOpen+1);
-		ds.setMaxOpenPreparedStatements(7+2);
+		ds.setMaxOpenPreparedStatements(maxOpen+2);
 		ds.setMaxTotal(maxOpen+1);
 		
 
