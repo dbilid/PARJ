@@ -457,11 +457,7 @@ public class NodeSelectivityEstimator {
 		ni.setResultRel(resultRel);
 		n.setNodeInfo(ni);
 
-		if (nuwc.getFilterJoins() != null) {
-			for (NonUnaryWhereCondition f : nuwc.getFilterJoins()) {
-				estimateFilterJoin(n, f, n, n);
-			}
-		}
+		
 
 	}
 

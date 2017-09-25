@@ -8,9 +8,7 @@ public class UDFWhereCondition extends NonUnaryWhereCondition {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (this.filterJoins != null) {
-			sb.append("(");
-		}
+		
 		sb.append(this.operator);
 		sb.append("(");
 		String delimiter = "";
@@ -21,15 +19,7 @@ public class UDFWhereCondition extends NonUnaryWhereCondition {
 			delimiter = ", ";
 		}
 		sb.append(")");
-		if (filterJoins != null) {
-			for (NonUnaryWhereCondition extra : filterJoins) {
-				sb.append(" AND ");
-				sb.append(extra.toString());
-			}
-		}
-		if (this.filterJoins != null) {
-			sb.append(")");
-		}
+		
 		return sb.toString();
 	}
 
@@ -41,13 +31,7 @@ public class UDFWhereCondition extends NonUnaryWhereCondition {
 			opsCloned.add(o.clone());
 		}
 		cloned.ops = opsCloned;
-		if (filterJoins != null) {
-			for (NonUnaryWhereCondition filter : this.filterJoins) {
-				cloned.createFilterJoins();
-				cloned.addFilterJoin(filter.clone());
-			}
-		}
-		cloned.hash = hash;
+		
 		return cloned;
 	}
 

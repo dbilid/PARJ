@@ -130,9 +130,26 @@ public class DPSubLinear {
 	
 		for(NonUnaryWhereCondition join:joins){
 			//filter joins???
-		double cost=NodeCostEstimator.getCostForJoin(p1.stats, p2.stats, join);
-		DPEntry result=new DPEntry(resultInfo, cost, p1, p2);
-		return result;
+			double cost;
+			if(p1.order.length==1){
+				cost=NodeCostEstimator.getCostForScan(p1.stats, p2.stats, join);
+				DPEntry result=new DPEntry(resultInfo, cost, p1, p2);
+				result.setSorted(join);
+				return result;
+			}
+			else if(p1.isSortedOn(join.getLeftOp())){
+				cost=NodeCostEstimator.getCostForScan(p1.stats, p2.stats, join);
+				DPEntry result=new DPEntry(resultInfo, cost, p1, p2);
+				result.setSorted(join);
+				result.addSorted(p1);
+				return result;
+			}
+			else{
+				cost=NodeCostEstimator.getCostForBinarySearch(p1.stats, p2.stats, join);
+				DPEntry result=new DPEntry(resultInfo, cost, p1, p2);
+				return result;
+			}
+		
 		}
 			
 		

@@ -20,13 +20,9 @@ import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 public class NonUnaryWhereCondition implements Operand {
 
 	protected List<Operand> ops;
-	protected Set<NonUnaryWhereCondition> filterJoins;
 	// private Operand leftOp;
 	// private Operand rightOp;
-	private boolean rightinv;
-	private boolean leftinv;
 	protected String operator;
-	protected HashCode hash = null;
 
 	public NonUnaryWhereCondition() {
 		super();
@@ -53,17 +49,12 @@ public class NonUnaryWhereCondition implements Operand {
 				res.add(c);
 			}
 		}
-		if (this.filterJoins != null) {
-			for (NonUnaryWhereCondition f : this.filterJoins) {
-				res.addAll(f.getAllColumnRefs());
-			}
-		}
+		
 		return res;
 	}
 
 	public void setOperator(String op) {
 		this.operator = op;
-		hash = null;
 	}
 
 	public String getOperator() {
@@ -73,7 +64,7 @@ public class NonUnaryWhereCondition implements Operand {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (operator.equalsIgnoreCase("or") || this.filterJoins != null) {
+		if (operator.equalsIgnoreCase("or")) {
 			sb.append("(");
 		}
 		sb.append(this.ops.get(0).toString());
@@ -90,13 +81,8 @@ public class NonUnaryWhereCondition implements Operand {
 			sb.append(" ");
 			sb.append(ops.get(i).toString());
 		}
-		if (filterJoins != null) {
-			for (NonUnaryWhereCondition extra : filterJoins) {
-				sb.append(" AND ");
-				sb.append(extra.toString());
-			}
-		}
-		if (operator.equalsIgnoreCase("or") || this.filterJoins != null) {
+		
+		if (operator.equalsIgnoreCase("or")) {
 			sb.append(")");
 		}
 		return sb.toString();
@@ -124,7 +110,6 @@ public class NonUnaryWhereCondition implements Operand {
 		} else {
 			this.ops.set(0, op);
 		}
-		hash = null;
 	}
 
 	public void setRightOp(Operand op) {
@@ -136,7 +121,6 @@ public class NonUnaryWhereCondition implements Operand {
 		} else {
 			this.ops.set(1, op);
 		}
-		hash = null;
 	}
 
 	@Override
@@ -147,37 +131,18 @@ public class NonUnaryWhereCondition implements Operand {
 			opsCloned.add(o.clone());
 		}
 		cloned.ops = opsCloned;
-		if (filterJoins != null) {
-			for (NonUnaryWhereCondition filter : this.filterJoins) {
-				cloned.createFilterJoins();
-				cloned.addFilterJoin(filter.clone());
-			}
-		}
-		cloned.hash = hash;
+		
 		return cloned;
 	}
 
-	public void createFilterJoins() {
-		this.filterJoins = new HashSet<NonUnaryWhereCondition>();
-
-	}
-
-	public void addFilterJoin(NonUnaryWhereCondition filter) {
-		if (filterJoins == null) {
-			filterJoins = new HashSet<NonUnaryWhereCondition>();
-		}
-		filterJoins.add(filter);
-
-	}
+	
 
 	public void setOperandAt(int i, Operand op) {
 		this.ops.set(i, op);
-		hash = null;
 	}
 
 	public void addOperand(Operand op) {
 		this.ops.add(op);
-		hash = null;
 	}
 
 	@Override
@@ -212,10 +177,7 @@ public class NonUnaryWhereCondition implements Operand {
 		if ((this.operator == null) ? (other.operator != null) : !this.operator.equals(other.operator)) {
 			return false;
 		}
-		if (this.filterJoins != other.filterJoins
-				&& (this.filterJoins == null || !this.filterJoins.equals(other.filterJoins))) {
-			return false;
-		}
+		
 		return true;
 	}
 
@@ -231,49 +193,10 @@ public class NonUnaryWhereCondition implements Operand {
 				o.changeColumn(oldCol, newCol);
 			}
 		}
-		if (filterJoins != null) {
-			for (NonUnaryWhereCondition f : this.filterJoins) {
-				f.changeColumn(oldCol, newCol);
-			}
-		}
+		
 	}
 
 
 
-	public void addRangeFilters(NonUnaryWhereCondition bwc) {
-		if (bwc.filterJoins != null) {
-			this.createFilterJoins();
-			for (NonUnaryWhereCondition f : bwc.filterJoins) {
-				try {
-					this.filterJoins.add(f.clone());
-				} catch (CloneNotSupportedException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-
-	}
-
-	public Set<NonUnaryWhereCondition> getFilterJoins() {
-		return this.filterJoins;
-	}
-
-	
-
-	public boolean isRightinv() {
-		return rightinv;
-	}
-
-	public void setRightinv(boolean rightinv) {
-		this.rightinv = rightinv;
-	}
-
-	public boolean isLeftinv() {
-		return leftinv;
-	}
-
-	public void setLeftinv(boolean leftinv) {
-		this.leftinv = leftinv;
-	}
 
 }
