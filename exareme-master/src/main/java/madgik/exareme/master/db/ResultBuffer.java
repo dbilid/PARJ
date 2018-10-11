@@ -7,7 +7,7 @@ import java.util.List;
 public class ResultBuffer {
 
 	private LinkedList<List<Object>> buffer;
-	private int counter = 0;
+	private long counter = 0;
 
 	public ResultBuffer() {
 		super();
@@ -19,7 +19,7 @@ public class ResultBuffer {
 		return buffer.removeFirst();
 	}
 
-	public int getFinished() {
+	public long getFinished() {
 		return counter;
 	}
 
@@ -28,7 +28,7 @@ public class ResultBuffer {
 		System.out.println("finished:" + counter);
 	}
 	
-	public void addFinished(int count) {
+	public void addFinished(long count) {
 		counter+=count;
 	}
 
