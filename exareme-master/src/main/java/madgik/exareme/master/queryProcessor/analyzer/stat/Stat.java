@@ -137,6 +137,7 @@ public class Stat {
 		if(typeProperty>-1){
 			gatherTypeStats(typeProperty, st, relMap);
 		}
+		//typeProperty=-1;
 		schema.setCards(computeJoins(typeProperty));
 		
 		st.close();
@@ -152,21 +153,21 @@ public class Stat {
 			String tblName="";
 			TableSize ts=sizes.get(i);
 			if(ts.getTable()==typeProperty){
-				continue;
+				//continue;
 			}
 			String inv1="inv";
 			if(ts.getTable()>-1){
 				tblName="prop"+ts.getTable();
 			}
-			else{
-				inv1="";
-				tblName="(select * from invprop"+typeProperty+" where o="+(-ts.getTable())+")";
+			else{	continue;
+				//inv1="";
+				//tblName="(select * from invprop"+typeProperty+" where o="+(-ts.getTable())+")";
 			}
 			for(int j=i+1;j<sizes.size();j++){
 				String tblName2="";
 				TableSize ts2=sizes.get(j);
 				if(ts2.getTable()==typeProperty){
-					continue;
+					//continue;
 				}
 				//if(ts.getTable()<0 && ts2.getTable()<0){
 				//	continue;
@@ -175,9 +176,9 @@ public class Stat {
 				if(ts2.getTable()>-1){
 					tblName2="prop"+ts2.getTable();
 				}
-				else{
-					inv2="";
-					tblName2="(select * from invprop"+typeProperty+" where o="+(-ts2.getTable())+")";
+				else{ continue;
+					//inv2="";
+					//tblName2="(select * from invprop"+typeProperty+" where o="+(-ts2.getTable())+")";
 				}
 				
 				
@@ -191,12 +192,12 @@ public class Stat {
 				int countOS=0;
 				int countOO=0;
 				
-				if(ts2.getTable()>-1){
+				if(ts2.getTable()!=typeProperty){
 					countSO=getCount(querySO);
 				}
-				if(ts.getTable()>-1){
+				if(ts.getTable()!=typeProperty){
 					countOS=getCount(queryOS);
-					if(ts2.getTable()>-1){
+					if(ts2.getTable()!=typeProperty){
 						countOO=getCount(queryOO);
 					}
 				}

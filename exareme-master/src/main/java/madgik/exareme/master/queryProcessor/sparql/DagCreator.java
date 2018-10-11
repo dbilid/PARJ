@@ -157,8 +157,7 @@ public class DagCreator {
 		if (!predicate.isConstant()) {
 			throw new SQLException("constant predicate not supported yet");
 		} else {
-			pred = (int) fetcher.getIdForProperty(predicate.getValue()
-					.stringValue());
+			pred = (int) fetcher.getIdForProperty(predicate.getValue().stringValue());
 			alias++;
 			predTable = new Table(pred, alias);
 
@@ -241,8 +240,7 @@ public class DagCreator {
 		NonUnaryWhereCondition nuwc = new NonUnaryWhereCondition();
 		nuwc.setOperator("=");
 		nuwc.setLeftOp(new Column(aliasString, sOrO));
-		nuwc.setRightOp(new Constant(fetcher.getIdForUri(sbjOrObj.getValue()
-				.toString())));
+		nuwc.setRightOp(new Constant(fetcher.getIdForUri(sbjOrObj.getValue().stringValue())));
 		s.addOperand(nuwc);
 		query.addBinaryWhereCondition(nuwc);
 
