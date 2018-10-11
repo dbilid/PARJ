@@ -83,7 +83,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
 				List<List<Object>> localBuffer = new ArrayList<List<Object>>(9000);
-				int counter = 0;
+				long counter = 0;
 				//boolean print=false;
 				while (rs.next()) {
 					
@@ -137,18 +137,34 @@ public class SQLiteLocalExecutor implements Runnable {
 				if(sqlString==null){
 					return;
 				}
+				//if(partition==0){
+				//	System.out.println(sqlString);
+				//}
+				
 				if(partition==0){
-					System.out.println(sqlString);
-				}
+                                        System.out.println(sqlString);
+                                }
+
+				if(!print)
+				sqlString="select count(*) from ("+sqlString+")";
+				//sqlString="create table tt"+partition+" as "+sqlString;
+				//st.execute("BEGIN");
+				//st.executeUpdate(sqlString);
+				//st.executeUpdate("drop table tt"+partition);
+				//st.execute("END");
+				//st.close();
+				//con.setAutoCommit(false);
 				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
 				int counter=0;
 				while (rs.next()) {
-					counter++;
+					//counter++;
 					
 					if(!print){
+					counter+=rs.getInt(1);
 						continue;
 					}
+					counter++;
 					List<Object> tuple = new ArrayList<Object>(columns);
 					for (int i = 1; i < columns + 1; i++) {
 						tuple.add(rs.getObject(i));
@@ -159,7 +175,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				rs.close();
 				st.close();
 				//con.close();
-				//System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
+				//System.out.println("thread "+partition+" executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
 				//counter+" results");
 				synchronized (globalBuffer) {
 					globalBuffer.addFinished(counter);
