@@ -54,17 +54,19 @@ public class QueryTester {
 		}
 		String database = args[0];
 		boolean loadDictionary;
-		boolean silent;
+		boolean lookups;
+		boolean printResults;
 		int threads = 1;
 		boolean executeFromFile;
 
 		loadDictionary = readYesNo("Load Dictionary in memory?");
 
-		silent = readYesNo("Use silent mode?");
+		lookups = readYesNo("Use dictionary lookups for results?");
+		printResults = readYesNo("Print results?");
 		executeFromFile = readYesNo("Execute queries from File? (If \"n\" queries would be read from user input) ");
 		threads = readThreads("give number of threads to be used: ");
 
-		printSettings(loadDictionary, silent, executeFromFile, threads);
+		printSettings(loadDictionary, lookups, printResults, executeFromFile, threads);
 
 		DBManager m = new DBManager();
 
@@ -158,7 +160,7 @@ public class QueryTester {
 							result.computeTableToSplit(threads);
 							List<String> exatraCreates = result.computeExtraCreates(threads);
 
-							if (!silent) {
+							if (lookups) {
 								int out = 1;
 								Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
 
@@ -209,7 +211,7 @@ public class QueryTester {
 
 								// createVirtualTables(cons[i], partitions);
 								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, !silent,
+										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
 										exatraCreates);
 
 								ex.setGlobalBuffer(globalBuffer);
@@ -218,7 +220,7 @@ public class QueryTester {
 							}
 
 							if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
-								FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, !silent);
+								FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, printResults);
 								futures.add(es.submit(ex));
 								// es.execute(ex);
 							}
@@ -302,7 +304,7 @@ public class QueryTester {
 						result.computeTableToSplit(threads);
 						List<String> exatraCreates = result.computeExtraCreates(threads);
 
-						if (!silent) {
+						if (lookups) {
 							// add dictionary lookups
 							int out = 1;
 							Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
@@ -357,7 +359,7 @@ public class QueryTester {
 
 							// createVirtualTables(cons[i], partitions);
 							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, !silent, exatraCreates);
+									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults, exatraCreates);
 
 							ex.setGlobalBuffer(globalBuffer);
 							// executors.add(ex);
@@ -365,7 +367,7 @@ public class QueryTester {
 						}
 
 						if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
-							FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, !silent);
+							FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, printResults);
 							// es.execute(ex);
 							futures.add(es.submit(ex));
 						}
@@ -409,10 +411,11 @@ public class QueryTester {
 
 	}
 
-	private static void printSettings(boolean loadDictionary, boolean silent, boolean executeFromFile, int threads) {
+	private static void printSettings(boolean loadDictionary, boolean silent, boolean printResults, boolean executeFromFile, int threads) {
 		System.out.println("Current Settings:");
 		System.out.println("\tLoad Dictionary in memory: " + loadDictionary);
-		System.out.println("\tSilent Mode: " + silent);
+		System.out.println("\tUse Dictionary Lookups: " + silent);
+		System.out.println("\tPrint Results: " + printResults);
 		System.out.println("\tExecute Queries From File: " + executeFromFile);
 		System.out.println("\tNumber of Threads: " + threads);
 
