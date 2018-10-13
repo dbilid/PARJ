@@ -73,7 +73,7 @@ public class QueryTester {
 		Connection single = m.getConnection(database, threads);
 		// single.setTransactionIsolation(single.TRANSACTION_READ_UNCOMMITTED);
 
-		System.out.println("loading data in memory...");
+		System.out.println("Loading data in memory. Please wait...");
 		Statement st = single.createStatement();
 		String load = "create virtual table tmptable using memorywrapper(";
 		load += String.valueOf(threads);
@@ -105,7 +105,7 @@ public class QueryTester {
 			NodeHashValues hashes = new NodeHashValues();
 			hashes.setSelectivityEstimator(nse);
 			Connection mainCon = m.getConnection(database, 2);
-			
+
 			mainCon.close();
 			IdFetcher fetcher = new IdFetcher(single);
 			fetcher.loadProperties();
@@ -117,168 +117,164 @@ public class QueryTester {
 			}
 			QueryParser qp = QueryParserUtil.createParser(QueryLanguage.SPARQL);
 			warmUpJVM(prefixes + q, threads, hashes, fetcher);
-			
-			
-			if(executeFromFile) {
+
+			if (executeFromFile) {
 				Scanner reader = new Scanner(System.in); // Reading from System.in
-				System.out.println("Give Filepath to File with Queries: ");
+				System.out.println(
+						"Give Filepath to File with Queries \n (Each query must be in a single line. Lines with less than 10 characters will be ignored)  : ");
 				List<String> queries = readFile(reader.nextLine());
-			
-			//List<String> queries = readFile(args[3]);
-			List<Long> times = new ArrayList<Long>(queries.size());
-			List<Long> noOfResults = new ArrayList<Long>(queries.size());
-			int qNo = -1;
-			ExecutorService es = Executors.newFixedThreadPool(threads + 1);
-			for (String query : queries) {
-				qNo++;
-				System.out.println(query);
-				long queryTimes = 0L;
-				for (int rep = 0; rep < 11; rep++) {
-					// while(true){
-					try {
-						hashes.clear();
-						
-						start = System.currentTimeMillis();
-						ParsedQuery pq2 = qp.parseQuery(query, null);
-						System.out.println("query parsed" + (System.currentTimeMillis() - start));
-						DagCreator creator = new DagCreator(pq2, threads, hashes, fetcher);
 
-						SQLQuery result = creator.getRootNode();
-						System.out.println("root created" + (System.currentTimeMillis() - start));
-						// System.out.println(System.currentTimeMillis()-start);
+				// List<String> queries = readFile(args[3]);
+				List<Long> times = new ArrayList<Long>(queries.size());
+				List<Long> noOfResults = new ArrayList<Long>(queries.size());
+				int qNo = -1;
+				ExecutorService es = Executors.newFixedThreadPool(threads + 1);
+				for (String query : queries) {
+					qNo++;
+					System.out.println(query);
+					long queryTimes = 0L;
+					for (int rep = 0; rep < 11; rep++) {
+						// while(true){
+						try {
+							hashes.clear();
 
-						System.out.println(System.currentTimeMillis() - start);
-						result.invertColumns();
-						result.computeTableToSplit(threads);
-						List<String> exatraCreates = result.computeExtraCreates(threads);
-						
+							start = System.currentTimeMillis();
+							ParsedQuery pq2 = qp.parseQuery(query, null);
+							System.out.println("query parsed" + (System.currentTimeMillis() - start));
+							DagCreator creator = new DagCreator(pq2, threads, hashes, fetcher);
 
-						if(!silent) {
-							int out = 1;
-							Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
+							SQLQuery result = creator.getRootNode();
+							System.out.println("root created" + (System.currentTimeMillis() - start));
+							// System.out.println(System.currentTimeMillis()-start);
 
-							for (Column outCol : result.getAllOutputColumns()) {
-								Table dict=new Table(-1, -1);
-								dict.setDictionary(out);
-								result.addInputTable(dict);
-								NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
-										new SQLColumn("d"+out, "id"), "=");
-								result.addBinaryWhereCondition(dictJoin);
-								toChange.put(outCol.clone(), new SQLColumn("d"+out, "uri"));
-								out++;
-							}
+							System.out.println(System.currentTimeMillis() - start);
+							result.invertColumns();
+							result.computeTableToSplit(threads);
+							List<String> exatraCreates = result.computeExtraCreates(threads);
 
-							for (Output o : result.getOutputs()) {
-								for (Column c : toChange.keySet()) {
-									if(o.getObject() instanceof Column){
-										Column c2=(Column)o.getObject();
-										if(c2.equals(c)){
-											o.setObject(toChange.get(c));
+							if (!silent) {
+								int out = 1;
+								Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
+
+								for (Column outCol : result.getAllOutputColumns()) {
+									Table dict = new Table(-1, -1);
+									dict.setDictionary(out);
+									result.addInputTable(dict);
+									NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
+											new SQLColumn("d" + out, "id"), "=");
+									result.addBinaryWhereCondition(dictJoin);
+									toChange.put(outCol.clone(), new SQLColumn("d" + out, "uri"));
+									out++;
+								}
+
+								for (Output o : result.getOutputs()) {
+									for (Column c : toChange.keySet()) {
+										if (o.getObject() instanceof Column) {
+											Column c2 = (Column) o.getObject();
+											if (c2.equals(c)) {
+												o.setObject(toChange.get(c));
+											}
+										} else {
+											// System.err.println("projection not column");
 										}
+										// o.getObject().changeColumn(c, toChange.get(c));
 									}
-									else{
-										//System.err.println("projection not column");
-									}
-									//o.getObject().changeColumn(c, toChange.get(c));
 								}
 							}
-						}
 
-						// start=System.currentTimeMillis();
-						// ExecutorService es = Executors.newFixedThreadPool(partitions+1);
-						// ExecutorService es = Executors.newFixedThreadPool(2);
-						Collection<Future<?>> futures = new LinkedList<Future<?>>();
-						// Connection ccc=getConnection("");
-						// List<SQLiteLocalExecutor> executors = new ArrayList<SQLiteLocalExecutor>();
-						ResultBuffer globalBuffer = new ResultBuffer();
-						Set<Integer> finishedQueries = new HashSet<Integer>();
-						Connection[] cons = new Connection[threads];
-						for (int i = 0; i < threads; i++) {
-							// String sql=result.getSqlForPartition(i);
-							cons[i] = m.getConnection(database, threads);
+							// start=System.currentTimeMillis();
+							// ExecutorService es = Executors.newFixedThreadPool(partitions+1);
+							// ExecutorService es = Executors.newFixedThreadPool(2);
+							Collection<Future<?>> futures = new LinkedList<Future<?>>();
+							// Connection ccc=getConnection("");
+							// List<SQLiteLocalExecutor> executors = new ArrayList<SQLiteLocalExecutor>();
+							ResultBuffer globalBuffer = new ResultBuffer();
+							Set<Integer> finishedQueries = new HashSet<Integer>();
+							Connection[] cons = new Connection[threads];
+							for (int i = 0; i < threads; i++) {
+								// String sql=result.getSqlForPartition(i);
+								cons[i] = m.getConnection(database, threads);
 
-							// createVirtualTables(cons[i], partitions);
-							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i,
-									!silent, exatraCreates);
+								// createVirtualTables(cons[i], partitions);
+								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
+										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, !silent,
+										exatraCreates);
 
-							ex.setGlobalBuffer(globalBuffer);
-							// executors.add(ex);
-							futures.add(es.submit(ex));
-						}
-
-						if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
-							FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads,
-									!silent);
-							futures.add(es.submit(ex));
-							// es.execute(ex);
-						}
-						// System.out.println(System.currentTimeMillis() - start);
-						/*
-						 * for (SQLiteLocalExecutor exec : executors) { futures.add(es.submit(ex));
-						 * //es.execute(exec); }
-						 */
-						// es.shutdown();
-						try {
-							for (Future<?> future : futures) {
-								future.get();
+								ex.setGlobalBuffer(globalBuffer);
+								// executors.add(ex);
+								futures.add(es.submit(ex));
 							}
-							// boolean finished = es.awaitTermination(300, TimeUnit.MINUTES);
-						} catch (InterruptedException e) {
+
+							if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
+								FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, !silent);
+								futures.add(es.submit(ex));
+								// es.execute(ex);
+							}
+							// System.out.println(System.currentTimeMillis() - start);
+							/*
+							 * for (SQLiteLocalExecutor exec : executors) { futures.add(es.submit(ex));
+							 * //es.execute(exec); }
+							 */
+							// es.shutdown();
+							try {
+								for (Future<?> future : futures) {
+									future.get();
+								}
+								// boolean finished = es.awaitTermination(300, TimeUnit.MINUTES);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							if (rep > 0)
+								queryTimes += System.currentTimeMillis() - start;
+							System.out.println(System.currentTimeMillis() - start);
+							for (int i = 0; i < threads; i++) {
+								cons[i].close();
+							}
+							if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
+								System.out.println("total results:" + globalBuffer.getFinished());
+								if (rep == 0)
+									noOfResults.add(globalBuffer.getFinished());
+							}
+
+							// System.out.println(root.count(0));
+
+							System.out.println("OK");
+						} catch (Exception e) {
 							// TODO Auto-generated catch block
+
 							e.printStackTrace();
+							continue;
 						}
-						if (rep > 0)
-							queryTimes += System.currentTimeMillis() - start;
-						System.out.println(System.currentTimeMillis() - start);
-						for (int i = 0; i < threads; i++) {
-							cons[i].close();
-						}
-						if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
-							System.out.println("total results:" + globalBuffer.getFinished());
-							if (rep == 0)
-								noOfResults.add(globalBuffer.getFinished());
-						}
-
-						// System.out.println(root.count(0));
-
-						System.out.println("OK");
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-
-						e.printStackTrace();
-						continue;
+						// }
+						// queryTimes=queryTimes/10;
+						// times.add(queryTimes);
 					}
-					// }
-					// queryTimes=queryTimes/10;
-					// times.add(queryTimes);
+					queryTimes = queryTimes / 10;
+					if (queryTimes == 0)
+						queryTimes = 1;
+					times.add(queryTimes);
 				}
-				queryTimes = queryTimes / 10;
-				if (queryTimes == 0)
-					queryTimes = 1;
-				times.add(queryTimes);
-			}
 
-			System.out.println(times);
-			double sum = times.get(0);
-			double realSum = times.get(0);
-			for (int i = 1; i < times.size(); i++) {
-				sum *= times.get(i);
-				realSum += times.get(i);
-			}
-			System.out.println("geo mean: " + Math.pow(sum, 1.0 / times.size()));
-			System.out.println("avg.: " + realSum / times.size());
-			System.out.println("no of results:" + noOfResults);
-		}
-			else {
+				System.out.println(times);
+				double sum = times.get(0);
+				double realSum = times.get(0);
+				for (int i = 1; i < times.size(); i++) {
+					sum *= times.get(i);
+					realSum += times.get(i);
+				}
+				System.out.println("geo mean: " + Math.pow(sum, 1.0 / times.size()));
+				System.out.println("avg.: " + realSum / times.size());
+				System.out.println("no of results:" + noOfResults);
+			} else {
 				ExecutorService es = Executors.newFixedThreadPool(threads + 1);
-				while(true){
+				while (true) {
 					try {
 						hashes.clear();
 						Scanner reader = new Scanner(System.in); // Reading from
 																	// System.in
-						 System.out.println("Enter query: ");
-						 String query= reader.nextLine();
+						System.out.println("Enter query (in a single line) and press enter: ");
+						String query = reader.nextLine();
 						start = System.currentTimeMillis();
 						ParsedQuery pq2 = qp.parseQuery(query, null);
 						// System.out.println("query
@@ -289,98 +285,93 @@ public class QueryTester {
 						System.out.println("root created" + (System.currentTimeMillis() - start));
 						// System.out.println(System.currentTimeMillis()-start);
 
-						
-
 						System.out.println(System.currentTimeMillis() - start);
 						result.invertColumns();
 						result.computeTableToSplit(threads);
 						List<String> exatraCreates = result.computeExtraCreates(threads);
 
-						// add dictionary lookups
-						int out = 1;
-						Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
+						if (!silent) {
+							// add dictionary lookups
+							int out = 1;
+							Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
 
-						for (Column outCol : result.getAllOutputColumns()) {
-							Table dict=new Table(-1, -1);
-							dict.setDictionary(out);
-							result.addInputTable(dict);
-							NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
-									new SQLColumn("d"+out, "id"), "=");
-							result.addBinaryWhereCondition(dictJoin);
-							toChange.put(outCol.clone(), new SQLColumn("d"+out, "uri"));
-							out++;
-						}
+							for (Column outCol : result.getAllOutputColumns()) {
+								Table dict = new Table(-1, -1);
+								dict.setDictionary(out);
+								result.addInputTable(dict);
+								NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
+										new SQLColumn("d" + out, "id"), "=");
+								result.addBinaryWhereCondition(dictJoin);
+								toChange.put(outCol.clone(), new SQLColumn("d" + out, "uri"));
+								out++;
+							}
 
-						for (Output o : result.getOutputs()) {
-							for (Column c : toChange.keySet()) {
-								if(o.getObject() instanceof Column){
-									Column c2=(Column)o.getObject();
-									if(c2.equals(c)){
-										o.setObject(toChange.get(c));
+							for (Output o : result.getOutputs()) {
+								for (Column c : toChange.keySet()) {
+									if (o.getObject() instanceof Column) {
+										Column c2 = (Column) o.getObject();
+										if (c2.equals(c)) {
+											o.setObject(toChange.get(c));
+										}
+									} else {
+										// System.err.println("projection not column");
 									}
+									// o.getObject().changeColumn(c, toChange.get(c));
 								}
-								else{
-									//System.err.println("projection not column");
-								}
-								//o.getObject().changeColumn(c, toChange.get(c));
 							}
 						}
-						
-						
-							// start=System.currentTimeMillis();
-							// ExecutorService es =
-							// Executors.newFixedThreadPool(partitions+1);
-							// ExecutorService es = Executors.newFixedThreadPool(2);
 
-							// Connection ccc=getConnection("");
-							// List<SQLiteLocalExecutor> executors = new
-							// ArrayList<SQLiteLocalExecutor>();
-							ResultBuffer globalBuffer = new ResultBuffer();
-							Set<Integer> finishedQueries = new HashSet<Integer>();
-							Connection[] cons = new Connection[threads];
-							Collection<Future<?>> futures = new LinkedList<Future<?>>();
-							for (int i = 0; i < threads; i++) {
-								// String sql=result.getSqlForPartition(i);
-								cons[i] = m.getConnection(database, threads);
+						// start=System.currentTimeMillis();
+						// ExecutorService es =
+						// Executors.newFixedThreadPool(partitions+1);
+						// ExecutorService es = Executors.newFixedThreadPool(2);
 
-								// createVirtualTables(cons[i], partitions);
-								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i,
-										!silent, exatraCreates);
+						// Connection ccc=getConnection("");
+						// List<SQLiteLocalExecutor> executors = new
+						// ArrayList<SQLiteLocalExecutor>();
+						ResultBuffer globalBuffer = new ResultBuffer();
+						Set<Integer> finishedQueries = new HashSet<Integer>();
+						Connection[] cons = new Connection[threads];
+						Collection<Future<?>> futures = new LinkedList<Future<?>>();
+						for (int i = 0; i < threads; i++) {
+							// String sql=result.getSqlForPartition(i);
+							cons[i] = m.getConnection(database, threads);
 
-								ex.setGlobalBuffer(globalBuffer);
-								// executors.add(ex);
-								futures.add(es.submit(ex));
-							}
+							// createVirtualTables(cons[i], partitions);
+							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
+									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, !silent, exatraCreates);
 
-							if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
-								FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads,
-										!silent);
-								// es.execute(ex);
-								futures.add(es.submit(ex));
+							ex.setGlobalBuffer(globalBuffer);
+							// executors.add(ex);
+							futures.add(es.submit(ex));
+						}
+
+						if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
+							FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, !silent);
+							// es.execute(ex);
+							futures.add(es.submit(ex));
+						}
+						// System.out.println(System.currentTimeMillis() -
+						// start);
+						/*
+						 * for (SQLiteLocalExecutor exec : executors) { es.execute(exec); }
+						 * es.shutdown();
+						 */
+						try {
+							for (Future<?> future : futures) {
+								future.get();
 							}
-							// System.out.println(System.currentTimeMillis() -
-							// start);
-							/*
-							 * for (SQLiteLocalExecutor exec : executors) {
-							 * es.execute(exec); } es.shutdown();
-							 */
-							try {
-								for (Future<?> future : futures) {
-									future.get();
-								}
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-							System.out.println(System.currentTimeMillis() - start);
-							for (int i = 0; i < threads; i++) {
-								cons[i].close();
-							}
-							if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
-								System.out.println("total results:" + globalBuffer.getFinished());
-							}
-						
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						System.out.println(System.currentTimeMillis() - start);
+						for (int i = 0; i < threads; i++) {
+							cons[i].close();
+						}
+						if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
+							System.out.println("total results:" + globalBuffer.getFinished());
+						}
 
 						// System.out.println(root.count(0));
 
@@ -486,7 +477,7 @@ public class QueryTester {
 		// String ls = System.getProperty("line.separator");
 
 		while ((line = reader.readLine()) != null) {
-			if (line.length() < 28)
+			if (line.length() < 10)
 				continue;
 			result.add(line);
 		}
