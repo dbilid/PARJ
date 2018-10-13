@@ -163,7 +163,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				while (rs.next()) {
 					//counter++;
 					
-					if(!print){
+					if(!tupleConstruction){
 					counter+=rs.getInt(1);
 						continue;
 					}
