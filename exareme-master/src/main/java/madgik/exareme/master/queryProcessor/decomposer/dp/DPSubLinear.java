@@ -103,8 +103,8 @@ public class DPSubLinear {
 				}
 			}
 		}
-		System.out.println("done");
-		System.out.print("orer: ");
+		System.out.println("join order done.");
+		//System.out.print("orer: ");
 		for (int i = 0; i < entries[entries.length - 1].order.length; i++) {
 			System.out.print(entries[entries.length - 1].order[i]);
 		}

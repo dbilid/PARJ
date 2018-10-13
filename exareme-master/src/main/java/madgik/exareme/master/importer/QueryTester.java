@@ -146,14 +146,14 @@ public class QueryTester {
 
 							start = System.currentTimeMillis();
 							ParsedQuery pq2 = qp.parseQuery(query, null);
-							System.out.println("query parsed" + (System.currentTimeMillis() - start));
+							System.out.println("query parsed at" + (System.currentTimeMillis() - start));
 							DagCreator creator = new DagCreator(pq2, threads, hashes, fetcher);
 
 							SQLQuery result = creator.getRootNode();
-							System.out.println("root created" + (System.currentTimeMillis() - start));
+							System.out.println("query optimized at:" + (System.currentTimeMillis() - start));
 							// System.out.println(System.currentTimeMillis()-start);
 
-							System.out.println(System.currentTimeMillis() - start);
+							//System.out.println(System.currentTimeMillis() - start);
 							result.invertColumns();
 							result.computeTableToSplit(threads);
 							List<String> exatraCreates = result.computeExtraCreates(threads);
@@ -239,7 +239,7 @@ public class QueryTester {
 							}
 							if (rep > 0)
 								queryTimes += System.currentTimeMillis() - start;
-							System.out.println(System.currentTimeMillis() - start);
+							System.out.println("total execution time:" +(System.currentTimeMillis() - start));
 							for (int i = 0; i < threads; i++) {
 								cons[i].close();
 							}
@@ -294,10 +294,10 @@ public class QueryTester {
 						DagCreator creator = new DagCreator(pq2, threads, hashes, fetcher);
 
 						SQLQuery result = creator.getRootNode();
-						System.out.println("root created" + (System.currentTimeMillis() - start));
+						System.out.println("query optimized at" + (System.currentTimeMillis() - start));
 						// System.out.println(System.currentTimeMillis()-start);
 
-						System.out.println(System.currentTimeMillis() - start);
+						//System.out.println(System.currentTimeMillis() - start);
 						result.invertColumns();
 						result.computeTableToSplit(threads);
 						List<String> exatraCreates = result.computeExtraCreates(threads);
@@ -383,7 +383,7 @@ public class QueryTester {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
-						System.out.println(System.currentTimeMillis() - start);
+						System.out.println("total execution time:" + (System.currentTimeMillis() - start));
 						for (int i = 0; i < threads; i++) {
 							cons[i].close();
 						}
