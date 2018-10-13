@@ -23,19 +23,21 @@ public class SQLiteLocalExecutor implements Runnable {
 	private ResultBuffer globalBuffer;
 	private boolean print;
 	private List<String> extraCreates;
+	private boolean tupleConstruction;
 	private static final Logger log = Logger.getLogger(SQLiteLocalExecutor.class);
 
 	public void setGlobalBuffer(ResultBuffer globalBuffer) {
 		this.globalBuffer = globalBuffer;
 	}
 
-	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print, List<String> exatraCreates) {
+	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print, boolean tupleConstruction, List<String> exatraCreates) {
 		this.sql = result;
 		this.con = c;
 		this.useResultAggregator = t;
 		this.finishedQueries = f;
 		this.partition = pt;
 		this.print=print;
+		this.tupleConstruction=tupleConstruction;
 		this.extraCreates=exatraCreates;
 		// System.out.println(sql);
 	}
@@ -145,7 +147,8 @@ public class SQLiteLocalExecutor implements Runnable {
                                         System.out.println(sqlString);
                                 }
 
-				if(!print)
+				
+				if(!tupleConstruction)
 				sqlString="select count(*) from ("+sqlString+")";
 				//sqlString="create table tt"+partition+" as "+sqlString;
 				//st.execute("BEGIN");

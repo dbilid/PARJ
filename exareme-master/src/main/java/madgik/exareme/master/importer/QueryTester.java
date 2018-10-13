@@ -61,7 +61,7 @@ public class QueryTester {
 
 		loadDictionary = readYesNo("Load Dictionary in memory?");
 
-		lookups = readYesNo("Use dictionary lookups for results?");
+		lookups = readYesNo("Use dictionary lookups for results (includes result tuple construction)?");
 		printResults = readYesNo("Print results?");
 		executeFromFile = readYesNo("Execute queries from File? (If \"n\" queries would be read from user input) ");
 		threads = readThreads("give number of threads to be used: ");
@@ -212,7 +212,7 @@ public class QueryTester {
 								// createVirtualTables(cons[i], partitions);
 								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
 										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
-										exatraCreates);
+										lookups, exatraCreates);
 
 								ex.setGlobalBuffer(globalBuffer);
 								// executors.add(ex);
@@ -359,7 +359,8 @@ public class QueryTester {
 
 							// createVirtualTables(cons[i], partitions);
 							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults, exatraCreates);
+									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
+									lookups, exatraCreates);
 
 							ex.setGlobalBuffer(globalBuffer);
 							// executors.add(ex);

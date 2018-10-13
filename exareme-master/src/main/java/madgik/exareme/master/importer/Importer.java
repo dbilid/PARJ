@@ -233,7 +233,7 @@ public class Importer {
 							// createVirtualTables(cons[i], partitions);
 							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
 									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i,
-									DecomposerUtils.PRINT_RESULTS, exatraCreates);
+									DecomposerUtils.PRINT_RESULTS, DecomposerUtils.PRINT_RESULTS, exatraCreates);
 
 							ex.setGlobalBuffer(globalBuffer);
 							// executors.add(ex);
