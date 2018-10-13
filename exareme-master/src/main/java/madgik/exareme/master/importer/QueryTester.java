@@ -77,13 +77,19 @@ public class QueryTester {
 		Statement st = single.createStatement();
 		String load = "create virtual table tmptable using memorywrapper(";
 		load += String.valueOf(threads);
-		load += " -1, -1)";
+		if(loadDictionary) {
+			load += " -2, -2)";
+		}
+		else {
+			load += " -1, -1)";
+		}
+		
 		st.execute(load);
 		st.close();
 
 		System.out.println("data loaded" + (System.currentTimeMillis() - start) + " ms");
-		createVirtualTables(single, threads);
-		warmUpDBManager(threads, database, m);
+		createVirtualTables(single, threads, loadDictionary);
+		warmUpDBManager(threads, database, m, loadDictionary);
 
 		try {
 			String prefixes = "PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
@@ -157,7 +163,13 @@ public class QueryTester {
 								Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
 
 								for (Column outCol : result.getAllOutputColumns()) {
-									Table dict = new Table(-1, -1);
+									Table dict=null;
+									if(loadDictionary) {
+										dict = new Table(-2, -2);
+									}
+									else {
+										dict = new Table(-1, -1);
+									}
 									dict.setDictionary(out);
 									result.addInputTable(dict);
 									NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
@@ -296,7 +308,13 @@ public class QueryTester {
 							Map<Column, SQLColumn> toChange = new HashMap<Column, SQLColumn>();
 
 							for (Column outCol : result.getAllOutputColumns()) {
-								Table dict = new Table(-1, -1);
+								Table dict=null;
+								if(loadDictionary) {
+									dict = new Table(-2, -2);
+								}
+								else {
+									dict = new Table(-1, -1);
+								}
 								dict.setDictionary(out);
 								result.addInputTable(dict);
 								NonUnaryWhereCondition dictJoin = new NonUnaryWhereCondition(outCol.clone(),
@@ -400,7 +418,7 @@ public class QueryTester {
 
 	}
 
-	private static void createVirtualTables(Connection c, int partitions) throws SQLException {
+	private static void createVirtualTables(Connection c, int partitions, boolean loadDictionary) throws SQLException {
 		Statement st = c.createStatement();
 		ResultSet rs = st.executeQuery("select id from properties");
 		Statement st2 = c.createStatement();
@@ -423,19 +441,24 @@ public class QueryTester {
 			// wrapper(invprop"+propNo+"_"+i+", "+partitions+")");
 			// }
 		}
+		if(loadDictionary) {
+			for(int i=0;i<100;i++) {
+				st2.executeUpdate("create virtual table if not exists d" + i + " using dictionary()");
+			}
+		}
 		st2.close();
 		rs.close();
 		st.close();
 		// System.out.println("VTs created");
 	}
 
-	private static void warmUpDBManager(int partitions, String database, DBManager m) throws SQLException {
+	private static void warmUpDBManager(int partitions, String database, DBManager m, boolean loadDictionary) throws SQLException {
 		System.out.println("warming up DB manager...");
 		long start = System.currentTimeMillis();
 		List<Connection> cons = new ArrayList<Connection>(partitions + 2);
 		for (int i = 0; i < partitions + 2; i++) {
 			Connection next = m.getConnection(database, partitions);
-			createVirtualTables(next, partitions);
+			createVirtualTables(next, partitions, loadDictionary);
 			cons.add(next);
 		}
 		for (int i = 0; i < cons.size(); i++) {

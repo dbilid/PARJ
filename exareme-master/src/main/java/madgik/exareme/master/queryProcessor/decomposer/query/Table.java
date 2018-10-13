@@ -29,7 +29,12 @@ public class Table {
 	public String toString() {
 		String result;
 		if(dictionary>0){
-			return "dictionary d"+dictionary;
+			if(name==-1) {
+				return "dictionary d"+dictionary;
+			}
+			else {
+				return "d"+dictionary+" d"+dictionary;
+			}
 		}
 		if(inverse){
 			result= "memorywrapperinvprop"+name;
