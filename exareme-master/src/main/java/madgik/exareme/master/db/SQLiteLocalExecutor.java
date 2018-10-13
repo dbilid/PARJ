@@ -30,15 +30,16 @@ public class SQLiteLocalExecutor implements Runnable {
 		this.globalBuffer = globalBuffer;
 	}
 
-	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print, boolean tupleConstruction, List<String> exatraCreates) {
+	public SQLiteLocalExecutor(SQLQuery result, Connection c, boolean t, Set<Integer> f, int pt, boolean print,
+			boolean tupleConstruction, List<String> exatraCreates) {
 		this.sql = result;
 		this.con = c;
 		this.useResultAggregator = t;
 		this.finishedQueries = f;
 		this.partition = pt;
-		this.print=print;
-		this.tupleConstruction=tupleConstruction;
-		this.extraCreates=exatraCreates;
+		this.print = print;
+		this.tupleConstruction = tupleConstruction;
+		this.extraCreates = exatraCreates;
 		// System.out.println(sql);
 	}
 
@@ -58,37 +59,37 @@ public class SQLiteLocalExecutor implements Runnable {
 	private void execute() {
 		Statement st;
 		try {
-			//System.out.println("starting thread");
-			
+			// System.out.println("starting thread");
+
 			// st=con.createStatement();
 			st = con.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			st.setFetchSize(1000);
-			for(String extra:this.extraCreates){
+			for (String extra : this.extraCreates) {
 				st.execute(extra);
 			}
 			long lll = System.currentTimeMillis();
-			String sqlString=sql.getSqlForPartition(partition);
+			String sqlString = sql.getSqlForPartition(partition);
 			if (useResultAggregator) {
 
-				//con.setAutoCommit(false);
-				
-				if(sqlString==null){
+				// con.setAutoCommit(false);
+
+				if (sqlString == null) {
 					synchronized (globalBuffer) {
 						globalBuffer.addFinished();
 						globalBuffer.notifyAll();
 					}
 					return;
 				}
-				if(partition==0){
+				if (partition == 0) {
 					System.out.println(sqlString);
 				}
 				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
 				List<List<Object>> localBuffer = new ArrayList<List<Object>>(9000);
 				long counter = 0;
-				//boolean print=false;
+				// boolean print=false;
 				while (rs.next()) {
-					
+
 					// if(counter==1){
 					// System.out.println("started");
 					// }
@@ -108,8 +109,8 @@ public class SQLiteLocalExecutor implements Runnable {
 						}
 						localBuffer.clear();
 					}
-					//if(!print)
-					//	continue;
+					// if(!print)
+					// continue;
 					List<Object> tuple = new ArrayList<Object>(columns);
 					for (int i = 1; i < columns + 1; i++) {
 						tuple.add(rs.getObject(i));
@@ -119,8 +120,9 @@ public class SQLiteLocalExecutor implements Runnable {
 				}
 				rs.close();
 				st.close();
-				//con.close();
-				//System.out.println("thread executed in:" + (System.currentTimeMillis() - lll) + " ms");
+				// con.close();
+				// System.out.println("thread executed in:" + (System.currentTimeMillis() - lll)
+				// + " ms");
 				synchronized (globalBuffer) {
 					while (globalBuffer.size() > 9000) {
 						try {
@@ -132,63 +134,66 @@ public class SQLiteLocalExecutor implements Runnable {
 					globalBuffer.addFinished();
 					globalBuffer.notifyAll();
 				}
-				
+
 				localBuffer.clear();
 
 			} else {
-				if(sqlString==null){
+				if (sqlString == null) {
 					return;
 				}
-				//if(partition==0){
-				//	System.out.println(sqlString);
-				//}
-				
-				if(partition==0){
-                                        System.out.println(sqlString);
-                                }
+				// if(partition==0){
+				// System.out.println(sqlString);
+				// }
 
-				
-				if(!tupleConstruction)
-				sqlString="select count(*) from ("+sqlString+")";
-				//sqlString="create table tt"+partition+" as "+sqlString;
-				//st.execute("BEGIN");
-				//st.executeUpdate(sqlString);
-				//st.executeUpdate("drop table tt"+partition);
-				//st.execute("END");
-				//st.close();
-				//con.setAutoCommit(false);
+				if (partition == 0) {
+					System.out.println(sqlString);
+				}
+
+				if (!tupleConstruction)
+					sqlString = "select count(*) from (" + sqlString + ")";
+				// sqlString="create table tt"+partition+" as "+sqlString;
+				// st.execute("BEGIN");
+				// st.executeUpdate(sqlString);
+				// st.executeUpdate("drop table tt"+partition);
+				// st.execute("END");
+				// st.close();
+				// con.setAutoCommit(false);
 				ResultSet rs = st.executeQuery(sqlString);
 				int columns = rs.getMetaData().getColumnCount();
-				int counter=0;
+				int counter = 0;
 				while (rs.next()) {
-					//counter++;
-					
-					if(!tupleConstruction){
-					counter+=rs.getInt(1);
+					// counter++;
+
+					if (!tupleConstruction) {
+						counter += rs.getInt(1);
 						continue;
 					}
 					counter++;
-					List<Object> tuple = new ArrayList<Object>(columns);
-					for (int i = 1; i < columns + 1; i++) {
-						tuple.add(rs.getObject(i));
+					if (print) {
+						List<Object> tuple = new ArrayList<Object>(columns);
+						for (int i = 1; i < columns + 1; i++) {
+							tuple.add(rs.getObject(i));
+						}
+
+						System.out.println(tuple + "\n");
 					}
-					System.out.println(tuple+"\n");
-					
+
 				}
 				rs.close();
 				st.close();
-				//con.close();
-				//System.out.println("thread "+partition+" executed in:" + (System.currentTimeMillis() - lll) + " ms with "+
-				//counter+" results");
+				// con.close();
+				// System.out.println("thread "+partition+" executed in:" +
+				// (System.currentTimeMillis() - lll) + " ms with "+
+				// counter+" results");
 				synchronized (globalBuffer) {
 					globalBuffer.addFinished(counter);
 					globalBuffer.notifyAll();
 				}
-				
+
 			}
 
-			//con.close();
-			//System.out.println("thread finished");
+			// con.close();
+			// System.out.println("thread finished");
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
 		}
