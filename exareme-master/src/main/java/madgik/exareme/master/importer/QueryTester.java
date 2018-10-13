@@ -127,7 +127,7 @@ public class QueryTester {
 			if (executeFromFile) {
 				Scanner reader = new Scanner(System.in); // Reading from System.in
 				System.out.println(
-						"Give Filepath to File with Queries \n (Each query must be in a single line. Lines with less than 10 characters will be ignored)  : ");
+						"Give Filepath to File with Queries \n (Each query must be in a single line. Lines with less than 30 characters will be ignored)  : ");
 				List<String> queries = readFile(reader.nextLine());
 
 				// List<String> queries = readFile(args[3]);
@@ -500,7 +500,7 @@ public class QueryTester {
 		// String ls = System.getProperty("line.separator");
 
 		while ((line = reader.readLine()) != null) {
-			if (line.length() < 10)
+			if (line.length() < 30)
 				continue;
 			result.add(line);
 		}
