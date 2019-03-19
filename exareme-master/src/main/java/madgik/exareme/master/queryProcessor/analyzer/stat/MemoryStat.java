@@ -38,7 +38,7 @@ public class MemoryStat {
 	public MemoryStat(Connection con, int properties) {
 		this.con = con;
 		sizes = new ArrayList<TableSize>();
-		properties = properties;
+		this.properties = properties;
 	}
 
 	// schema map
@@ -107,6 +107,51 @@ public class MemoryStat {
 
 			AttrInfo a = new AttrInfo(col, hist, 4);
 			attrIndex.put(col, a);
+			
+			
+			
+			mode0.next();
+			propno = mode0.getInt(1);
+			mode0.next();
+			inverse=mode0.getInt(1);
+			mode0.next();	
+			minVal = mode0.getDouble(1);
+			mode0.next();
+			maxVal = mode0.getDouble(1);
+			mode0.next();
+			diffVals = mode0.getInt(1);
+			mode0.next();
+			count = mode0.getInt(1);
+
+			if (count == 0) {
+				log.debug("Empty table");
+				continue;
+			}
+			Column col2=null;
+			if(inverse==0) {	
+				col2 = new Column(propno, true);
+			}
+			else {
+				col2 = new Column(propno, false);
+			}
+			
+
+			
+			 freq = count / diffVals;
+
+
+			NavigableMap<Double, Bucket> bucketIndex2 = new TreeMap<Double, Bucket>();
+			log.debug("building primitive histogram for column:" + col);
+
+			Bucket b2 = new Bucket((double) freq, (double) diffVals);
+
+			bucketIndex2.put(minVal, b2);
+			bucketIndex2.put(Math.nextAfter(maxVal, Double.MAX_VALUE), Bucket.FINAL_HISTOGRAM_BUCKET);
+			Histogram hist2 = new Histogram(bucketIndex2);
+			
+
+			AttrInfo a2 = new AttrInfo(col2, hist2, 4);
+			attrIndex.put(col2, a2);
 
 			
 
