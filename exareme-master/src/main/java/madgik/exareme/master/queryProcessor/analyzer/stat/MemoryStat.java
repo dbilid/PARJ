@@ -48,10 +48,13 @@ public class MemoryStat {
 		Map<Integer, RelInfo> relMap = new HashMap<Integer, RelInfo>();
 		Schema schema = new Schema("FULL_SCHEMA", relMap);
 		Statement st = con.createStatement();
-		ResultSet resultTables = st.executeQuery("select id, uri from properties");
+		st.execute("create virtual table stat2 using stat(" + properties + ")");
+		st.close();
+		Statement tbls = con.createStatement();
+		ResultSet resultTables = tbls.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
 		int typeProperty = -1;
-		st.execute("create virtual table stat2 using stat(" + properties + ")");
+		
 		while (resultTables.next()) {
 			if (resultTables.getString(2).equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
 				typeProperty = resultTables.getInt(1);
@@ -59,7 +62,7 @@ public class MemoryStat {
 			}
 		}
 		resultTables.close();
-		st.close();
+		tbls.close();
 		Statement st2 = con.createStatement();
 		ResultSet mode0 = st2.executeQuery("select result from stat2 where mode=0");
 		while (mode0.next()) {
@@ -190,7 +193,6 @@ public class MemoryStat {
 			if (ts.getTable() == typeProperty) {
 				// continue;
 			}
-			String inv1 = "inv";
 			if (ts.getTable() > -1) {
 				tblName = ts.getTable();
 			} else {
@@ -208,7 +210,6 @@ public class MemoryStat {
 				// if(ts.getTable()<0 && ts2.getTable()<0){
 				// continue;
 				// }
-				String inv2 = "inv";
 				if (ts2.getTable() > -1) {
 					tblName2 =  ts2.getTable();
 				} else {
@@ -219,7 +220,7 @@ public class MemoryStat {
 				}
 
 				ResultSet mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=0 and option2="+tblName+" and option3="+tblName2);
-				String querySS = "(select * from " + tblName + " a cross join " + tblName2
+				/*String querySS = "(select * from " + tblName + " a cross join " + tblName2
 						+ " b where a.s=b.s limit 300000000)";
 				String querySO = "(select * from " + tblName + " a cross join " + inv2 + tblName2
 						+ " b where a.s=b.o limit 300000000)";
@@ -227,7 +228,7 @@ public class MemoryStat {
 						+ " b where a.o=b.s limit 300000000)";
 				String queryOO = "(select * from " + inv1 + tblName + " a cross join " + inv2 + tblName2
 						+ " b where a.o=b.o limit 300000000)";
-
+				*/
 				int countSS = mode2.getInt(1);
 				int countSO = 0;
 				int countOS = 0;
