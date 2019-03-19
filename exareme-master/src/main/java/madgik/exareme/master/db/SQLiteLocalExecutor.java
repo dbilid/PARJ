@@ -149,7 +149,7 @@ public class SQLiteLocalExecutor implements Runnable {
 					System.out.println(sqlString);
 				}
 
-				if (!tupleConstruction)
+				if (!tupleConstruction && !print)
 					sqlString = "select count(*) from (" + sqlString + ")";
 				// sqlString="create table tt"+partition+" as "+sqlString;
 				// st.execute("BEGIN");
@@ -164,7 +164,7 @@ public class SQLiteLocalExecutor implements Runnable {
 				while (rs.next()) {
 					// counter++;
 
-					if (!tupleConstruction) {
+					if (!tupleConstruction && !print) {
 						counter += rs.getInt(1);
 						continue;
 					}
