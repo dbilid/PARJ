@@ -51,7 +51,7 @@ public class MemoryStat {
 		ResultSet resultTables = st.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
 		int typeProperty = -1;
-		st.executeQuery("create virtual table stat2 using stat(" + properties + ")");
+		st.execute("create virtual table stat2 using stat(" + properties + ")");
 		while (resultTables.next()) {
 			if (resultTables.getString(2).equals("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")) {
 				typeProperty = resultTables.getInt(1);
@@ -59,7 +59,9 @@ public class MemoryStat {
 			}
 		}
 		resultTables.close();
-		ResultSet mode0 = st.executeQuery("select result from stat2 where mode=0");
+		st.close();
+		Statement st2 = con.createStatement();
+		ResultSet mode0 = st2.executeQuery("select result from stat2 where mode=0");
 		while (mode0.next()) {
 			// if(resultTables.getInt(1)>-1) continue;
 			Map<Column, AttrInfo> attrIndex = new HashMap<Column, AttrInfo>();
@@ -118,13 +120,16 @@ public class MemoryStat {
 
 		}
 		mode0.close();
+		st2.close();
+		Statement st3 = con.createStatement();
 		if (typeProperty > -1) {
-			gatherTypeStats(typeProperty, st, relMap);
+			gatherTypeStats(typeProperty, st3, relMap);
 		}
+		st3.close();
 		// typeProperty=-1;
 		schema.setCards(computeJoins(typeProperty));
 
-		st.close();
+		
 		return schema;
 
 	}

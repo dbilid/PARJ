@@ -342,7 +342,7 @@ for (int i = 1; i < times.size(); i++) {
 	}
 
 	private static void analyzeDB(Connection c, String db) {
-		SPARQLAnalyzer a = new SPARQLAnalyzer(c);
+		SPARQLAnalyzer a = new SPARQLAnalyzer(c, 0);
 		try {
 
 			Schema stats = a.analyze();
