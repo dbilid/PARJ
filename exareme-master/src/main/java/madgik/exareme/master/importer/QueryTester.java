@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.concurrent.Future;
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -109,14 +110,30 @@ public class QueryTester {
 			String lubm6 = "SELECT ?x ?y WHERE { ?y ub:subOrganizationOf <http://www.University0.edu>.  ?y rdf:type ub:Department .  ?x ub:worksFor ?y . ?x rdf:type ub:FullProfessor . }";
 			single.setAutoCommit(false);
 			// single.setReadOnly(true);
-			NodeSelectivityEstimator nse = new NodeSelectivityEstimator(database + "histograms.json");
-			NodeHashValues hashes = new NodeHashValues();
-			hashes.setSelectivityEstimator(nse);
-			Connection mainCon = m.getConnection(database, 2);
-
-			mainCon.close();
 			IdFetcher fetcher = new IdFetcher(single);
 			fetcher.loadProperties();
+			NodeSelectivityEstimator nse = null;
+			try {
+				nse = new NodeSelectivityEstimator(database + "histograms.json");
+			} catch( FileNotFoundException fnt) {
+				System.out.println("Database statistics are missing. Analyzing database (this may take some time...)");
+				SPARQLAnalyzer a = new SPARQLAnalyzer(single, fetcher.getPropertyCount());
+				try {
+
+					Schema stats = a.analyze();
+					StatUtils.addSchemaToFile(database + "histograms.json", stats);
+					nse = new NodeSelectivityEstimator(database + "histograms.json");
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			NodeHashValues hashes = new NodeHashValues();
+			hashes.setSelectivityEstimator(nse);
+			//Connection mainCon = m.getConnection(database, 2);
+
+			//mainCon.close();
+			
 			try {
 				long typeProperty = fetcher.getIdForProperty("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
 				nse.setRdfTypeTable((int) typeProperty);

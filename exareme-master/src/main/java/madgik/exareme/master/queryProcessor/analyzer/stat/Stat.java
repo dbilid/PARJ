@@ -13,8 +13,6 @@ import madgik.exareme.master.queryProcessor.estimator.db.RelInfo;
 import madgik.exareme.master.queryProcessor.estimator.db.Schema;
 import madgik.exareme.master.queryProcessor.estimator.histogram.Bucket;
 import madgik.exareme.master.queryProcessor.estimator.histogram.Histogram;
-
-import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.log4j.Logger;
 
 import java.sql.*;
@@ -24,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.SortedMap;
 import java.util.TreeMap;
 
 /**
@@ -388,12 +385,4 @@ public class Stat {
 	}
 
 
-}
-
-
-class SizeComparator implements Comparator<TableSize> {
-    @Override
-    public int compare(TableSize a, TableSize b) {
-        return a.getSize().compareTo(b.getSize());
-    }
 }

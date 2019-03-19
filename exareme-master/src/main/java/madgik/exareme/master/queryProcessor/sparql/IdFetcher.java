@@ -60,5 +60,10 @@ public class IdFetcher {
 		st.close();
 		
 	}
+	
+	public int getPropertyCount() {
+		return cachedProperties.size();
+	
+	}
 
 }
