@@ -23,9 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /**
  * @author jim
@@ -187,25 +184,6 @@ public class MemoryStat {
 	}
 
 	private JoinCardinalities computeJoins(int typeProperty) throws SQLException {
-		final ExecutorService executor = Executors.newFixedThreadPool(32); 
-	    final List<Future<?>> futures = new ArrayList<>();
-	    for (SellerNames sellerNames : sellerDataList) {
-	        for (final String sellerName : sellerNames) {
-	            Future<?> future = executor.submit(() -> {
-	                getSellerAddress(sellerName);
-	            });
-	            futures.add(future);
-	        }
-	    }
-	    try {
-	        for (Future<?> future : futures) {
-	            future.get(); // do anything you need, e.g. isDone(), ...
-	        }
-	    } catch (InterruptedException | ExecutionException e) {
-	        e.printStackTrace();
-	    }
-		
-		
 		JoinCardinalities cards = new JoinCardinalities();
 		sizes.sort(new SizeComparator());
 		Statement stmt1 = con.createStatement();
