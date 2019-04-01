@@ -191,33 +191,23 @@ public class MemoryStat {
 			int tblName = 0;
 			TableSize ts = sizes.get(i);
 			if (ts.getTable() == typeProperty) {
-				// continue;
+				continue;
 			}
 			if (ts.getTable() > -1) {
 				tblName = ts.getTable();
-			} else {
-				continue;
-				// inv1="";
-				// tblName="(select * from invprop"+typeProperty+" where
-				// o="+(-ts.getTable())+")";
-			}
+			} 
 			for (int j = i + 1; j < sizes.size(); j++) {
 				int tblName2 = 0;
 				TableSize ts2 = sizes.get(j);
 				if (ts2.getTable() == typeProperty) {
-					// continue;
+					continue;
 				}
 				// if(ts.getTable()<0 && ts2.getTable()<0){
 				// continue;
 				// }
 				if (ts2.getTable() > -1) {
 					tblName2 =  ts2.getTable();
-				} else {
-					continue;
-					// inv2="";
-					// tblName2="(select * from invprop"+typeProperty+" where
-					// o="+(-ts2.getTable())+")";
-				}
+				} 
 
 				ResultSet mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=0 and option2="+tblName+" and option3="+tblName2);
 				/*String querySS = "(select * from " + tblName + " a cross join " + tblName2
@@ -234,7 +224,7 @@ public class MemoryStat {
 				int countOS = 0;
 				int countOO = 0;
 				mode2.close();
-				if (ts2.getTable() != typeProperty) {
+				if (ts2.getTable() > -1) {
 					mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=1 and option2="+tblName+" and option3="+tblName2);
 					countSO = mode2.getInt(1);
 					mode2.close();
@@ -243,7 +233,7 @@ public class MemoryStat {
 					mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=2 and option2="+tblName+" and option3="+tblName2);
 					countOS = mode2.getInt(1);
 					mode2.close();
-					if (ts2.getTable() != typeProperty) {
+					if (ts2.getTable() > -1) {
 						mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=3 and option2="+tblName+" and option3="+tblName2);
 						countOO = mode2.getInt(1);
 						mode2.close();
