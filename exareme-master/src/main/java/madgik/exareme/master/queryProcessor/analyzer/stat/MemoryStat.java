@@ -194,9 +194,8 @@ public class MemoryStat {
 			if (ts.getTable() == typeProperty) {
 				continue;
 			}
-			if (ts.getTable() > -1) {
-				tblName = ts.getTable();
-			} 
+			tblName = ts.getTable();
+			
 			for (int j = i + 1; j < sizes.size(); j++) {
 				int tblName2 = 0;
 				TableSize ts2 = sizes.get(j);
@@ -206,9 +205,8 @@ public class MemoryStat {
 				// if(ts.getTable()<0 && ts2.getTable()<0){
 				// continue;
 				// }
-				if (ts2.getTable() > -1) {
-					tblName2 =  ts2.getTable();
-				} 
+				tblName2 =  ts2.getTable();
+				
 
 				ResultSet mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=0 and option2="+tblName+" and option3="+tblName2);
 				/*String querySS = "(select * from " + tblName + " a cross join " + tblName2
@@ -238,7 +236,7 @@ public class MemoryStat {
 						mode2=stmt1.executeQuery("select result from stat2 where mode=2 and option1=3 and option2="+tblName+" and option3="+tblName2);
 						countOO = mode2.getInt(1);
 						mode2.close();
-						;
+						
 					}
 				}
 
