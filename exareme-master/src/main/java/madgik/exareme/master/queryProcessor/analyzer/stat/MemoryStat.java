@@ -47,9 +47,7 @@ public class MemoryStat {
 	public Schema extractSPARQLStats() throws Exception {
 		Map<Integer, RelInfo> relMap = new HashMap<Integer, RelInfo>();
 		Schema schema = new Schema("FULL_SCHEMA", relMap);
-		Statement st = con.createStatement();
-		st.execute("create virtual table stat2 using stat(" + properties + ")");
-		st.close();
+		
 		Statement tbls = con.createStatement();
 		ResultSet resultTables = tbls.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
@@ -61,6 +59,9 @@ public class MemoryStat {
 				break;
 			}
 		}
+		Statement st = con.createStatement();
+		st.execute("create virtual table stat2 using stat(" + properties + ", "+typeProperty+")");
+		st.close();
 		resultTables.close();
 		tbls.close();
 		Statement st2 = con.createStatement();
