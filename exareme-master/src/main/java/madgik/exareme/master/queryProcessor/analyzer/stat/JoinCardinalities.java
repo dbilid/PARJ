@@ -54,6 +54,11 @@ public class JoinCardinalities {
 		return cardinalities.get(tables);
 		
 	}
+
+	public void addAll(JoinCardinalities temp) {
+		cardinalities.putAll(temp.cardinalities);
+		
+	}
 	
 	
 	

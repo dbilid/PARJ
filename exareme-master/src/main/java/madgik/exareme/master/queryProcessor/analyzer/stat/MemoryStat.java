@@ -187,7 +187,7 @@ public class MemoryStat {
 			}
 			for (int i = 0; i < sizes.size(); i++) {
 				Future<Boolean> result = ecs.take();
-				if(!result.get()) {
+				if (!result.get()) {
 					System.err.println("Could not compute join cardinalities");
 				}
 			}
@@ -325,6 +325,7 @@ public class MemoryStat {
 			if (ts.getTable() == typeProperty) {
 				return true;
 			}
+			JoinCardinalities temp = new JoinCardinalities();
 			tblName = ts.getTable();
 			Statement stmt1;
 			try {
@@ -380,15 +381,17 @@ public class MemoryStat {
 						}
 					}
 
-					synchronized (this) {
-						if (ts.getTable() < ts2.getTable()) {
-							cards.add(ts.getTable(), ts2.getTable(), countSS, countSO, countOS, countOO);
-						} else {
-							cards.add(ts2.getTable(), ts.getTable(), countSS, countOS, countSO, countOO);
-						}
+					if (ts.getTable() < ts2.getTable()) {
+						temp.add(ts.getTable(), ts2.getTable(), countSS, countSO, countOS, countOO);
+					} else {
+						temp.add(ts2.getTable(), ts.getTable(), countSS, countOS, countSO, countOO);
 					}
+
 				}
 				stmt1.close();
+				synchronized (this) {
+					cards.addAll(temp);
+				}
 				return true;
 			} catch (SQLException e) {
 				System.err.println("Could not estimate cardinality");
