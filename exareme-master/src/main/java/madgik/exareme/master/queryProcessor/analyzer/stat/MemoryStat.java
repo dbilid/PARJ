@@ -25,7 +25,6 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -175,75 +174,54 @@ public class MemoryStat {
 	private JoinCardinalities computeJoins(int typeProperty) throws SQLException {
 		JoinCardinalities cards = new JoinCardinalities();
 		sizes.sort(new SizeComparator());
-		//Statement stmt1 = con.createStatement();
+		// Statement stmt1 = con.createStatement();
 		for (int i = 0; i < sizes.size(); i++) {
-			
-			
+
 			try {
-	        final ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
-	         exService.submit(new CardinalityEstimator(i, typeProperty, cards), "done");
-	        
-	        
+				final ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
+				exService.submit(new CardinalityEstimator(i, typeProperty, cards), "done");
+
 				exService.awaitTermination(3600, TimeUnit.SECONDS);
 				exService.shutdown();
 			} catch (InterruptedException e) {
+				System.err.println("Could not estimate cardinality");
 				e.printStackTrace();
 			}
-	        
-/*
-			int tblName = 0;
-			TableSize ts = sizes.get(i);
-			if (ts.getTable() == typeProperty) {
-				continue;
-			}
-			tblName = ts.getTable();
 
-			for (int j = i + 1; j < sizes.size(); j++) {
-				int tblName2 = 0;
-				TableSize ts2 = sizes.get(j);
-				if (ts2.getTable() == typeProperty) {
-					continue;
-				}
-				// if(ts.getTable()<0 && ts2.getTable()<0){
-				// continue;
-				// }
-				tblName2 = ts2.getTable();
-
-				ResultSet mode2 = stmt1.executeQuery("select result from stat2 where mode=2 and option1=0 and option2="
-						+ tblName + " and option3=" + tblName2);
-				
-				int countSS = mode2.getInt(1);
-				int countSO = 0;
-				int countOS = 0;
-				int countOO = 0;
-				mode2.close();
-				if (ts2.getTable() > -1) {
-					mode2 = stmt1.executeQuery("select result from stat2 where mode=2 and option1=1 and option2="
-							+ tblName + " and option3=" + tblName2);
-					countSO = mode2.getInt(1);
-					mode2.close();
-				}
-				if (ts.getTable() != typeProperty) {
-					mode2 = stmt1.executeQuery("select result from stat2 where mode=2 and option1=2 and option2="
-							+ tblName + " and option3=" + tblName2);
-					countOS = mode2.getInt(1);
-					mode2.close();
-					if (ts2.getTable() > -1) {
-						mode2 = stmt1.executeQuery("select result from stat2 where mode=2 and option1=3 and option2="
-								+ tblName + " and option3=" + tblName2);
-						countOO = mode2.getInt(1);
-						mode2.close();
-
-					}
-				}
-
-				if (ts.getTable() < ts2.getTable()) {
-					cards.add(ts.getTable(), ts2.getTable(), countSS, countSO, countOS, countOO);
-				} else {
-					cards.add(ts2.getTable(), ts.getTable(), countSS, countOS, countSO, countOO);
-				}
-
-			}*/
+			/*
+			 * int tblName = 0; TableSize ts = sizes.get(i); if (ts.getTable() ==
+			 * typeProperty) { continue; } tblName = ts.getTable();
+			 * 
+			 * for (int j = i + 1; j < sizes.size(); j++) { int tblName2 = 0; TableSize ts2
+			 * = sizes.get(j); if (ts2.getTable() == typeProperty) { continue; } //
+			 * if(ts.getTable()<0 && ts2.getTable()<0){ // continue; // } tblName2 =
+			 * ts2.getTable();
+			 * 
+			 * ResultSet mode2 = stmt1.
+			 * executeQuery("select result from stat2 where mode=2 and option1=0 and option2="
+			 * + tblName + " and option3=" + tblName2);
+			 * 
+			 * int countSS = mode2.getInt(1); int countSO = 0; int countOS = 0; int countOO
+			 * = 0; mode2.close(); if (ts2.getTable() > -1) { mode2 = stmt1.
+			 * executeQuery("select result from stat2 where mode=2 and option1=1 and option2="
+			 * + tblName + " and option3=" + tblName2); countSO = mode2.getInt(1);
+			 * mode2.close(); } if (ts.getTable() != typeProperty) { mode2 = stmt1.
+			 * executeQuery("select result from stat2 where mode=2 and option1=2 and option2="
+			 * + tblName + " and option3=" + tblName2); countOS = mode2.getInt(1);
+			 * mode2.close(); if (ts2.getTable() > -1) { mode2 = stmt1.
+			 * executeQuery("select result from stat2 where mode=2 and option1=3 and option2="
+			 * + tblName + " and option3=" + tblName2); countOO = mode2.getInt(1);
+			 * mode2.close();
+			 * 
+			 * } }
+			 * 
+			 * if (ts.getTable() < ts2.getTable()) { cards.add(ts.getTable(),
+			 * ts2.getTable(), countSS, countSO, countOS, countOO); } else {
+			 * cards.add(ts2.getTable(), ts.getTable(), countSS, countOS, countSO, countOO);
+			 * }
+			 * 
+			 * }
+			 */
 		}
 		return cards;
 	}
@@ -392,7 +370,7 @@ public class MemoryStat {
 
 						}
 					}
-					stmt1.close();
+
 					synchronized (this) {
 						if (ts.getTable() < ts2.getTable()) {
 							cards.add(ts.getTable(), ts2.getTable(), countSS, countSO, countOS, countOO);
@@ -401,8 +379,9 @@ public class MemoryStat {
 						}
 					}
 				}
+				stmt1.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
+				System.err.println("Could not estimate cardinality");
 				e.printStackTrace();
 			}
 
