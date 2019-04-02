@@ -14,9 +14,6 @@ import madgik.exareme.master.queryProcessor.estimator.db.Schema;
 import madgik.exareme.master.queryProcessor.estimator.histogram.Bucket;
 import madgik.exareme.master.queryProcessor.estimator.histogram.Histogram;
 import org.apache.log4j.Logger;
-
-import static org.junit.Assert.assertTrue;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -190,7 +187,9 @@ public class MemoryStat {
 			}
 			for (int i = 0; i < sizes.size(); i++) {
 				Future<Boolean> result = ecs.take();
-				assertTrue(result.get());
+				if(!result.get()) {
+					System.err.println("Could not compute join cardinalities");
+				}
 			}
 
 		} finally {
