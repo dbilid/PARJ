@@ -180,9 +180,9 @@ public class MemoryStat {
 			try {
 				final ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
 				exService.submit(new CardinalityEstimator(i, typeProperty, cards), "done");
-
-				exService.awaitTermination(3600, TimeUnit.SECONDS);
 				exService.shutdown();
+				exService.awaitTermination(3600, TimeUnit.SECONDS);
+				
 			} catch (InterruptedException e) {
 				System.err.println("Could not estimate cardinality");
 				e.printStackTrace();
