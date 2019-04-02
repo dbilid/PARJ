@@ -184,18 +184,13 @@ public class MemoryStat {
 		sizes.sort(new SizeComparator());
 		// Statement stmt1 = con.createStatement();
 		ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
-		List<Connection> statCons=new ArrayList<Connection>(DecomposerUtils.CARDINALITY_THREADS);
 		try {
 
 			ExecutorCompletionService<Boolean> ecs = new ExecutorCompletionService<Boolean>(exService);
 			
 			for (int i = 0; i < sizes.size(); i++) {
-				Connection con=cons.getConnection(db, threads);
-				statCons.add(con);
-				Statement st = con.createStatement();
-				st.execute("create virtual table stat2 using stat(" + properties + ", " + typeProperty + ")");
-				st.close();
-				ecs.submit(new CardinalityEstimator(i, typeProperty, cards, con));
+				
+				ecs.submit(new CardinalityEstimator(i, typeProperty, cards));
 
 			}
 			for (int i = 0; i < sizes.size(); i++) {
@@ -210,9 +205,7 @@ public class MemoryStat {
 			exService.awaitTermination(3600, TimeUnit.SECONDS);
 		}
 		
-		for (int i = 0; i < sizes.size(); i++) {
-			statCons.get(i).close();
-		}
+		
 
 		/*
 		 * int tblName = 0; TableSize ts = sizes.get(i); if (ts.getTable() ==
@@ -328,13 +321,12 @@ public class MemoryStat {
 		int propIndex;
 		int typeProperty;
 		JoinCardinalities cards;
-		Connection con;
+		DBManager cons;
 
-		private CardinalityEstimator(int prop, int type, JoinCardinalities cardinalities, Connection conn) {
+		private CardinalityEstimator(int prop, int type, JoinCardinalities cardinalities) {
 			this.propIndex = prop;
 			this.typeProperty = type;
 			this.cards = cardinalities;
-			this.con=conn;
 		}
 
 		@Override
@@ -347,7 +339,12 @@ public class MemoryStat {
 			JoinCardinalities temp = new JoinCardinalities();
 			tblName = ts.getTable();
 			Statement stmt1;
+			Connection con;
 			try {
+				con=cons.getConnection(db, threads);
+				Statement st = con.createStatement();
+				st.execute("create virtual table if not exists stat2 using stat(" + properties + ", " + typeProperty + ")");
+				st.close();
 				stmt1 = con.createStatement();
 
 				for (int j = propIndex + 1; j < sizes.size(); j++) {
@@ -408,6 +405,7 @@ public class MemoryStat {
 
 				}
 				stmt1.close();
+				con.close();
 				synchronized (cards) {
 					cards.addAll(temp);
 				}
