@@ -384,5 +384,10 @@ public class Stat {
 
 	}
 
-
+	private class SizeComparator implements Comparator<TableSize> {
+		@Override
+		public int compare(TableSize a, TableSize b) {
+			return a.getSize().compareTo(b.getSize());
+		}
+	}
 }
