@@ -6,6 +6,7 @@
 
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
+import madgik.exareme.master.db.DBManager;
 import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.estimator.db.AttrInfo;
@@ -36,14 +37,18 @@ public class MemoryStat {
 
 	private static final Logger log = Logger.getLogger(MemoryStat.class);
 
-	private final Connection con;
+	private final DBManager cons;
 	private List<TableSize> sizes;
 	private int properties;
+	private String db;
+	private int threads;
 
-	public MemoryStat(Connection con, int properties) {
-		this.con = con;
+	public MemoryStat(DBManager cons, String database, int thrds, int properties) {
+		this.cons = cons;
 		sizes = new ArrayList<TableSize>();
 		this.properties = properties;
+		this.db=database;
+		this.threads=thrds;
 	}
 
 	// schema map
@@ -52,7 +57,7 @@ public class MemoryStat {
 	public Schema extractSPARQLStats() throws Exception {
 		Map<Integer, RelInfo> relMap = new HashMap<Integer, RelInfo>();
 		Schema schema = new Schema("FULL_SCHEMA", relMap);
-
+		Connection con=cons.getConnection(db, threads);
 		Statement tbls = con.createStatement();
 		ResultSet resultTables = tbls.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
@@ -166,6 +171,7 @@ public class MemoryStat {
 			gatherTypeStats(typeProperty, st3, relMap);
 		}
 		st3.close();
+		con.close();
 		// typeProperty=-1;
 		schema.setCards(computeJoins(typeProperty));
 
@@ -178,11 +184,18 @@ public class MemoryStat {
 		sizes.sort(new SizeComparator());
 		// Statement stmt1 = con.createStatement();
 		ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
+		List<Connection> statCons=new ArrayList<Connection>(DecomposerUtils.CARDINALITY_THREADS);
 		try {
 
 			ExecutorCompletionService<Boolean> ecs = new ExecutorCompletionService<Boolean>(exService);
+			
 			for (int i = 0; i < sizes.size(); i++) {
-				ecs.submit(new CardinalityEstimator(i, typeProperty, cards));
+				Connection con=cons.getConnection(db, threads);
+				statCons.add(con);
+				Statement st = con.createStatement();
+				st.execute("create virtual table stat2 using stat(" + properties + ", " + typeProperty + ")");
+				st.close();
+				ecs.submit(new CardinalityEstimator(i, typeProperty, cards, con));
 
 			}
 			for (int i = 0; i < sizes.size(); i++) {
@@ -195,6 +208,10 @@ public class MemoryStat {
 		} finally {
 			exService.shutdown();
 			exService.awaitTermination(3600, TimeUnit.SECONDS);
+		}
+		
+		for (int i = 0; i < sizes.size(); i++) {
+			statCons.get(i).close();
 		}
 
 		/*
@@ -311,11 +328,13 @@ public class MemoryStat {
 		int propIndex;
 		int typeProperty;
 		JoinCardinalities cards;
+		Connection con;
 
-		private CardinalityEstimator(int prop, int type, JoinCardinalities cardinalities) {
+		private CardinalityEstimator(int prop, int type, JoinCardinalities cardinalities, Connection conn) {
 			this.propIndex = prop;
 			this.typeProperty = type;
 			this.cards = cardinalities;
+			this.con=conn;
 		}
 
 		@Override
@@ -389,7 +408,7 @@ public class MemoryStat {
 
 				}
 				stmt1.close();
-				synchronized (this) {
+				synchronized (cards) {
 					cards.addAll(temp);
 				}
 				return true;

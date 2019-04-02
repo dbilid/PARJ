@@ -92,7 +92,12 @@ public class QueryTester {
 
 		System.out.println("data loaded" + (System.currentTimeMillis() - start) + " ms");
 		createVirtualTables(single, threads, loadDictionary);
-		warmUpDBManager(threads, database, m, loadDictionary);
+		int statThreads=DecomposerUtils.CARDINALITY_THREADS;
+		int warmUpThreads=threads;
+		if(statThreads>warmUpThreads) {
+			warmUpThreads=statThreads;
+		}
+		warmUpDBManager(statThreads, database, m, loadDictionary);
 
 		try {
 			String prefixes = "PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
@@ -117,7 +122,7 @@ public class QueryTester {
 				nse = new NodeSelectivityEstimator(database + "histograms.json");
 			} catch( FileNotFoundException fnt) {
 				System.out.println("Database statistics are missing. Analyzing database (this may take some time...)");
-				SPARQLAnalyzer a = new SPARQLAnalyzer(single, fetcher.getPropertyCount());
+				SPARQLAnalyzer a = new SPARQLAnalyzer(m, database, threads, fetcher.getPropertyCount());
 				try {
 
 					Schema stats = a.analyze();
