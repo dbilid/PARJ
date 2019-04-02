@@ -321,7 +321,6 @@ public class MemoryStat {
 		int propIndex;
 		int typeProperty;
 		JoinCardinalities cards;
-		DBManager cons;
 
 		private CardinalityEstimator(int prop, int type, JoinCardinalities cardinalities) {
 			this.propIndex = prop;
