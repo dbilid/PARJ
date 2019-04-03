@@ -27,12 +27,6 @@
         </dependency>
         <dependency>
             <groupId>madgik</groupId>
-            <artifactId>exareme-jdbc</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>madgik</groupId>
             <artifactId>exareme-master</artifactId>
             <version>${project.parent.version}</version>
         </dependency>

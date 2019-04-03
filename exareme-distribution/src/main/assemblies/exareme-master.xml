@@ -12,9 +12,7 @@
         <moduleSet>
             <useAllReactorProjects>true</useAllReactorProjects>
             <includes>
-                <include>madgik:exareme-common</include>
                 <include>madgik:exareme-utils</include>
-                <include>madgik:exareme-worker</include>
                 <include>madgik:exareme-master</include>
             </includes>
             <binaries>

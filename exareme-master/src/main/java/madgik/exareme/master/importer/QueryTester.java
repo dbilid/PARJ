@@ -72,8 +72,12 @@ public class QueryTester {
 		DBManager m = new DBManager();
 
 		long start = System.currentTimeMillis();
-
-		Connection single = m.getConnection(database, threads);
+		int statThreads=DecomposerUtils.CARDINALITY_THREADS;
+                int warmUpThreads=threads;
+                if(statThreads>warmUpThreads) {
+                        warmUpThreads=statThreads;
+                }
+		Connection single = m.getConnection(database, warmUpThreads);
 		// single.setTransactionIsolation(single.TRANSACTION_READ_UNCOMMITTED);
 
 		System.out.println("Loading data in memory. Please wait...");
@@ -92,12 +96,12 @@ public class QueryTester {
 
 		System.out.println("data loaded" + (System.currentTimeMillis() - start) + " ms");
 		createVirtualTables(single, threads, loadDictionary);
-		int statThreads=DecomposerUtils.CARDINALITY_THREADS;
-		int warmUpThreads=threads;
-		if(statThreads>warmUpThreads) {
-			warmUpThreads=statThreads;
-		}
-		warmUpDBManager(statThreads, database, m, loadDictionary);
+		//int statThreads=DecomposerUtils.CARDINALITY_THREADS;
+		//int warmUpThreads=threads;
+		//if(statThreads>warmUpThreads) {
+		//	warmUpThreads=statThreads;
+		//}
+		warmUpDBManager(threads, warmUpThreads, database, m, loadDictionary);
 
 		try {
 			String prefixes = "PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX ub:<http://swat.cse.lehigh.edu/onto/univ-bench.owl#> ";
@@ -229,7 +233,7 @@ public class QueryTester {
 							Connection[] cons = new Connection[threads];
 							for (int i = 0; i < threads; i++) {
 								// String sql=result.getSqlForPartition(i);
-								cons[i] = m.getConnection(database, threads);
+								cons[i] = m.getConnection(database, warmUpThreads);
 
 								// createVirtualTables(cons[i], partitions);
 								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
@@ -377,7 +381,7 @@ public class QueryTester {
 						Collection<Future<?>> futures = new LinkedList<Future<?>>();
 						for (int i = 0; i < threads; i++) {
 							// String sql=result.getSqlForPartition(i);
-							cons[i] = m.getConnection(database, threads);
+							cons[i] = m.getConnection(database, warmUpThreads);
 
 							// createVirtualTables(cons[i], partitions);
 							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
@@ -478,15 +482,17 @@ public class QueryTester {
 		// System.out.println("VTs created");
 	}
 
-	private static void warmUpDBManager(int partitions, String database, DBManager m, boolean loadDictionary) throws SQLException {
+	private static void warmUpDBManager(int threads, int partitions, String database, DBManager m, boolean loadDictionary) throws SQLException {
 		System.out.println("warming up DB manager...");
 		long start = System.currentTimeMillis();
 		List<Connection> cons = new ArrayList<Connection>(partitions + 2);
 		for (int i = 0; i < partitions + 2; i++) {
 			Connection next = m.getConnection(database, partitions);
-			createVirtualTables(next, partitions, loadDictionary);
+			createVirtualTables(next, threads, loadDictionary);
 			cons.add(next);
+
 		}
+		
 		for (int i = 0; i < cons.size(); i++) {
 			cons.get(i).close();
 		}
