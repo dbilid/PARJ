@@ -42,13 +42,14 @@ public class MemoryStat {
 	private int properties;
 	private String db;
 	private int threads;
+	boolean skipTypeCardinality;
 
 	public MemoryStat(DBManager cons, String database, int thrds, int properties) {
 		this.cons = cons;
 		sizes = new ArrayList<TableSize>();
 		this.properties = properties;
-		this.db=database;
-		this.threads=thrds;
+		this.db = database;
+		this.threads = thrds;
 	}
 
 	// schema map
@@ -57,7 +58,7 @@ public class MemoryStat {
 	public Schema extractSPARQLStats() throws Exception {
 		Map<Integer, RelInfo> relMap = new HashMap<Integer, RelInfo>();
 		Schema schema = new Schema("FULL_SCHEMA", relMap);
-		Connection con=cons.getConnection(db, threads);
+		Connection con = cons.getConnection(db, threads);
 		Statement tbls = con.createStatement();
 		ResultSet resultTables = tbls.executeQuery("select id, uri from properties");
 		log.debug("Starting extracting stats");
@@ -144,7 +145,7 @@ public class MemoryStat {
 			freq = count / diffVals;
 
 			NavigableMap<Double, Bucket> bucketIndex2 = new TreeMap<Double, Bucket>();
-			log.debug("building primitive histogram for column:" + col);
+			log.debug("building primitive histogram for column:" + col2);
 
 			Bucket b2 = new Bucket((double) freq, (double) diffVals);
 
@@ -182,14 +183,15 @@ public class MemoryStat {
 	private JoinCardinalities computeJoins(int typeProperty) throws Exception {
 		JoinCardinalities cards = new JoinCardinalities();
 		sizes.sort(new SizeComparator());
+		long start = System.currentTimeMillis();
 		// Statement stmt1 = con.createStatement();
 		ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
 		try {
 
 			ExecutorCompletionService<Boolean> ecs = new ExecutorCompletionService<Boolean>(exService);
-			
+
 			for (int i = 0; i < sizes.size(); i++) {
-				
+
 				ecs.submit(new CardinalityEstimator(i, typeProperty, cards));
 
 			}
@@ -204,8 +206,6 @@ public class MemoryStat {
 			exService.shutdown();
 			exService.awaitTermination(3600, TimeUnit.SECONDS);
 		}
-		
-		
 
 		/*
 		 * int tblName = 0; TableSize ts = sizes.get(i); if (ts.getTable() ==
@@ -253,8 +253,10 @@ public class MemoryStat {
 			ResultSet mode1 = st.executeQuery("select result from stat2 where mode=1 and option1=" + typePropNo);
 			// ResultSet types = st.executeQuery("select distinct o from invprop" +
 			// typePropNo);
+			int types = 0;
 
 			while (mode1.next()) {
+				types++;
 				Map<Column, AttrInfo> attrIndex = new HashMap<Column, AttrInfo>();
 				int no = mode1.getInt(1);
 				mode1.next();
@@ -303,6 +305,9 @@ public class MemoryStat {
 
 			}
 			mode1.close();
+			if (types > DecomposerUtils.SKIP_TYPE_LIMIT) {
+				this.skipTypeCardinality = true;
+			}
 		} catch (Exception ex) {
 			log.error("could not analyze type table:" + ex.getMessage());
 		}
@@ -335,14 +340,18 @@ public class MemoryStat {
 			if (ts.getTable() == typeProperty) {
 				return true;
 			}
+			if (ts.getTable() < 0 && skipTypeCardinality) {
+				return true;
+			}
 			JoinCardinalities temp = new JoinCardinalities();
 			tblName = ts.getTable();
 			Statement stmt1;
 			Connection con;
 			try {
-				con=cons.getConnection(db, threads);
+				con = cons.getConnection(db, threads);
 				Statement st = con.createStatement();
-				st.execute("create virtual table if not exists stat2 using stat(" + properties + ", " + typeProperty + ")");
+				st.execute("create virtual table if not exists stat2 using stat(" + properties + ", " + typeProperty
+						+ ")");
 				st.close();
 				stmt1 = con.createStatement();
 
@@ -352,9 +361,9 @@ public class MemoryStat {
 					if (ts2.getTable() == typeProperty) {
 						continue;
 					}
-					// if(ts.getTable()<0 && ts2.getTable()<0){
-					// continue;
-					// }
+					if (ts2.getTable() < 0 && skipTypeCardinality) {
+						continue;
+					}
 					tblName2 = ts2.getTable();
 
 					ResultSet mode2 = stmt1

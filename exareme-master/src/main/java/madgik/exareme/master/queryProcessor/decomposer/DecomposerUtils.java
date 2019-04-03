@@ -28,6 +28,7 @@ public class DecomposerUtils {
 	public static final boolean USE_RESULT_AGGREGATOR;
 	public static final int SPLIT_BUCKET_THRESHOLD;
 	public static final int CARDINALITY_THREADS;
+	public static final int SKIP_TYPE_LIMIT;
 
 	static {
 		GenericProperties properties = AdpProperties.getDecomposerProperties();
@@ -50,6 +51,7 @@ public class DecomposerUtils {
 		USE_RESULT_AGGREGATOR = properties.getBoolean("use.result.aggregator");
 		SPLIT_BUCKET_THRESHOLD = properties.getInt("split.bucket.threshold");
 		CARDINALITY_THREADS = properties.getInt("cardinality.threads");
+		SKIP_TYPE_LIMIT = properties.getInt("skip.type.limit");
 		log.trace("Decomposer Properties Loaded.");
 	}
 
