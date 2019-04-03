@@ -47,22 +47,7 @@
             <artifactId>sqlite-jdbc</artifactId>
             <type>jar</type>
         </dependency>
-        <dependency>
-        	<groupId>org.postgresql</groupId>
-        	<artifactId>postgresql</artifactId>
-        	<version>9.4-1200-jdbc41</version>
-        </dependency>
-        <!-- http -->
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore-nio</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpasyncclient</artifactId>
-        </dependency>
-
-       
+              
 
         <!-- internal deps-->
         <dependency>
@@ -75,11 +60,6 @@
             <artifactId>exareme-jdbc</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>jar</type>
-        </dependency>
-        <dependency>
-            <groupId>com.foundationdb</groupId>
-            <artifactId>fdb-sql-parser</artifactId>
-            <version>1.6.1</version>
         </dependency>
 
         <dependency>

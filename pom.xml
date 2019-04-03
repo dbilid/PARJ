@@ -88,36 +88,11 @@
                 <version>3.25.2</version>
                 <type>jar</type>
             </dependency>
-            <!-- Http deps -->
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore-nio</artifactId>
-                <version>4.4.1</version>
-                <type>jar</type>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpasyncclient</artifactId>
-                <version>4.0.2</version>
-                <type>jar</type>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore</artifactId>
-                <version>4.4</version>
-                <type>jar</type>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.4</version>
-                <type>jar</type>
-            </dependency>
+           
 
         </dependencies>
     </dependencyManagement>
     <modules>
-        <module>exareme-jdbc</module>
         <module>exareme-utils</module>
         <module>exareme-master</module>
         <module>exareme-distribution</module>

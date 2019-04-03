@@ -4,8 +4,7 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.query;
 
-import com.foundationdb.sql.StandardException;
-import com.foundationdb.sql.parser.*;
+
 
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 
@@ -81,17 +80,6 @@ public class QueryUtils {
 
 	}
 
-	public static final Set arithmeticConstantNodes() {
-		Set res = new HashSet();
-		res.add(NodeTypes.DECIMAL_CONSTANT_NODE);
-		res.add(NodeTypes.DOUBLE_CONSTANT_NODE);
-		res.add(NodeTypes.FLOAT_CONSTANT_NODE);
-		res.add(NodeTypes.INT_CONSTANT_NODE);
-		res.add(NodeTypes.LONGINT_CONSTANT_NODE);
-		res.add(NodeTypes.SMALLINT_CONSTANT_NODE);
-		res.add(NodeTypes.TINYINT_CONSTANT_NODE);
-		return res;
-	}
 
 	public static Column getJoinColumnFromOperand(Node op, Operand o, int i) {
 		if (o instanceof BinaryOperand) {
