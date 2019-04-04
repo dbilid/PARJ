@@ -105,14 +105,14 @@ public class DagCreator {
 					}
 				}
 
-				if (i == 1 && filters.get(tableOrder[0]) == 1) {
+				if (i == 1 && filters.get(tableOrder[0]) == 0) {
 					// first table does not have filter,
 					// choose if it will be inverse depending on join with 2nd table
 					if (joins != null) {
 						for (NonUnaryWhereCondition join : joins) {
 							for (Column c : join.getAllColumnRefs()) {
 								if (c.getAlias() == tables.get(tableOrder[0]).getAlias() && !c.getColumnName()) {
-									tables.get(tableOrder[i]).setInverse(true);
+									tables.get(tableOrder[0]).setInverse(true);
 									break;
 								}
 							}

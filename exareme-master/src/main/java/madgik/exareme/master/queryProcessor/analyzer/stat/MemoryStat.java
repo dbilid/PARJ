@@ -355,7 +355,7 @@ public class MemoryStat {
 				st.close();
 				stmt1 = con.createStatement();
 
-				for (int j = propIndex + 1; j < sizes.size(); j++) {
+				for (int j = propIndex ; j < sizes.size(); j++) {
 					int tblName2 = 0;
 					TableSize ts2 = sizes.get(j);
 					if (ts2.getTable() == typeProperty) {
