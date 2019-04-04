@@ -23,14 +23,14 @@ import java.util.Properties;
  */
 public class AdpProperties {
     private static final Logger log = Logger.getLogger(AdpProperties.class);
-    private static final GenericProperties decomposerProperties;
+    private static final GenericProperties parjProperties;
     private static String NEW_LINE = System.getProperty("line.separator");
 
     static {
 
         try {
             
-            decomposerProperties = PropertiesFactory.loadMutableProperties("decomposer");
+            parjProperties = PropertiesFactory.loadMutableProperties("parj");
             // load
             Properties properties = System.getProperties();
             for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
@@ -52,6 +52,6 @@ public class AdpProperties {
     }
 
     public static GenericProperties getDecomposerProperties() {
-        return decomposerProperties;
+        return parjProperties;
     }
 }
