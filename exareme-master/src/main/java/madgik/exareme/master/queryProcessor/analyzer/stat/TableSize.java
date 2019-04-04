@@ -1,6 +1,6 @@
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
-public class TableSize {
+public class TableSize implements Comparable<TableSize>{
 	
 	double size;
 	int table;
@@ -20,6 +20,10 @@ public class TableSize {
 	}
 	public void setTable(int table) {
 		this.table = table;
+	}
+	@Override
+	public int compareTo(TableSize o) {
+		return Double.compare(size, o.size);
 	}
 	
 	

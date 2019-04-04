@@ -17,7 +17,7 @@ import madgik.exareme.master.queryProcessor.estimator.histogram.Histogram;
 import org.apache.log4j.Logger;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -182,8 +182,8 @@ public class MemoryStat {
 
 	private JoinCardinalities computeJoins(int typeProperty) throws Exception {
 		JoinCardinalities cards = new JoinCardinalities();
-		sizes.sort(new SizeComparator());
-		long start = System.currentTimeMillis();
+		Collections.sort(sizes);//.sort(new SizeComparator());
+		//long start = System.currentTimeMillis();
 		// Statement stmt1 = con.createStatement();
 		ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
 		try {
@@ -313,13 +313,13 @@ public class MemoryStat {
 		}
 
 	}
-
-	private class SizeComparator implements Comparator<TableSize> {
-		@Override
-		public int compare(TableSize a, TableSize b) {
-			return a.getSize().compareTo(b.getSize());
-		}
-	}
+//
+//	private class SizeComparator implements Comparator<TableSize> {
+//		@Override
+//		public int compare(TableSize a, TableSize b) {
+//			return a.getSize().compareTo(b.getSize());
+//		}
+//	}
 
 	private class CardinalityEstimator implements Callable<Boolean> {
 
