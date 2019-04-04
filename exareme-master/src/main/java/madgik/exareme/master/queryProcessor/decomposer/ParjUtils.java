@@ -10,13 +10,13 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Map;
 
-public class DecomposerUtils {
+public class ParjUtils {
 
 
 	public static final String DECOMPOSER_LOG_LEVEL;
 	public static final String ANALYZER_LOG_LEVEL;
 
-	private static final Logger log = Logger.getLogger(DecomposerUtils.class);
+	private static final Logger log = Logger.getLogger(ParjUtils.class);
 	
 
 	public static final boolean REMOVE_OUTPUTS;
@@ -24,7 +24,6 @@ public class DecomposerUtils {
 	public static final boolean USE_ROWID;
 	public static final boolean USE_CROSS_JOIN;
 	public static final String WRAPPER_VIRTUAL_TABLE;
-	public static final boolean PRINT_RESULTS;
 	public static final boolean USE_RESULT_AGGREGATOR;
 	public static final int SPLIT_BUCKET_THRESHOLD;
 	public static final int CARDINALITY_THREADS;
@@ -47,7 +46,6 @@ public class DecomposerUtils {
 		USE_ROWID = properties.getBoolean("use.rowid");
 		USE_CROSS_JOIN = properties.getBoolean("use.cross.join");		
 		WRAPPER_VIRTUAL_TABLE = properties.getString("wrapper.virtual.table");
-		PRINT_RESULTS = properties.getBoolean("print.results");
 		USE_RESULT_AGGREGATOR = properties.getBoolean("use.result.aggregator");
 		SPLIT_BUCKET_THRESHOLD = properties.getInt("split.bucket.threshold");
 		CARDINALITY_THREADS = properties.getInt("cardinality.threads");

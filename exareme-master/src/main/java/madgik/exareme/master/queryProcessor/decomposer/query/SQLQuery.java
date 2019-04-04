@@ -3,7 +3,7 @@
  */
 package madgik.exareme.master.queryProcessor.decomposer.query;
 
-import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.ParjUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.dag.ResultList;
 import madgik.exareme.master.queryProcessor.decomposer.util.Util;
@@ -240,7 +240,7 @@ public class SQLQuery {
 			} // else {
 
 			String joinKeyword = " JOIN \n";
-			if (DecomposerUtils.USE_CROSS_JOIN) {
+			if (ParjUtils.USE_CROSS_JOIN) {
 				joinKeyword = " CROSS JOIN \n";
 
 				for (Table t : getInputTables()) {

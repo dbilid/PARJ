@@ -9,7 +9,7 @@ import java.util.Set;
 
 import org.apache.commons.dbcp2.BasicDataSource;
 
-import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.ParjUtils;
 
 public class DBManager {
 
@@ -65,7 +65,7 @@ public class DBManager {
 		if(!filepath.equals("memory/rdf.db")){
 			init.add("attach database '"+filepath+"' as m");
 		}
-		init.add("select load_extension('" + DecomposerUtils.WRAPPER_VIRTUAL_TABLE + "')");
+		init.add("select load_extension('" + ParjUtils.WRAPPER_VIRTUAL_TABLE + "')");
 		ds.setConnectionInitSqls(init);
 
 		return ds;

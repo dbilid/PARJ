@@ -7,7 +7,7 @@
 package madgik.exareme.master.queryProcessor.analyzer.stat;
 
 import madgik.exareme.master.db.DBManager;
-import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.ParjUtils;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.estimator.db.AttrInfo;
 import madgik.exareme.master.queryProcessor.estimator.db.RelInfo;
@@ -185,7 +185,7 @@ public class MemoryStat {
 		Collections.sort(sizes);//.sort(new SizeComparator());
 		//long start = System.currentTimeMillis();
 		// Statement stmt1 = con.createStatement();
-		ExecutorService exService = Executors.newFixedThreadPool(DecomposerUtils.CARDINALITY_THREADS);
+		ExecutorService exService = Executors.newFixedThreadPool(ParjUtils.CARDINALITY_THREADS);
 		try {
 
 			ExecutorCompletionService<Boolean> ecs = new ExecutorCompletionService<Boolean>(exService);
@@ -305,7 +305,7 @@ public class MemoryStat {
 
 			}
 			mode1.close();
-			if (types > DecomposerUtils.SKIP_TYPE_LIMIT) {
+			if (types > ParjUtils.SKIP_TYPE_LIMIT) {
 				this.skipTypeCardinality = true;
 			}
 		} catch (Exception ex) {

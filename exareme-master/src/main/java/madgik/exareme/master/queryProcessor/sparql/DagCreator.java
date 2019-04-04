@@ -37,10 +37,10 @@ public class DagCreator {
 	JoinClassMap classes;
 	SQLQuery query;
 	private List<Integer> filters;
-	//list to track filter on base tables, 0 no filter, 1 filter on first, 2 filter on second
+	// list to track filter on base tables, 0 no filter, 1 filter on first, 2 filter
+	// on second
 
-	public DagCreator(ParsedQuery q, int partitions, NodeHashValues hashes,
-			IdFetcher fetcher) {
+	public DagCreator(ParsedQuery q, int partitions, NodeHashValues hashes, IdFetcher fetcher) {
 		super();
 		this.pq = q;
 		this.hashes = hashes;
@@ -62,8 +62,7 @@ public class DagCreator {
 			EquivalentColumnClasses eqClasses = new EquivalentColumnClasses();
 			for (JoinClass jc : classes.getClasses()) {
 				if (jc.getColumns().size() > 1) {
-					EquivalentColumnClass eqClass = new EquivalentColumnClass(
-							jc.getColumns());
+					EquivalentColumnClass eqClass = new EquivalentColumnClass(jc.getColumns());
 					eqClasses.add(eqClass);
 				}
 			}
@@ -75,38 +74,53 @@ public class DagCreator {
 			for (int i = 0; i < tableOrder.length; i++) {
 				query.addInputTable(tables.get(tableOrder[i]));
 				eqClasses.renew();
-				boolean hasJoinOnlyInSecond=true;
+				Set<NonUnaryWhereCondition> joins = null;
+				boolean hasJoinOnlyInSecond = true;
 				for (int j = 0; j < inserted; j++) {
-					Set<NonUnaryWhereCondition> joins = eqClasses.getJoin(
-							tableOrder[i]+1, tableOrder[j]+1);
+					joins = eqClasses.getJoin(tableOrder[i] + 1, tableOrder[j] + 1);
 					if (joins != null) {
 						for (NonUnaryWhereCondition join : joins) {
 							query.addBinaryWhereCondition(join);
-							if(hasJoinOnlyInSecond&&filters.get(tableOrder[i])==0){
-								for(Column c:join.getAllColumnRefs()){
-									if(c.getAlias()==tables.get(tableOrder[i]).getAlias()&&c.getColumnName()){
-										hasJoinOnlyInSecond=false;
+							if (hasJoinOnlyInSecond && filters.get(tableOrder[i]) == 0) {
+								for (Column c : join.getAllColumnRefs()) {
+									if (c.getAlias() == tables.get(tableOrder[i]).getAlias() && c.getColumnName()) {
+										hasJoinOnlyInSecond = false;
 									}
 								}
 							}
 						}
 					}
 				}
-				if(i>0){
-				if(!hasJoinOnlyInSecond){
-					tables.get(tableOrder[i]).setInverse(false);
-				}
-				else{
-					if(filters.get(tableOrder[i])!=1){
+				if (i > 0) {
+					if (!hasJoinOnlyInSecond) {
+						tables.get(tableOrder[i]).setInverse(false);
+					} else {
+						if (filters.get(tableOrder[i]) != 1) {
+							tables.get(tableOrder[i]).setInverse(true);
+						}
+					}
+				} else {
+					if (filters.get(tableOrder[i]) == 2) {
 						tables.get(tableOrder[i]).setInverse(true);
 					}
 				}
-				}
-				else{
-					if(filters.get(tableOrder[i])==2){
-						tables.get(tableOrder[i]).setInverse(true);
+
+				if (i == 1 && filters.get(tableOrder[0]) == 1) {
+					// first table does not have filter,
+					// choose if it will be inverse depending on join with 2nd table
+					if (joins != null) {
+						for (NonUnaryWhereCondition join : joins) {
+							for (Column c : join.getAllColumnRefs()) {
+								if (c.getAlias() == tables.get(tableOrder[0]).getAlias() && !c.getColumnName()) {
+									tables.get(tableOrder[i]).setInverse(true);
+									break;
+								}
+							}
+						}
 					}
+
 				}
+
 				inserted++;
 			}
 
@@ -127,8 +141,8 @@ public class DagCreator {
 			// System.out.println(projection.dotPrint(new HashSet<Node>()));
 			Node root = new Node(Node.OR);
 			root.addChild(projection);
-			//System.out.println(query.toSQL());
-			
+			// System.out.println(query.toSQL());
+
 			return query;
 			// Map<String, Set<Column>> eqClasses=new HashMap<String,
 			// Set<Column>>();
@@ -139,8 +153,7 @@ public class DagCreator {
 
 	}
 
-	private void getNodeForTriplePattern(StatementPattern sp, Node top)
-			throws SQLException {
+	private void getNodeForTriplePattern(StatementPattern sp, Node top) throws SQLException {
 		int pred;
 		boolean selection = false;
 		// Node baseTable=new Node(Node.OR);
@@ -188,8 +201,7 @@ public class DagCreator {
 			String varString = object.getName();
 
 			if (subVar.equals(varString)) {
-				throw new SQLException(
-						"same var in subject and object not supported yet");
+				throw new SQLException("same var in subject and object not supported yet");
 			}
 
 			Column newCol = new Column(alias, false);
@@ -220,8 +232,8 @@ public class DagCreator {
 		// return result;
 	}
 
-	private void createSelection(Node selNode, boolean selection, Var sbjOrObj,
-			int aliasString, boolean sOrO) throws SQLException {
+	private void createSelection(Node selNode, boolean selection, Var sbjOrObj, int aliasString, boolean sOrO)
+			throws SQLException {
 		// Selection s=null;
 		// if(selection){
 		Selection s = (Selection) selNode.getObject();
@@ -231,11 +243,10 @@ public class DagCreator {
 		// s=new Selection();
 		// selNode.setObject(s);
 		// }
-		if(sOrO){
-			filters.set(filters.size()-1, 1);
-		}
-		else{
-			filters.set(filters.size()-1, 2);
+		if (sOrO) {
+			filters.set(filters.size() - 1, 1);
+		} else {
+			filters.set(filters.size() - 1, 2);
 		}
 		NonUnaryWhereCondition nuwc = new NonUnaryWhereCondition();
 		nuwc.setOperator("=");
@@ -256,8 +267,7 @@ public class DagCreator {
 			Node top = new Node(Node.OR);
 			getNodeForTriplePattern(sp, top);
 		} else {
-			throw new SQLException(
-					"Only basic graph patterns are currently supported");
+			throw new SQLException("Only basic graph patterns are currently supported");
 		}
 
 	}

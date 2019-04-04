@@ -31,7 +31,7 @@ import madgik.exareme.master.db.ResultBuffer;
 import madgik.exareme.master.db.SQLiteLocalExecutor;
 import madgik.exareme.master.queryProcessor.analyzer.fanalyzer.SPARQLAnalyzer;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
-import madgik.exareme.master.queryProcessor.decomposer.DecomposerUtils;
+import madgik.exareme.master.queryProcessor.decomposer.ParjUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.NodeHashValues;
 import madgik.exareme.master.queryProcessor.decomposer.query.Column;
 import madgik.exareme.master.queryProcessor.decomposer.query.NonUnaryWhereCondition;
@@ -72,7 +72,7 @@ public class QueryTester {
 		DBManager m = new DBManager();
 
 		long start = System.currentTimeMillis();
-		int statThreads=DecomposerUtils.CARDINALITY_THREADS;
+		int statThreads=ParjUtils.CARDINALITY_THREADS;
                 int warmUpThreads=threads;
                 if(statThreads>warmUpThreads) {
                         warmUpThreads=statThreads;
@@ -237,7 +237,7 @@ public class QueryTester {
 
 								// createVirtualTables(cons[i], partitions);
 								SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-										DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
+										ParjUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
 										lookups, exatraCreates);
 
 								ex.setGlobalBuffer(globalBuffer);
@@ -245,7 +245,7 @@ public class QueryTester {
 								futures.add(es.submit(ex));
 							}
 
-							if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
+							if (ParjUtils.USE_RESULT_AGGREGATOR) {
 								FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, printResults);
 								futures.add(es.submit(ex));
 								// es.execute(ex);
@@ -271,7 +271,7 @@ public class QueryTester {
 							for (int i = 0; i < threads; i++) {
 								cons[i].close();
 							}
-							if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
+							if (!ParjUtils.USE_RESULT_AGGREGATOR) {
 								System.out.println("total results:" + globalBuffer.getFinished());
 								if (rep == 0)
 									noOfResults.add(globalBuffer.getFinished());
@@ -385,7 +385,7 @@ public class QueryTester {
 
 							// createVirtualTables(cons[i], partitions);
 							SQLiteLocalExecutor ex = new SQLiteLocalExecutor(result, cons[i],
-									DecomposerUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
+									ParjUtils.USE_RESULT_AGGREGATOR, finishedQueries, i, printResults,
 									lookups, exatraCreates);
 
 							ex.setGlobalBuffer(globalBuffer);
@@ -393,7 +393,7 @@ public class QueryTester {
 							futures.add(es.submit(ex));
 						}
 
-						if (DecomposerUtils.USE_RESULT_AGGREGATOR) {
+						if (ParjUtils.USE_RESULT_AGGREGATOR) {
 							FinalUnionExecutor ex = new FinalUnionExecutor(globalBuffer, null, threads, printResults);
 							// es.execute(ex);
 							futures.add(es.submit(ex));
@@ -416,7 +416,7 @@ public class QueryTester {
 						for (int i = 0; i < threads; i++) {
 							cons[i].close();
 						}
-						if (!DecomposerUtils.USE_RESULT_AGGREGATOR) {
+						if (!ParjUtils.USE_RESULT_AGGREGATOR) {
 							System.out.println("total results:" + globalBuffer.getFinished());
 						}
 
