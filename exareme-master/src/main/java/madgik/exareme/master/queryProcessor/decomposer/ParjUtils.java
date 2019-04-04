@@ -19,7 +19,6 @@ public class ParjUtils {
 	private static final Logger log = Logger.getLogger(ParjUtils.class);
 	
 
-	public static final boolean REMOVE_OUTPUTS;
 	public static final double DISK_SCAN;
 	public static final boolean USE_ROWID;
 	public static final boolean USE_CROSS_JOIN;
@@ -40,7 +39,6 @@ public class ParjUtils {
 
 		
 
-		REMOVE_OUTPUTS = properties.getBoolean("remove.outputs");
 		
 		DISK_SCAN = properties.getFloat("disk.scan");
 		USE_ROWID = properties.getBoolean("use.rowid");
