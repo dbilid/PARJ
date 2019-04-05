@@ -53,6 +53,8 @@ mv parj.so exareme-distribution/target/exareme-distribution-0.1-SNAPSHOT-default
 
 where /path/to/directory/ is the encoded_file_path used in the preprocessing
 
+Please note that the first time you run PARJ for a specific dataset, after data loading PARJ will analyze the data and gather statistics in a file with name histograms.json.
+
 On startup you will be asked to provide the following information:
 
 -Load Dictionary in memory: If yes the ID to URI dictionary will be loaded in memory. If no it will be kept on disk. This setting does not control if dictionary lookups will be finally added to the query. This option is controlled by the next setting.
