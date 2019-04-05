@@ -33,7 +33,7 @@ export JAVA_HOME)
 
 -Clone this project (e.g. git clone https://github.com/dbilid/PARJ.git)
 
--Move to directory and run mvn build as follows in order to build PARJ JAVA wrapper:
+-Move to directory and run mvn as follows in order to build PARJ JAVA wrapper:
 
 cd PARJ/
 
@@ -45,7 +45,7 @@ gcc -O3 -o parj.so parj.c -lpthread  -lraptor2 -fPIC -shared `pkg-config --cflag
 
 -Move the loadable extension to the target directory:
 
-mv mv parj.so exareme-distribution/target/exareme-distribution-0.1-SNAPSHOT-default/lib/exareme/
+mv parj.so exareme-distribution/target/exareme-distribution-0.1-SNAPSHOT-default/lib/exareme/
 
 ### Run
 
