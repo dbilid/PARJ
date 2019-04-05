@@ -1,4 +1,6 @@
-# Installing and Running PARK
+# Installing and Running PARJ
+
+Contact d.bilidas at di.uoa.gr for any issues
 
 ## Preprocessing
 
