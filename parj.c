@@ -930,24 +930,24 @@ int sqlite3_stat_init(sqlite3 *db, char **pzErrMsg,
 
 
 
-typedef struct importer_vtab importer_vtab;
-struct importer_vtab {
+typedef struct parj_vtab parj_vtab;
+struct parj_vtab {
 	sqlite3_vtab base; /* Base class - must be first */
 	//char* zSql[0];
 	sqlite3 *db; /* The database connection */
 
 };
 
-/* A importer cursor object */
-typedef struct importer_cursor importer_cursor;
-struct importer_cursor {
+/* A parj cursor object */
+typedef struct parj_cursor parj_cursor;
+struct parj_cursor {
 	sqlite3_vtab_cursor base; /* Base class - must be first */
 
-	importer_vtab* pVtab;
+	parj_vtab* pVtab;
 
 };
 
-static int importerConnect(sqlite3 *db, void *pAux, int argc,
+static int parjConnect(sqlite3 *db, void *pAux, int argc,
 		const char * const *argv, sqlite3_vtab **ppVtab, char **pzErr) {
 
 	sqlite3_vtab *pNew;
@@ -957,7 +957,7 @@ static int importerConnect(sqlite3 *db, void *pAux, int argc,
 	sqlite3_declare_vtab(db, "CREATE TABLE x(uri TEXT, id INTEGER)");
 	memset(pNew, 0, sizeof(*pNew));
 
-	importer_vtab *pVt = 0;
+	parj_vtab *pVt = 0;
 	pVt = sqlite3_malloc(sizeof(*pVt));
 	if (pVt == 0)
 		return SQLITE_NOMEM;
@@ -1110,49 +1110,49 @@ static int importerConnect(sqlite3 *db, void *pAux, int argc,
 	return SQLITE_OK;
 }
 
-static int importerDisconnect(sqlite3_vtab *pVtab) {
-	importer_vtab *pVt = (importer_vtab*) pVtab;
+static int parjDisconnect(sqlite3_vtab *pVtab) {
+	parj_vtab *pVt = (parj_vtab*) pVtab;
 	sqlite3_free(pVt);
 	return SQLITE_OK;
 }
 
-static int importerOpen(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor) {
+static int parjOpen(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor) {
 
 	return SQLITE_OK;
 }
 
-static int importerClose(sqlite3_vtab_cursor *cur) {
+static int parjClose(sqlite3_vtab_cursor *cur) {
 
 	sqlite3_free(cur);
 	return SQLITE_OK;
 }
 
-static int importerNext(sqlite3_vtab_cursor *cur) {
+static int parjNext(sqlite3_vtab_cursor *cur) {
 
 	return SQLITE_OK;
 }
 
-static int importerColumn(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i) {
+static int parjColumn(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i) {
 
 	return SQLITE_OK;
 }
 
-static int importerRowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
+static int parjRowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid) {
 	*pRowid = 0;
 	return SQLITE_OK;
 }
 
-static int importerEof(sqlite3_vtab_cursor *cur) {
+static int parjEof(sqlite3_vtab_cursor *cur) {
 	return 1;
 }
 
-static int importerFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
+static int parjFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 		const char *idxStr, int argc, sqlite3_value **argv) {
 
 	return SQLITE_OK;
 }
 
-static int importerBestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo) {
+static int parjBestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo) {
 
 	return SQLITE_OK;
 
@@ -1162,16 +1162,16 @@ static int importerBestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo) {
  ** A virtual table module that provides read-only access to a
  ** Tcl global variable namespace.
  */
-static sqlite3_module importerModule = { 0, /* iVersion */
+static sqlite3_module parjModule = { 0, /* iVersion */
 
-importerConnect, importerConnect, importerBestIndex, importerDisconnect,
-		importerDisconnect, importerOpen, /* xOpen - open a cursor */
-		importerClose, /* xClose - close a cursor */
-		importerFilter, /* xFilter - configure scan constraints */
-		importerNext, /* xNext - advance a cursor */
-		importerEof, /* xEof - check for end of scan */
-		importerColumn, /* xColumn - read data */
-		importerRowid, /* xRowid - read data */
+parjConnect, parjConnect, parjBestIndex, parjDisconnect,
+		parjDisconnect, parjOpen, /* xOpen - open a cursor */
+		parjClose, /* xClose - close a cursor */
+		parjFilter, /* xFilter - configure scan constraints */
+		parjNext, /* xNext - advance a cursor */
+		parjEof, /* xEof - check for end of scan */
+		parjColumn, /* xColumn - read data */
+		parjRowid, /* xRowid - read data */
 		0, /* xUpdate */
 		0, /* xBegin */
 		0, /* xSync */
@@ -4088,12 +4088,12 @@ int sqlite3_unionwrapper_init(sqlite3 *db, char **pzErrMsg,
 /************** End of unionwrapper.c ************************************************/
 
 
-int sqlite3_importer_init(sqlite3 *db, char **pzErrMsg,
+int sqlite3_parj_init(sqlite3 *db, char **pzErrMsg,
 		const sqlite3_api_routines *pApi) {
 	int rc = SQLITE_OK;
 	SQLITE_EXTENSION_INIT2(pApi);
 #ifndef SQLITE_OMIT_VIRTUALTABLE
-	rc = sqlite3_create_module(db, "importer", &importerModule, 0);
+	rc = sqlite3_create_module(db, "parj", &parjModule, 0);
 	rc = sqlite3_create_module(db, "memorywrapper", &memorywrapperModule, 0);
         rc = sqlite3_create_module(db, "dictionary", &dictionaryModule, 0);
 	rc = sqlite3_create_module(db, "unionwrapper", &unionwrapperModule, 0);
@@ -4101,4 +4101,3 @@ int sqlite3_importer_init(sqlite3 *db, char **pzErrMsg,
 #endif
 	return rc;
 }
-
