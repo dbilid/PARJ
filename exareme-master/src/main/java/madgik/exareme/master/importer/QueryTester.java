@@ -126,7 +126,7 @@ public class QueryTester {
 				nse = new NodeSelectivityEstimator(database + "histograms.json");
 			} catch( FileNotFoundException fnt) {
 				System.out.println("Database statistics are missing. Analyzing database (this may take some time...)");
-				SPARQLAnalyzer a = new SPARQLAnalyzer(m, database, threads, fetcher.getPropertyCount()+1);
+				SPARQLAnalyzer a = new SPARQLAnalyzer(m, database, threads, fetcher.getPropertyCount());
 				try {
 
 					Schema stats = a.analyze();
