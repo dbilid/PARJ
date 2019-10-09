@@ -27,8 +27,6 @@ export JAVA_HOME)
 
 -libsqlite3-dev (e.g. sudo apt-get install libsqlite3-dev)
 
--libraptor2-dev (e.g. sudo apt-get install libraptor2-dev)
-
 ### Build
 
 -Clone this project (e.g. git clone https://github.com/dbilid/PARJ.git)
@@ -41,7 +39,7 @@ mvn clean install -DskipTests=true
 
 -Run the following in order to build the C loadable extension:
 
-gcc -O3 -o parj.so parj.c -lpthread  -lraptor2 -fPIC -shared \`pkg-config --cflags --libs glib-2.0\`;
+gcc -O3 -o parj.so parj.c -lpthread -fPIC -shared \`pkg-config --cflags --libs glib-2.0\`;
 
 -Move the loadable extension to the target directory:
 
