@@ -54,7 +54,7 @@ int papiCounter=0;
   } subjectVector_t;
  */
 struct tableInfo {
-	int partitions, inverse;
+	int threads, inverse;
 	long propNo;
 	const char* dbdir;
 
@@ -85,13 +85,24 @@ static inline int popcount32e(const uint32_t x)
 }
 
 static const char ** dictionary;
-//static const struct subjectVector ***vectorGlobal;
-static int * __restrict__ noOfSubjectsGlobal;// __attribute__((aligned(0x1000000)));
+
+static int * __restrict__ sizesOfFirstArrays;// __attribute__((aligned(0x1000000)));
 static int * __restrict__ windowSizeGlobal;// __attribute__((aligned(0x1000000)));
-static const uint32_t ** __restrict__ subjectsGlobal;
-static const uint32_t ** __restrict__ objectsGlobal;
-static const uint32_t ** __restrict__ sizesGlobal;
-//static uint32_t *summariesGlobal; // __attribute__((aligned(0x100000)));
+static const uint32_t ** __restrict__ firstArrays;
+//each first array holds the distinct subjects of a S-O table, or distinct objects
+//of a O-S table
+static const uint32_t ** __restrict__ secondArrays;
+//each second array holds all the objects of a S-O table, or all
+//the subjects of a O-S table. The offsets corresponding to each
+//element of the first array of the table are given from positionsAtSecondArray
+//for example we have the S-O table with tuples: (2, 5), (2, 6), (2,7), (3, 4), (3, 10)
+//The first array is: [2, 3]
+//the second array is: [5, 6, 7, 4, 10]
+//the positionsAtSecondArray is [3, 5], denoting that the objects corresponding to second subject
+//(value 3) start at position 3 of the second array and end at position (5-1)=4 of the second array
+//(a value 0 at the beginning of positionsAtSecondArray is ommited
+static const uint32_t ** __restrict__ positionsAtSecondArray;
+
 static uint32_t maxId=0;
 //static unsigned long binaryCounter1=0L;
 //static unsigned long scanCounter=0L;
@@ -101,13 +112,13 @@ pthread_mutex_t mutexload;
 
 int loadMemoryData(sqlite3 *, int, int);
 int stick_this_thread_to_core(int);
-static inline  int summaryBinarySearchSubject(
+static inline  int adaptiveSubjectSearch(
 		int, const uint32_t, const int, int*);
 static inline  int scanSubject(
 		int, uint32_t, int*);
 static inline  int bitmapSearch(
 		int, uint32_t, int*);
-static inline  int binarySearchSubject(
+static inline  int binarySubjectSearch(
 		int, uint32_t, int, int*);
 static inline int scanObject(uint32_t, const uint32_t*, const int, int*);
 static uint64_t getTypeCardinality(int, int, int);
@@ -309,17 +320,17 @@ static int statFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 			printf("i: %i\n", i);
 			pCur->result[i]=j;
 			pCur->result[i+1]=0;
-			pCur->result[i+2]=subjectsGlobal[index][0]; //min
-			pCur->result[i+3]=subjectsGlobal[index][noOfSubjectsGlobal[index]-1]; //max
-			pCur->result[i+4]=noOfSubjectsGlobal[index]; //distinct
-			pCur->result[i+5]=sizesGlobal[index][noOfSubjectsGlobal[index]-1]; //all
+			pCur->result[i+2]=firstArrays[index][0]; //min
+			pCur->result[i+3]=firstArrays[index][sizesOfFirstArrays[index]-1]; //max
+			pCur->result[i+4]=sizesOfFirstArrays[index]; //distinct
+			pCur->result[i+5]=positionsAtSecondArray[index][sizesOfFirstArrays[index]-1]; //all
 			index++; //inverse
 			pCur->result[i+6]=j;
 			pCur->result[i+7]=1;
-			pCur->result[i+8]=subjectsGlobal[index][0]; //min
-			pCur->result[i+9]=subjectsGlobal[index][noOfSubjectsGlobal[index]-1]; //max
-			pCur->result[i+10]=noOfSubjectsGlobal[index]; //distinct
-			pCur->result[i+11]=sizesGlobal[index][noOfSubjectsGlobal[index]-1]; //all
+			pCur->result[i+8]=firstArrays[index][0]; //min
+			pCur->result[i+9]=firstArrays[index][sizesOfFirstArrays[index]-1]; //max
+			pCur->result[i+10]=sizesOfFirstArrays[index]; //distinct
+			pCur->result[i+11]=positionsAtSecondArray[index][sizesOfFirstArrays[index]-1]; //all
 
 		}		
 
@@ -327,27 +338,27 @@ static int statFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 	else if(mode==1){
 		int index = (sqlite3_value_int(argv[1])*2)+1;
 		//printf("index: %i  \n", index);
-		pCur->result= sqlite3_malloc(sizeof(uint64_t) * noOfSubjectsGlobal[index] * 4);
-		pCur->size=noOfSubjectsGlobal[index] * 4;
-		//printf("noOfSubj: %i \n", noOfSubjectsGlobal[index]);
+		pCur->result= sqlite3_malloc(sizeof(uint64_t) * sizesOfFirstArrays[index] * 4);
+		pCur->size=sizesOfFirstArrays[index] * 4;
+		//printf("noOfSubj: %i \n", sizesOfFirstArrays[index]);
 		int previous=0;
 		pCur->counter=1;
-		pCur->value=subjectsGlobal[index][0];
+		pCur->value=firstArrays[index][0];
 		int i;
-		for(i=0;i<noOfSubjectsGlobal[index];i++){
+		for(i=0;i<sizesOfFirstArrays[index];i++){
 			int j=i*4;
-			pCur->result[j]=subjectsGlobal[index][i];
+			pCur->result[j]=firstArrays[index][i];
 			//printf("next o: %i \n", pCur->result[j]);
 			if(i==0){
-				pCur->result[j+1]=objectsGlobal[index][0];
+				pCur->result[j+1]=secondArrays[index][0];
 			}else{
-				pCur->result[j+1]=objectsGlobal[index][sizesGlobal[index][i-1]];
+				pCur->result[j+1]=secondArrays[index][positionsAtSecondArray[index][i-1]];
 			}
-			pCur->result[j+2]=objectsGlobal[index][sizesGlobal[index][i]-1];
-			pCur->result[j+3]=sizesGlobal[index][i]-previous;
-			//printf("value: %i \n", objectsGlobal[index][sizesGlobal[index][i]-1]);
+			pCur->result[j+2]=secondArrays[index][positionsAtSecondArray[index][i]-1];
+			pCur->result[j+3]=positionsAtSecondArray[index][i]-previous;
+			//printf("value: %i \n", secondArrays[index][positionsAtSecondArray[index][i]-1]);
 			//printf("min: %i, max: %i,diff: %i \n", pCur->result[j+1], pCur->result[j+2], pCur->result[j+3]); 
-			previous=sizesGlobal[index][i];
+			previous=positionsAtSecondArray[index][i];
 		}
 
 	}
@@ -366,28 +377,28 @@ static int statFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 			int typeIndex=(2*pVtab->typePropID)+1;
 			int start=0;
 			int start2=0;
-			int f1=summaryBinarySearchSubject(typeIndex, -prop1, 0, &start);
-			int f2=summaryBinarySearchSubject(typeIndex, -prop2, 0, &start2);
+			int f1=adaptiveSubjectSearch(typeIndex, -prop1, 0, &start);
+			int f2=adaptiveSubjectSearch(typeIndex, -prop2, 0, &start2);
 			if(f1 && f2){
 				int startPos=0;
 				if(start>0){
-					startPos=sizesGlobal[typeIndex][start-1];
+					startPos=positionsAtSecondArray[typeIndex][start-1];
 				}
-				int endPos=sizesGlobal[typeIndex][start];
+				int endPos=positionsAtSecondArray[typeIndex][start];
 				int startPos2=0;
 				if(start2>0){
-					startPos2=sizesGlobal[typeIndex][start2-1];
+					startPos2=positionsAtSecondArray[typeIndex][start2-1];
 				}
-				int endPos2=sizesGlobal[typeIndex][start2];
+				int endPos2=positionsAtSecondArray[typeIndex][start2];
 				int k=startPos;
 				int j=startPos2;
 				while(k<endPos && j<endPos2 && pCur->result[0]<STATLIMIT){
-					if(objectsGlobal[typeIndex][k]==objectsGlobal[typeIndex][j]){
+					if(secondArrays[typeIndex][k]==secondArrays[typeIndex][j]){
 						pCur->result[0]++;
 						k++;
 						j++;
 					}
-					else if (objectsGlobal[typeIndex][k]<objectsGlobal[typeIndex][j]){
+					else if (secondArrays[typeIndex][k]<secondArrays[typeIndex][j]){
 						k++;
 					}
 					else{
@@ -457,29 +468,29 @@ static int statFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 		//pCur->result[0]=0;
 		int step=1;
 		//printf("2\n");
-		//if(noOfSubjectsGlobal[index1]>10000){
-		//	step=noOfSubjectsGlobal[index1]/10000;
+		//if(sizesOfFirstArrays[index1]>10000){
+		//	step=sizesOfFirstArrays[index1]/10000;
 		//}
 		//printf("step:%i \n", step);
 		int counter=1;
 		int pos=0;
 		int i;
-		for(i=0;i<noOfSubjectsGlobal[index1] && pCur->result[0]<STATLIMIT;i+=step){
-			//printf("i: %i to find: %i index1 : %i index2 :%i\n", i, subjectsGlobal[index1][i], index1, index2);
+		for(i=0;i<sizesOfFirstArrays[index1] && pCur->result[0]<STATLIMIT;i+=step){
+			//printf("i: %i to find: %i index1 : %i index2 :%i\n", i, firstArrays[index1][i], index1, index2);
 			counter++;
-			int f=summaryBinarySearchSubject(index2, subjectsGlobal[index1][i], 0, &pos);
+			int f=adaptiveSubjectSearch(index2, firstArrays[index1][i], 0, &pos);
 			if(f){
 				//printf("pos: %i \n", pos);
 				int startPos2=0;
 				if(pos>0){
-					startPos2=sizesGlobal[index2][pos-1];
+					startPos2=positionsAtSecondArray[index2][pos-1];
 				}
-				int endPos2=sizesGlobal[index2][pos];
+				int endPos2=positionsAtSecondArray[index2][pos];
 				int startPos1=0;
 				if(i>0){
-					startPos1=sizesGlobal[index1][i-1];
+					startPos1=positionsAtSecondArray[index1][i-1];
 				}
-				int endPos1=sizesGlobal[index1][i];
+				int endPos1=positionsAtSecondArray[index1][i];
 				pCur->result[0]+=(endPos1-startPos1)*(endPos2-startPos2);
 			}
 		}
@@ -498,7 +509,7 @@ static int statFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 
 static uint64_t getTypeCardinality(int typeIndex, int propIndex, int type){
 	int start=0;
-	int f1=summaryBinarySearchSubject(typeIndex, -type, 0, &start);
+	int f1=adaptiveSubjectSearch(typeIndex, -type, 0, &start);
 	uint64_t result=0;
 
 	if(f1){
@@ -506,27 +517,27 @@ static uint64_t getTypeCardinality(int typeIndex, int propIndex, int type){
 		int pos=0;
 
 		if(start>0){
-			startPos=sizesGlobal[typeIndex][start-1];
+			startPos=positionsAtSecondArray[typeIndex][start-1];
 		}
-		int endPos=sizesGlobal[typeIndex][start];
+		int endPos=positionsAtSecondArray[typeIndex][start];
 		int k=startPos;
 
 		if(start>0){
-			startPos=sizesGlobal[typeIndex][start-1];
+			startPos=positionsAtSecondArray[typeIndex][start-1];
 		}
 
-		int temp=summaryBinarySearchSubject(propIndex, objectsGlobal[typeIndex][k], 0, &pos);
+		int temp=adaptiveSubjectSearch(propIndex, secondArrays[typeIndex][k], 0, &pos);
 
 		while(k<endPos && result<STATLIMIT){
 			k++;
-			int f2=summaryBinarySearchSubject(propIndex, objectsGlobal[typeIndex][k], 0, &pos);
+			int f2=adaptiveSubjectSearch(propIndex, secondArrays[typeIndex][k], 0, &pos);
 			if(f2){
 				//printf("pos: %i \n", pos);
 				int startPos2=0;
 				if(pos>0){
-					startPos2=sizesGlobal[propIndex][pos-1];
+					startPos2=positionsAtSecondArray[propIndex][pos-1];
 				}
-				int endPos2=sizesGlobal[propIndex][pos];
+				int endPos2=positionsAtSecondArray[propIndex][pos];
 				result+=(endPos2-startPos2);
 			}
 
@@ -618,9 +629,13 @@ typedef struct memorywrapper_vtab memorywrapper_vtab;
 struct memorywrapper_vtab {
 	sqlite3_vtab base; /* Base class - must be first */
 	//char* zSql[0];
-	uint16_t partitions;
+	uint16_t threads;
 	uint16_t inverse;
+    //inverse is 0 for S-O tables and 1 for O-S tables
 	int position;
+    //position of the array that corresponds to this table in the firstArrays
+    //for example position of S-O table for prop10 is 20, whereas position of
+    //the O-S table for prop10 is 21. See memorywrapperConnect for how this is set
 	int maxSize;
 	int iter0;
 	int iter1;
@@ -631,7 +646,6 @@ struct memorywrapper_vtab {
 /* A memorywrapper cursor object */
 typedef struct memorywrapper_cursor memorywrapper_cursor;
 struct memorywrapper_cursor {
-	//sqlite3_vtab_cursor base; /* Base class - must be first */
 	memorywrapper_vtab* pVtab;
 	const uint32_t * objects;
 
@@ -641,8 +655,6 @@ struct memorywrapper_cursor {
 	int both;
 	//0->only s, 1->both s, o, 2-> scan
 	int eof;
-	//memorywrapper_vtab* pVtab;
-	//struct subjectVector *sv;
 
 };
 
@@ -650,11 +662,22 @@ struct memorywrapper_cursor {
 //  long long flpins;
 //  int retval;
 
+/*
+ * memorywrapperConnect is used to create a memory table for a specific propNo and
+ * table type (S-O or O-S).
+ * argv[3] gives the number of threads that will be used, argv[4] gives the property number and argv[5] is
+ * set to 0 for S-O tables and is set to 1 for O-S tables
+ * For example, the sqlite command: "create virtual table memorywrapperprop10 using memorywrapper(32, 10, 0)"
+ * calls memorywrapperConnect with argv[3]=32, argv[4]=10 and argv[5]=0 and creates a memory table that
+ * corresponds to the S-O table from property 10 and for 32 threads.
+ * Special value <0 for property number denotes that data loading into main memory should be performed (no
+ * virtual table is created). A single call with property number <0 must occur before any memory table is created.
+*/
 static int memorywrapperConnect(sqlite3 *db, void *pAux, int argc,
 		const char * const *argv, sqlite3_vtab **ppVtab, char **pzErr) {
-	int parts;
+	int thrd;
 
-	sscanf(argv[3], "%d", &parts);
+	sscanf(argv[3], "%d", &thrd);
 	int propNo;
 	sscanf(argv[4], "%d", &propNo);
 	if (propNo < 0) {
@@ -668,6 +691,12 @@ static int memorywrapperConnect(sqlite3 *db, void *pAux, int argc,
 		return SQLITE_NOMEM;
 	sqlite3_declare_vtab(db,
 			"CREATE TABLE x(first INTEGER, second INTEGER, partition INTEGER HIDDEN, secondShard INTEGER HIDDEN)");
+    /* first: value on the first array (S for S-O tables or O for O-S tables)
+     * second: value on the second array
+     * partition: used in leftmost tables to denote a specific partition corresponding to thread
+     * secondShard: used in leftmost tables when additionally a filter exists to denote a shard
+     * on the second array that corresponds to thread
+    */
 	memset(pNew, 0, sizeof(*pNew));
 	memorywrapper_vtab *pVt __attribute__((aligned(0x100000))) = 0;
 	pVt = sqlite3_malloc(sizeof(*pVt));
@@ -679,7 +708,7 @@ static int memorywrapperConnect(sqlite3 *db, void *pAux, int argc,
 	int i;
 	sscanf(argv[5], "%d", &(pVt->inverse));
 
-	pVt->partitions = parts;
+	pVt->threads = thrd;
 
 	pVt->position = (propNo  * 2)
 		+ (pVt->inverse);
@@ -722,9 +751,7 @@ static int memorywrapperOpen(sqlite3_vtab *pVTab,
 		return SQLITE_NOMEM;
 	memset(pCur, 0, sizeof(*pCur));
 	pCur->pVtab = pVt;
-	// *ppCursor = &pCur->base;
 	*ppCursor = (sqlite3_vtab_cursor*) &pCur->pVtab;
-	//pCur->count = 0;
 
 	return SQLITE_OK;
 }
@@ -755,31 +782,26 @@ static int memorywrapperNext(sqlite3_vtab_cursor *cur) {
 	memorywrapper_cursor *pCur = (memorywrapper_cursor*) cur;
 	memorywrapper_vtab *pVtab = (memorywrapper_vtab *) pCur->pVtab;
 
-	//pCur->count++;
-
 	if (pCur->both == 2) {
-
+    //scan whole table portion (both first and second arrays)
 		if (pCur->end
 				> pVtab->iter1) {
+            //continue scanning the second array
 			pCur->o = pCur->objects[pVtab->iter1++];
 		} else {
-			//printf("next s");
-
-			//pVtab->iter1 = 0;
-
-			if (noOfSubjectsGlobal[pVtab->position]
+            //given second array has finished 
+			if (sizesOfFirstArrays[pVtab->position]
 					> pVtab->iter0) {
-
-				pVtab->iter1 = sizesGlobal[pVtab->position][pVtab->iter0-1];
-				pCur->end = sizesGlobal[pVtab->position][pVtab->iter0];
-				//pCur->objects=&objectsGlobal[pVtab->position][0];
-				//pCur->sv = vectorGlobal[pVtab->position][pVtab->iter0];
-				pCur->s = subjectsGlobal[pVtab->position][pVtab->iter0];
-				//pVtab->iters[0]+=pVtab->partitions;
+                //move to the next item in first array and first item on 
+                //corresponding second array
+				pVtab->iter1 = positionsAtSecondArray[pVtab->position][pVtab->iter0-1];
+				pCur->end = positionsAtSecondArray[pVtab->position][pVtab->iter0];				
+				pCur->s = firstArrays[pVtab->position][pVtab->iter0];
 				pCur->o = pCur->objects[pVtab->iter1++];
-				pVtab->iter0+=pVtab->partitions;
+				pVtab->iter0+=pVtab->threads;
 
 			} else {
+                //there are no more elements in first array. Scan finished
 				pVtab->iter0 = 0;
 				pCur->eof = 1;
 			}
@@ -788,8 +810,11 @@ static int memorywrapperNext(sqlite3_vtab_cursor *cur) {
 	}
 
 	else if (pCur->both) {
+        //both first and second values are bound. there is no next value
 		pCur->eof = 1;
 	} else {
+        //only first is bound. Scan the second array for the given first
+        //check if there are more seconds to output
 		if (pVtab->maxSize
 				> pVtab->iter1) {
 			//printf("next single");
@@ -798,6 +823,7 @@ static int memorywrapperNext(sqlite3_vtab_cursor *cur) {
 		}
 
 		else {
+            //scanning of second array has finished.
 			pVtab->iter1 = 0;
 			pCur->eof = 1;
 
@@ -830,23 +856,25 @@ static int memorywrapperEof(sqlite3_vtab_cursor *cur) {
 	return pCur->eof;
 }
 
-const unsigned char first = 1 << 0;
+const unsigned char first = 1;
 const unsigned char second = 1 << 1;
 const unsigned char partition = 1 << 2;
 const unsigned char secondShard = 1 << 3;
+
 
 static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 		const char *idxStr, int argc, sqlite3_value **argv) {
 
 	memorywrapper_cursor *pCur = (memorywrapper_cursor *) pVtabCursor;
-
-
 	memorywrapper_vtab *pVtab = (memorywrapper_vtab *) pCur->pVtab;
-
-
-
+    //idxNum has been set from memorywrapperBestIndex. 
+    //the first bit is set if first column is bound,
+    //the second bit if second column is bound,
+    //the third bit if partition is bound and
+    //the fourth bit if secondShard is bound
 	if (idxNum == partition) {
 		//only partition column is constrained
+        //scan the whole table portion (both first and second arrays)
 		pCur->both = 2;
 		int partNo;
 		partNo = sqlite3_value_int(argv[0]);
@@ -856,7 +884,7 @@ static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 
 		pVtab->iter0=partNo;
 
-		if (pVtab->iter0 >noOfSubjectsGlobal[pVtab->position] - 1) {
+		if (pVtab->iter0 >sizesOfFirstArrays[pVtab->position] - 1) {
 			pCur->eof = 1;
 			pVtab->iter1 = 0;
 		}
@@ -866,29 +894,34 @@ static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 		else {
 
 			if(pVtab->iter0){
-				pVtab->iter1=sizesGlobal[pVtab->position][pVtab->iter0-1];
+				pVtab->iter1=positionsAtSecondArray[pVtab->position][pVtab->iter0-1];
 			}
 			else{
 				pVtab->iter1=0;
 			}
-			pCur->end=sizesGlobal[pVtab->position][pVtab->iter0];
-			pCur->objects = &objectsGlobal[pVtab->position][0];
-			pCur->s = subjectsGlobal[pVtab->position][pVtab->iter0];
+			pCur->end=positionsAtSecondArray[pVtab->position][pVtab->iter0];
+			pCur->objects = &secondArrays[pVtab->position][0];
+			pCur->s = firstArrays[pVtab->position][pVtab->iter0];
 			pCur->o = pCur->objects[ pVtab->iter1++];
 			pCur->eof = 0;
-			pVtab->iter0+=pVtab->partitions;
+			pVtab->iter0+=pVtab->threads;
 
 		}
 
 		return SQLITE_OK;
 	}
 
+    //in the following code in this method we know that
+    //first column is contrained
+
 	uint32_t subject = sqlite3_value_int(argv[0]);
 
 	int shard;
 	shard = -1;
-	if (idxNum & partition) {
 
+    //first check if partition and secondShard are also
+    //contrained
+	if (idxNum & partition) {
 		int partition;
 		if (idxNum & secondShard) {
 
@@ -906,30 +939,31 @@ static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 	}
 
 	pCur->eof = 0;
-	int f = summaryBinarySearchSubject(pVtab->position, subject,
-
-			0,
+    //seacrh for the specific contrained value in the first array
+	int f = adaptiveSubjectSearch(pVtab->position, subject, 0,
 			&(pVtab->iter0));
 
 	if (f) {
 
 		if(pVtab->iter0){
-			pVtab->iter1=sizesGlobal[pVtab->position][pVtab->iter0-1];
+			pVtab->iter1=positionsAtSecondArray[pVtab->position][pVtab->iter0-1];
 		}
 		else{
 			pVtab->iter1=0;
 		}
-		pCur->end=sizesGlobal[pVtab->position][pVtab->iter0];
-		pCur->objects=&objectsGlobal[pVtab->position][0];
+		pCur->end=positionsAtSecondArray[pVtab->position][pVtab->iter0];
+		pCur->objects=&secondArrays[pVtab->position][0];
 
 		pCur->s = subject;
 
 		if (idxNum & second) {
-			//both s and o are bound
+			//Second value is also contrained
+            //use binary search in the second array
+            //to search for the specific value
 			pCur->o = sqlite3_value_int(argv[1]);
 			pCur->both = 1;
 			int left, right, mid;
-			/* Initializations */
+
 			left = pVtab->iter1;
 			right = pCur->end - 1;
 
@@ -948,15 +982,19 @@ static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 					right = mid - 1;
 				}
 			}
+            //given second value not found. return empty result
 			pCur->eof = 1;
 
 		} else if (shard > -1) {
+            //second value is not contrained and secondShard is set
+            //start scanning the specific shard second array for the given
+            //first value
 			int noOfObjects=pCur->end - pVtab->iter1 + 1;
 			//printf("shard>-1\n");
 			//only s is bound, iterate over shard of objects
 			int shardSize;
-			shardSize = (noOfObjects + pVtab->partitions - 1)
-				/ pVtab->partitions;
+			shardSize = (noOfObjects + pVtab->threads - 1)
+				/ pVtab->threads;
 			pVtab->iter1 += shardSize * shard;
 			pVtab->maxSize = pVtab->iter1
 				+ shardSize;
@@ -975,28 +1013,29 @@ static int memorywrapperFilter(sqlite3_vtab_cursor *pVtabCursor, int idxNum,
 			//pCur->o = pCur->objects[pVtab->iter1++];
 			//printf("in position: %i its %i \n", pVtab->iter1, pCur->objects[pVtab->iter1]);
 		} else {
-			//printf("shard<0\n");
-			//only s is bound, iterate result set over all objects
+            //second value is not contrained and secondShard is NOT set
+            //start scanning the whole second array for the given
+            //first value
 			pCur->both = 0;
-			//pVtab->iter1 = 0;
 			pCur->o = pCur->objects[pVtab->iter1++];
 			//prefetch
 			/*if(pVtab->position==160){
 			  int mod=pCur->o%32;
 			  uint32_t *next;
-			  next=subjectsGlobal[32+mod];
-			  __builtin_prefetch(&next[noOfSubjectsGlobal[32+mod]/2]);
+			  next=firstArrays[32+mod];
+			  __builtin_prefetch(&next[sizesOfFirstArrays[32+mod]/2]);
 			  }*/
 			pVtab->maxSize = pCur->end ;
 		}
 	} else {
-		//printf("not found\n");
+        //given first value not found. return empty result
 		pCur->eof = 1;
 
 	}
 
 	return SQLITE_OK;
 }
+
 
 static int memorywrapperBestIndex(sqlite3_vtab *tab,
 		sqlite3_index_info *pIdxInfo) {
@@ -1005,7 +1044,6 @@ static int memorywrapperBestIndex(sqlite3_vtab *tab,
 	//binaryCounter1=0;
 	//scanCounter=0;
 	int col = 0;
-	//int inequality = 1;
 	pIdxInfo->idxNum = 0;
 
 	pIdxInfo->estimatedCost = 1000;
@@ -1017,11 +1055,10 @@ static int memorywrapperBestIndex(sqlite3_vtab *tab,
 		if (pConstraint->usable == 0)
 			continue;
 		pIdxInfo->idxNum |= 1 << pConstraint->iColumn;
-		// printf("contrained iCol:%i\n", pConstraint->iColumn);
+        //set the bit of idxNum that corresponds to column number to 1
 		if (pConstraint->iColumn == 2) {
 			//partiton
 			//scan whole table
-			//inequality = -1;
 			int j;
 			int notUsedConstraints;
 			notUsedConstraints = 0;
@@ -1032,7 +1069,6 @@ static int memorywrapperBestIndex(sqlite3_vtab *tab,
 				//count not used contraints
 				if (pConstraint2->usable == 0) {
 					notUsedConstraints++;
-					//printf("not usable:%i \n", j);
 				}
 
 				if (pConstraint->iColumn == 3) {
@@ -1061,7 +1097,7 @@ static int memorywrapperBestIndex(sqlite3_vtab *tab,
 
 		//col+=pConstraint->iColumn+1;
 		col++;
-		pIdxInfo->estimatedCost -=30;
+		//pIdxInfo->estimatedCost -=30;
 		if (pConstraint->iColumn == 0) {
 			pIdxInfo->aConstraintUsage[i].argvIndex = 1;
 		} else {
@@ -1069,12 +1105,8 @@ static int memorywrapperBestIndex(sqlite3_vtab *tab,
 		}
 		pIdxInfo->aConstraintUsage[i].omit = 1;
 	}
-	//0 scan table specific partition
-	//1 only s
-	//2 both s and o
-	//-1 only s specific partition
-	//-2 both s and o specific partition
-	//pIdxInfo->idxNum = col * inequality;
+	
+
 
 	return SQLITE_OK;
 
@@ -1373,7 +1405,7 @@ static inline  int bitmapSearch(const int position,
 		//__builtin_prefetch(&subjects[*iterOuter]);
 		*iterOuter+=//__builtin_popcount(bitmap[(++valuepos)]<<(31-(subjmod%32)));
 		popcount32e(bitmapsGlobal[position][(++valuepos)]<<(31-(subjmod%32)));
-		__builtin_prefetch(&subjectsGlobal[position][*iterOuter]);
+		__builtin_prefetch(&firstArrays[position][*iterOuter]);
 		return 1;
 
 
@@ -1390,27 +1422,27 @@ static inline  int scanSubject( int position,
 		uint32_t subject, 
 		int* iterOuter) {
 	//printf("current:%i\n", *iterOuter);
-	//if(*iterOuter >= noOfSubjectsGlobal){
-	//      printf(">>>>>>!!!!!!!!: %i  %i  \n", *iterOuter, noOfSubjectsGlobal);
+	//if(*iterOuter >= sizesOfFirstArrays){
+	//      printf(">>>>>>!!!!!!!!: %i  %i  \n", *iterOuter, sizesOfFirstArrays);
 	//}
 	//struct subjectVector* result=NULL;
-	if (subject == subjectsGlobal[position][*iterOuter]) {
+	if (subject == firstArrays[position][*iterOuter]) {
 		return 1;
-	} else if (subject > subjectsGlobal[position][*iterOuter]) {
-		while (*iterOuter < noOfSubjectsGlobal[position] - 1) {
+	} else if (subject > firstArrays[position][*iterOuter]) {
+		while (*iterOuter < sizesOfFirstArrays[position] - 1) {
 			(*iterOuter)++;
-			if (subject == subjectsGlobal[position][*iterOuter]) {
+			if (subject == firstArrays[position][*iterOuter]) {
 				return 1;
-			} else if (subject < subjectsGlobal[position][*iterOuter]) {
+			} else if (subject < firstArrays[position][*iterOuter]) {
 				return 0;
 			}
 		}
 	} else {
 		while (*iterOuter > 0) {
 			(*iterOuter)--;
-			if (subject == subjectsGlobal[position][*iterOuter]) {
+			if (subject == firstArrays[position][*iterOuter]) {
 				return 1;
-			} else if (subject > subjectsGlobal[position][*iterOuter]) {
+			} else if (subject > firstArrays[position][*iterOuter]) {
 				return 0;
 			}
 		}
@@ -1419,10 +1451,10 @@ static inline  int scanSubject( int position,
 	return 0;
 }
 
-static inline int summaryBinarySearchSubject(
+static inline int adaptiveSubjectSearch(
 		const int position, const uint32_t subject, int start, int* iterOuter) {
 	//printf("current:%i \n", *iterOuter);
-	const int distance = subject - subjectsGlobal[position][*iterOuter];
+	const int distance = subject - firstArrays[position][*iterOuter];
 	//printf("distance: %i \n", distance);
 	if (distance < windowSizeGlobal[position] && distance > -windowSizeGlobal[position]) {
 		//      scanCounter++;
@@ -1437,32 +1469,32 @@ static inline int summaryBinarySearchSubject(
 	}
 
 	else{
-		return binarySearchSubject(position, subject, 0, iterOuter);
+		return binarySubjectSearch(position, subject, 0, iterOuter);
 	}
 
 
 }
 
 
-static inline int binarySearchSubject(
+static inline int binarySubjectSearch(
 		int position, uint32_t subject, int start, int* iterOuter) {
 	int left, right, mid;
 	/* Initializations */
 	left = start;
-	right = noOfSubjectsGlobal[position] - 1;
+	right = sizesOfFirstArrays[position] - 1;
 
 	while (left <= right) {
 		mid = (left + right) / 2;
 		///printf("left%i right:5 mid:%i \n", left, right,  mid);
 		//binaryCounter++;
 
-		if (subject == subjectsGlobal[position][mid]) {
+		if (subject == firstArrays[position][mid]) {
 			//element found
 			//printf("mid:%i\n", mid);
 			(*iterOuter) = mid;
 			return 1;
 			//return result;
-		} else if (subject > subjectsGlobal[position][mid]) {
+		} else if (subject > firstArrays[position][mid]) {
 			left = mid + 1;
 		} else {
 			right = mid - 1;
@@ -1854,11 +1886,11 @@ void *loadTable(void *table_info) {
 
 
 
-	noOfSubjectsGlobal[index] = countDistinct;
-	subjectsGlobal[index] = subjectIds;
-	objectsGlobal[index] = objectIds;
-	sizesGlobal[index] = counts;
-	//printf("no of subjs: %i \n", noOfSubjectsGlobal[index]);
+	sizesOfFirstArrays[index] = countDistinct;
+	firstArrays[index] = subjectIds;
+	secondArrays[index] = objectIds;
+	positionsAtSecondArray[index] = counts;
+	//printf("no of subjs: %i \n", sizesOfFirstArrays[index]);
 
 	if(USEBITMAP)
 	{
@@ -1937,7 +1969,7 @@ void *loadTable(void *table_info) {
 	pthread_exit(NULL);
 }
 
-int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
+int loadMemoryData(sqlite3 *db, int threads, int loadDictionary) {
 	const char *dbdir = sqlite3_db_filename(db, "m");
 	int maxPropId = 0;
 	char *sql = (char*) malloc(50);
@@ -1959,13 +1991,13 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 
 	sqlite3_finalize(res);
 
-	noOfSubjectsGlobal = malloc(
-			partitions * 2 * (maxPropId + 1) * sizeof(int));
+	sizesOfFirstArrays = malloc(
+			threads * 2 * (maxPropId + 1) * sizeof(int));
 	windowSizeGlobal = malloc(
-			partitions * 2 * (maxPropId + 1) * sizeof(int));
-	subjectsGlobal = malloc(partitions * 2 * (maxPropId + 1) * sizeof(uint32_t*));
-	objectsGlobal = malloc(partitions * 2 * (maxPropId + 1) * sizeof(uint32_t*));
-	sizesGlobal = malloc(partitions * 2 * (maxPropId + 1) * sizeof(uint32_t*));
+			threads * 2 * (maxPropId + 1) * sizeof(int));
+	firstArrays = malloc(threads * 2 * (maxPropId + 1) * sizeof(uint32_t*));
+	secondArrays = malloc(threads * 2 * (maxPropId + 1) * sizeof(uint32_t*));
+	positionsAtSecondArray = malloc(threads * 2 * (maxPropId + 1) * sizeof(uint32_t*));
 	//if(USEBITMAP){
 
 	strcpy(sql, "select max(id) from dictionary");
@@ -1995,7 +2027,7 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 	//	treeGlobal[i] = t;
 	//}
 	long propNo;
-	pthread_t threads[2 * (maxPropId + 1)];
+	pthread_t threadscreated[2 * (maxPropId + 1)];
 	struct tableInfo tables[2 * (maxPropId + 1)];
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
@@ -2012,13 +2044,13 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 
 		//tables[propNo]=malloc(sizeof(struct tableInfo));
 		tables[propNo].propNo = propNo;
-		tables[propNo].partitions = partitions;
+		tables[propNo].threads = threads;
 		tables[propNo].inverse = 0;
 		tables[propNo].dbdir = dbdir;
 		//tables[propNo].db=db;
 
 		int code;
-		code = pthread_create(&(threads[propNo]), &attr, loadTable,
+		code = pthread_create(&(threadscreated[propNo]), &attr, loadTable,
 				&tables[propNo]);
 		//pthread_join(threads[propNo], NULL);
 		if (code != 0)
@@ -2029,13 +2061,13 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 
 		//tables[propNo+maxPropId+1]=malloc(sizeof(struct tableInfo));
 		tables[propNo + maxPropId + 1].propNo = propNo;
-		tables[propNo + maxPropId + 1].partitions = partitions;
+		tables[propNo + maxPropId + 1].threads = threads;
 		tables[propNo + maxPropId + 1].inverse = 1;
 		tables[propNo + maxPropId + 1].dbdir = dbdir;
 		//tables[propNo+maxPropId+1].db=db;
 
 		int code;
-		code = pthread_create(&(threads[maxPropId + 1 + propNo]), &attr,
+		code = pthread_create(&(threadscreated[maxPropId + 1 + propNo]), &attr,
 				loadTable, &tables[propNo + maxPropId + 1]);
 		//pthread_join(threads[maxPropId+1+propNo], NULL);
 		if (code != 0)
@@ -2046,7 +2078,7 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 	pthread_attr_destroy(&attr);
 	for (t = 0; t < 2 * (maxPropId + 1); t++) {
 
-		pthread_join(threads[t], &status);
+		pthread_join(threadscreated[t], &status);
 	}
 	if(USEBITMAP){
 		popcount32e_init();
@@ -2056,17 +2088,17 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 	printf("finished loading tables	\n");
 
 	for (t = 0; t < 2 * (maxPropId + 1); t++) {
-		if(noOfSubjectsGlobal[t]>maxNoOfSubjs){
-			maxNoOfSubjs=noOfSubjectsGlobal[t];
+		if(sizesOfFirstArrays[t]>maxNoOfSubjs){
+			maxNoOfSubjs=sizesOfFirstArrays[t];
 			indexOfMaxNoOfSubjs=t;
 		}
 	}
 	//printf("1\n");
 	int window;
 
-	//int range=((subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1]-subjectsGlobal[indexOfMaxNoOfSubjs][0])/maxNoOfSubjs)*window;
+	//int range=((firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1]-firstArrays[indexOfMaxNoOfSubjs][0])/maxNoOfSubjs)*window;
 	int k;
-	uint32_t toFind=subjectsGlobal[indexOfMaxNoOfSubjs][0];
+	uint32_t toFind=firstArrays[indexOfMaxNoOfSubjs][0];
 	int iter;
 	int *iterPtr=&iter;
 	int limit=0;
@@ -2077,37 +2109,37 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 		nextWindow=20;
 	}
 	//printf("2\n");
-	//printf("index: %i max: %i last:%i first:%i \n", indexOfMaxNoOfSubjs, maxNoOfSubjs, subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1], subjectsGlobal[indexOfMaxNoOfSubjs][0]);
+	//printf("index: %i max: %i last:%i first:%i \n", indexOfMaxNoOfSubjs, maxNoOfSubjs, firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1], firstArrays[indexOfMaxNoOfSubjs][0]);
 	do{
 		window=nextWindow;
-		int range=((subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1]-subjectsGlobal[indexOfMaxNoOfSubjs][0])/maxNoOfSubjs)*window;
+		int range=((firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1]-firstArrays[indexOfMaxNoOfSubjs][0])/maxNoOfSubjs)*window;
 		iter=0;
 		long timeBinary=getTime();
 		int results=0;
-		toFind=subjectsGlobal[indexOfMaxNoOfSubjs][0];
+		toFind=firstArrays[indexOfMaxNoOfSubjs][0];
 		if(USEBITMAP){
-			for(k=0;k<10000&&toFind<subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
+			for(k=0;k<10000&&toFind<firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
 				//printf("tofind: %i \n", toFind);
 				if(bitmapSearch(indexOfMaxNoOfSubjs, toFind, iterPtr)) results++; 
 			}
 
 		}
 		else{
-			for(k=0;k<10000&&toFind<subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
+			for(k=0;k<10000&&toFind<firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
 				//printf("tofind: %i \n", toFind);
-				if(binarySearchSubject(indexOfMaxNoOfSubjs, toFind, 0, iterPtr)) results++; 
+				if(binarySubjectSearch(indexOfMaxNoOfSubjs, toFind, 0, iterPtr)) results++; 
 			}
 		}
 
 		timeBinary=getTime()-timeBinary;
 
 		//printf("binary: %ld k:%i results: %i \n", getTime()-time, k, results);
-		toFind=subjectsGlobal[indexOfMaxNoOfSubjs][0];
+		toFind=firstArrays[indexOfMaxNoOfSubjs][0];
 		iter=0;
 		int results2=0;
 		long timeScan = getTime();
 
-		for(k=0;k<10000&&toFind<subjectsGlobal[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
+		for(k=0;k<10000&&toFind<firstArrays[indexOfMaxNoOfSubjs][maxNoOfSubjs-1];k++, toFind+=range){
 			if(scanSubject(indexOfMaxNoOfSubjs, toFind, iterPtr)) results2++; 
 		}
 		if(results!=results2) printf("different results \n");
@@ -2137,14 +2169,14 @@ int loadMemoryData(sqlite3 *db, int partitions, int loadDictionary) {
 	while(timeDivided>1 && limit<20);
 	//printf("3\n");
 	for (t = 0; t < 2 * (maxPropId + 1); t++) {
-		int range = subjectsGlobal[t][noOfSubjectsGlobal[t] - 1] -  subjectsGlobal[t][0];
+		int range = firstArrays[t][sizesOfFirstArrays[t] - 1] -  firstArrays[t][0];
 
 		int estimatedWindow = 0;
-		if (noOfSubjectsGlobal[t] < window) {
+		if (sizesOfFirstArrays[t] < window) {
 			windowSizeGlobal[t] = window;
 
 		} else {
-			estimatedWindow = range / noOfSubjectsGlobal[t];
+			estimatedWindow = range / sizesOfFirstArrays[t];
 			estimatedWindow *= window;
 			windowSizeGlobal[t] = estimatedWindow;
 		}
