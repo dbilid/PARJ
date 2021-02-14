@@ -27,6 +27,8 @@ export JAVA_HOME)
 
 -libsqlite3-dev (e.g. sudo apt-get install libsqlite3-dev)
 
+-libboost-all-dev (e.g. sudo apt-get install libboost-all-dev)
+
 ### Build
 
 -Clone this project (e.g. git clone https://github.com/dbilid/PARJ.git)
