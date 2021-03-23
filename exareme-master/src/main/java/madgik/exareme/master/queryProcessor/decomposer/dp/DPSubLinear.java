@@ -20,6 +20,7 @@ public class DPSubLinear {
 	private NodeSelectivityEstimator nse;
 	private Map<Integer, Set<Integer>> connectedTables;
 	private EquivalentColumnClasses classes;
+	private double estimatedSize = 0;
 
 	public DPSubLinear(List<Node> tables, EquivalentColumnClasses classes) {
 		super();
@@ -110,7 +111,8 @@ public class DPSubLinear {
 			System.out.print(entries[entries.length - 1].order[i]);
 		}
 		System.out.println("");
-		System.out.println("Estimated size:"+entries[entries.length - 1].stats.getNumberOfTuples());
+		this.estimatedSize = entries[entries.length - 1].stats.getNumberOfTuples();
+		System.out.println("Estimated size:"+estimatedSize);
 		return entries[entries.length - 1].order;
 	}
 
@@ -173,4 +175,7 @@ public class DPSubLinear {
 
 	}
 
+	public double getEstimatedSize() {
+		return estimatedSize;
+	}
 }

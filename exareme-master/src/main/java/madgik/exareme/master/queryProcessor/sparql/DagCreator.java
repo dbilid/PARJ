@@ -142,7 +142,7 @@ public class DagCreator {
 			Node root = new Node(Node.OR);
 			root.addChild(projection);
 			// System.out.println(query.toSQL());
-
+			query.setEstimatedSize(dp.getEstimatedSize());
 			return query;
 			// Map<String, Set<Column>> eqClasses=new HashMap<String,
 			// Set<Column>>();

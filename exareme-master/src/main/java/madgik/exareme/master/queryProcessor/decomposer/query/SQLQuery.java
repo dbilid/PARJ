@@ -65,6 +65,8 @@ public class SQLQuery {
 	private boolean isCreateIndex;
 	private String stringOutputs;
 
+	private double estimatedSize;
+
 	public SQLQuery() {
 		super();
 		temporaryTableName = "table" + Util.createUniqueId();
@@ -1318,4 +1320,11 @@ public class SQLQuery {
 		return result;
 	}
 
+	public void setEstimatedSize(double estimatedSize) {
+		this.estimatedSize = estimatedSize;
+	}
+
+	public double getEstimatedSize(){
+		return estimatedSize;
+	}
 }
