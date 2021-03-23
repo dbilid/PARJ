@@ -4,13 +4,9 @@
  */
 package madgik.exareme.master.queryProcessor.estimator.histogram;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-
-import madgik.exareme.master.queryProcessor.estimator.NodeSelectivityEstimator;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -588,7 +584,7 @@ public final class Histogram {
 
 	}
 
-	public void filterjoin(Histogram h2) {
+	public void filterjoin(Histogram h2, int baseJoinSize, double baseLeftSize, double baseRightSize) {
 		checkNotNull(h2, "Histogram::joinHistogramsEstimation: parameter <h2> is null");
 
 		if (this.isTransparentHistogram() && !h2.isTransparentHistogram())
@@ -603,28 +599,35 @@ public final class Histogram {
 		} else {
 			Map<Double, Double> cbmap = this.combine(h2);
 			for (Map.Entry<Double, Double> e : cbmap.entrySet())
-				this.filterJoinBuckets(h2, e.getKey(), e.getValue());
+				this.filterJoinBuckets(h2, e.getKey(), e.getValue(), baseJoinSize, baseLeftSize, baseRightSize);
 		}
 
 	}
 
-	private void filterJoinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId) {
+	private void filterJoinBuckets(Histogram h2, double combiningBucketId, double combinerBucketId, int baseJoinSize, double baseLeftSize, double baseRightSize) {
 		// preconditions
-		 Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId);
-	     Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId);
+		 Bucket combiningBucket = this.getBucketIndex().get(combiningBucketId); //left
+	     Bucket combinerBucket = h2.getBucketIndex().get(combinerBucketId); //right
 
 	     if (combiningBucketId != this.bucketIndex.lastKey() && combinerBucketId != h2.bucketIndex
 	             .lastKey()) {
-	        	 
+
 	        	 if(combiningBucket.getDiffValues()<combinerBucket.getDiffValues()){
-	        		 combiningBucket.setFrequency(combiningBucket.getFrequency()/combinerBucket.getDiffValues());
+					double factor = baseJoinSize/baseLeftSize;
+					 combinerBucket.setDiffValues(combiningBucket.getDiffValues());
+	        		 combiningBucket.setFrequency((combiningBucket.getFrequency()/combinerBucket.getDiffValues())*factor);
+					 combinerBucket.setFrequency(combiningBucket.getFrequency());
 	        	 }
 	        	 else{
-	        		 combiningBucket.setFrequency(combinerBucket.getFrequency()/combiningBucket.getDiffValues());
-	        		 combiningBucket.setDiffValues(combinerBucket.getDiffValues());
+					 double factor = baseJoinSize/baseRightSize;
+					 combiningBucket.setDiffValues(combinerBucket.getDiffValues());
+					 combinerBucket.setFrequency((combinerBucket.getFrequency()/combiningBucket.getDiffValues())*factor);
+					 combiningBucket.setFrequency(combinerBucket.getFrequency());
+	        		 //combiningBucket.setFrequency(combinerBucket.getFrequency()/combiningBucket.getDiffValues());
+	        		 //combiningBucket.setDiffValues(combinerBucket.getDiffValues());
 	        	 }
-	        	 combinerBucket.setFrequency(combiningBucket.getFrequency());
-	    combinerBucket.setDiffValues(combiningBucket.getDiffValues());
+	        	 //combinerBucket.setFrequency(combiningBucket.getFrequency());
+	    		//combinerBucket.setDiffValues(combiningBucket.getDiffValues());
 	     }
 	    	 
 	    	/* double minDiff=combiningBucket.getDiffValues()<combinerBucket.getDiffValues()?

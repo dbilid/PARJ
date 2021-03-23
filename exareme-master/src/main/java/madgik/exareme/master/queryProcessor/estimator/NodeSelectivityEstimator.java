@@ -2,7 +2,6 @@ package madgik.exareme.master.queryProcessor.estimator;
 
 import com.google.gson.Gson;
 
-import madgik.exareme.master.queryProcessor.analyzer.stat.JoinCardinalities;
 import madgik.exareme.master.queryProcessor.analyzer.stat.StatUtils;
 import madgik.exareme.master.queryProcessor.decomposer.dag.Node;
 import madgik.exareme.master.queryProcessor.decomposer.query.*;
@@ -14,10 +13,7 @@ import madgik.exareme.master.queryProcessor.estimator.db.AttrInfo;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -486,7 +482,7 @@ public class NodeSelectivityEstimator {
 		if (rRel.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
-			resultHistogram.filterjoin(rRel.getAttrIndex().get(r.toString()).getHistogram());
+			resultHistogram.filterjoin(rRel.getAttrIndex().get(r.toString()).getHistogram(), -1, -1, -1);
 		}
 
 		// resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
@@ -763,6 +759,50 @@ public class NodeSelectivityEstimator {
 		RelInfo lRel = resultInfo.getResultRel();
 		RelInfo rRel = resultInfo.getResultRel();
 
+
+
+		AttrInfo leftAttr = lRel.getAttrIndex().get(l);
+		AttrInfo rightAttr = rRel.getAttrIndex().get(r);
+		List<Integer> tables = new ArrayList<Integer>(2);
+		int baseJoinSize = -1;
+		boolean smallIsSubject;
+		boolean largeIsSubject;
+		double estimatedSize=-1;
+		boolean leftIsSmall=lRel.getNumberOfTuples()<rRel.getNumberOfTuples();
+		if (leftAttr.getAttrName().getAlias() < rightAttr.getAttrName().getAlias()) {
+			tables.add(leftAttr.getAttrName().getAlias());
+			tables.add(rightAttr.getAttrName().getAlias());
+			smallIsSubject = leftAttr.getAttrName().getColumnName();
+			largeIsSubject = rightAttr.getAttrName().getColumnName();
+		} else {
+			tables.add(rightAttr.getAttrName().getAlias());
+			tables.add(leftAttr.getAttrName().getAlias());
+
+			largeIsSubject = leftAttr.getAttrName().getColumnName();
+			smallIsSubject = rightAttr.getAttrName().getColumnName();
+		}
+		if (schema.getCards() != null) {
+			int baseTableSizes[] = schema.getCards().getSizesForTables(tables);
+			if (baseTableSizes != null) {
+				if (smallIsSubject) {
+					if (largeIsSubject) {
+						baseJoinSize = baseTableSizes[0];
+					} else {
+						baseJoinSize = baseTableSizes[1];
+					}
+				} else {
+					if (largeIsSubject) {
+						baseJoinSize = baseTableSizes[2];
+					} else {
+						baseJoinSize = baseTableSizes[3];
+					}
+				}
+			}
+		}
+		double baseSmall=this.schema.getTableIndex().get(tables.get(0)).getNumberOfTuples();
+		double baseLarge=this.schema.getTableIndex().get(tables.get(1)).getNumberOfTuples();
+
+
 		RelInfo resultRel = new RelInfo(lRel);
 
 		Histogram resultHistogram = resultRel.getAttrIndex().get(l).getHistogram();
@@ -770,7 +810,12 @@ public class NodeSelectivityEstimator {
 		if (rRel.getNumberOfTuples() < 0.5 || lRel.getNumberOfTuples() < 0.5) {
 			resultHistogram.convertToTransparentHistogram();
 		} else {
-			resultHistogram.filterjoin(rRel.getAttrIndex().get(r).getHistogram());
+			if(leftIsSmall) {
+				resultHistogram.filterjoin(rRel.getAttrIndex().get(r).getHistogram(), baseJoinSize, baseSmall, baseLarge);
+			}
+			else {
+				resultHistogram.filterjoin(rRel.getAttrIndex().get(r).getHistogram(), baseJoinSize, baseLarge, baseSmall);
+				}
 		}
 
 		// resultHistogram.filterjoin(rRel.getAttrIndex().get(r.getName()).getHistogram());
